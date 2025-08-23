@@ -15,12 +15,12 @@ import { useAuth } from '../contexts/AuthContext';
 import Dropdown from './Dropdown';
 
 const menuItems = [
-  { name: 'Dashboard', path: '/', icon: BarChart3 },
-  { name: 'Trips', path: '/trips', icon: Truck },
-  { name: 'Vendors', path: '/vendors', icon: UsersIcon },
-  { name: 'Customers', path: '/customers', icon: Store },
-  { name: 'Vehicles', path: '/vehicles', icon: Car },
-  { name: 'Reports', path: '/reports', icon: FileText },
+  // { name: 'Dashboard', path: '/', icon: BarChart3 },
+  // { name: 'Trips', path: '/trips', icon: Truck },
+  // { name: 'Vendors', path: '/vendors', icon: UsersIcon },
+  // { name: 'Customers', path: '/customers', icon: Store },
+  // { name: 'Vehicles', path: '/vehicles', icon: Car },
+  // { name: 'Reports', path: '/reports', icon: FileText },
   { name: 'Users', path: '/users', icon: UserCheck },
 ];
 
