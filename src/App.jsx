@@ -105,7 +105,8 @@ const AppContent = () => {
 
           <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
             <Routes>
-              <Route path="/" element={<Dashboard />} />
+              {/* <Route path="/" element={<Dashboard />} /> */}
+              <Route path="/" element={<><h1>DASHBOARD</h1></>} />
               <Route path="/users" element={<Users />} />
               <Route path="/trips" element={<Trips />} />
               <Route path="/vendors" element={<Vendors />} />
