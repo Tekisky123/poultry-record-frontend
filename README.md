@@ -1,46 +1,126 @@
-# Getting Started with Create React App
+# Poultry Farm Management System
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A comprehensive Progressive Web App (PWA) that serves both administrators and supervisors in a poultry farm management system.
 
-## Available Scripts
+## Features
 
-In the project directory, you can run:
+### 🏢 Admin Panel
+- **Dashboard**: Overview of farm operations, statistics, and recent activities
+- **Trip Management**: View and manage all trips across the farm
+- **Vendor Management**: Manage chicken suppliers and vendors
+- **Customer Management**: Track customer information and orders
+- **Vehicle Management**: Monitor farm vehicles and their status
+- **Reports**: Generate comprehensive reports and analytics
+- **User Management**: Manage all system users and their roles
 
-### `npm start`
+### 👨‍🌾 Supervisor PWA
+- **Mobile-First Design**: Optimized for mobile devices and field work
+- **Trip Management**: Create, view, and update trip details
+- **Real-time Updates**: Track trip status and progress
+- **Field Operations**: Manage purchase and delivery trips
+- **Team Coordination**: Assign drivers and labor workers
+- **Offline Capability**: Works even with poor internet connectivity
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Technology Stack
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+- **Frontend**: React 19 + Vite
+- **Styling**: Tailwind CSS
+- **Icons**: Lucide React
+- **Charts**: Chart.js + React-Chartjs-2
+- **PWA**: Service Worker + Manifest
+- **Routing**: React Router DOM
 
-### `npm test`
+## Getting Started
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Prerequisites
+- Node.js 18+ 
+- npm or yarn
 
-### `npm run build`
+### Installation
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+1. Clone the repository
+```bash
+git clone <repository-url>
+cd poultry-admin
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+2. Install dependencies
+```bash
+npm install
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+3. Start development server
+```bash
+npm run dev
+```
 
-### `npm run eject`
+4. Build for production
+```bash
+npm run build
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+## User Roles & Access
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Admin Users
+- Access to full admin panel with sidebar navigation
+- Can manage all aspects of the farm operations
+- Desktop-optimized interface
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+### Supervisor Users
+- Access to mobile-optimized PWA interface
+- Bottom navigation for easy mobile use
+- Focused on field operations and trip management
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+## PWA Features
 
-## Learn More
+- **Installable**: Can be installed on mobile devices
+- **Offline Support**: Basic offline functionality with service worker
+- **Responsive Design**: Works on all device sizes
+- **Fast Loading**: Optimized for performance
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Project Structure
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+```
+src/
+├── components/          # Reusable UI components
+│   ├── Header.jsx      # Admin header
+│   ├── Sidebar.jsx     # Admin sidebar
+│   ├── SupervisorHeader.jsx    # Supervisor header
+│   └── BottomNavigation.jsx    # Mobile navigation
+├── pages/              # Page components
+│   ├── Dashboard.jsx   # Admin dashboard
+│   ├── SupervisorDashboard.jsx # Supervisor dashboard
+│   ├── Trips.jsx       # Admin trips view
+│   ├── SupervisorTrips.jsx     # Supervisor trips view
+│   └── ...            # Other admin pages
+├── contexts/           # React contexts
+│   └── AuthContext.jsx # Authentication context
+└── App.jsx            # Main app with role-based routing
+```
+
+## API Integration
+
+The app integrates with a Node.js backend API for:
+- User authentication and authorization
+- Trip management and tracking
+- Farm operations data
+- Reports and analytics
+
+## Deployment
+
+1. Build the project: `npm run build`
+2. Deploy the `dist` folder to your web server
+3. Ensure the service worker and manifest are accessible
+4. Configure your backend API endpoints
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License.
