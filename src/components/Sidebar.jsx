@@ -19,9 +19,9 @@ const menuItems = [
   // { name: 'Trips', path: '/trips', icon: Truck },
   // { name: 'Vendors', path: '/vendors', icon: UsersIcon },
   // { name: 'Customers', path: '/customers', icon: Store },
-  // { name: 'Vehicles', path: '/vehicles', icon: Car },
-  // { name: 'Reports', path: '/reports', icon: FileText },
   { name: 'Users', path: '/users', icon: UserCheck },
+  { name: 'Vehicles', path: '/vehicles', icon: Car },
+  // { name: 'Reports', path: '/reports', icon: FileText },
 ];
 
 export default function Sidebar() {

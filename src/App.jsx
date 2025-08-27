@@ -23,23 +23,26 @@ import SupervisorProfile from './pages/SupervisorProfile';
 import SupervisorHeader from './components/SupervisorHeader';
 import BottomNavigation from './components/BottomNavigation';
 import { LogOut } from 'lucide-react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
   const { user, loading } = useAuth();
-  
+
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>;
   }
-  
+
   if (!user) {
     return <Navigate to="/signin" replace />;
   }
-  
+
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     return <Navigate to="/unauthorized" replace />;
   }
-  
+
   return children;
 };
 
@@ -82,12 +85,12 @@ const AppContent = () => {
       <div className="min-h-screen bg-gray-50 pb-20">
         <h1>Customer App</h1>
         <button
-            onClick={logout}
-            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-          >
-            <LogOut size={16} className="text-red-500" />
-            <span>Logout</span>
-          </button>
+          onClick={logout}
+          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+        >
+          <LogOut size={16} className="text-red-500" />
+          <span>Logout</span>
+        </button>
       </div>
     );
   }
@@ -134,7 +137,9 @@ function App() {
   return (
     <AuthProvider >
       <Router>
-        <AppContent />
+        <QueryClientProvider client={queryClient}>
+          <AppContent />
+        </QueryClientProvider>
       </Router>
     </AuthProvider>
   );

@@ -1,152 +1,213 @@
-// src/pages/Vehicles.jsx
-import { useState } from 'react';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Car, 
-  MapPin, 
-  Fuel, 
-  Calendar,
-  Shield,
-  Wrench,
-  Eye,
-  Edit,
-  Trash2,
-  TrendingUp
+import { useState, useEffect } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { set, useForm } from 'react-hook-form';
+import { z } from 'zod';
+import axios from 'axios';
+import {
+  Plus, Search, Eye, Edit, Trash2, X, Loader2
 } from 'lucide-react';
+import api from '../lib/axios';
 
-const mockVehicles = [
-  {
-    id: 1,
-    vehicleNumber: 'MH-12-AB-1234',
-    type: 'Truck',
-    capacityKg: 5000,
-    fuelType: 'Diesel',
-    fuelEfficiency: 6.5,
-    dcSections: 8,
-    purchaseType: 'OWNED',
-    purchaseDate: '2022-03-15',
-    purchaseAmount: 2500000,
-    isInsured: true,
-    insuranceExpiryDate: '2025-03-15',
-    permitValidTill: '2025-12-31',
-    fitnessCertificateExpiry: '2025-06-30',
-    pollutionCertificateExpiry: '2025-09-30',
-    currentStatus: 'Idle',
-    location: { coordinates: [72.8777, 19.0760] }
-  },
-  {
-    id: 2,
-    vehicleNumber: 'MH-12-CD-5678',
-    type: 'Mini Truck',
-    capacityKg: 2000,
-    fuelType: 'Diesel',
-    fuelEfficiency: 8.2,
-    dcSections: 4,
-    purchaseType: 'RENTED',
-    rentedFrom: 'ABC Transport Co.',
-    rentedPerKmCharge: 15,
-    isInsured: false,
-    currentStatus: 'In Transit',
-    location: { coordinates: [73.8567, 18.5204] }
-  },
-  {
-    id: 3,
-    vehicleNumber: 'MH-12-EF-9012',
-    type: 'Container',
-    capacityKg: 8000,
-    fuelType: 'Diesel',
-    fuelEfficiency: 5.8,
-    dcSections: 12,
-    purchaseType: 'OWNED',
-    purchaseDate: '2021-08-20',
-    purchaseAmount: 3500000,
-    isInsured: true,
-    insuranceExpiryDate: '2024-08-20',
-    permitValidTill: '2025-12-31',
-    fitnessCertificateExpiry: '2025-03-30',
-    pollutionCertificateExpiry: '2025-06-30',
-    currentStatus: 'Maintenance',
-    location: { coordinates: [79.0882, 21.1458] }
-  }
-];
+// Zod Schema for Vehicle
+const vehicleSchema = z.object({
+  vehicleNumber: z.string()
+    .min(2, 'Vehicle number too short')
+    .max(20, 'Vehicle number too long')
+    .regex(/^[A-Z0-9-\s]+$/, 'Invalid vehicle number format'),
+  type: z.enum(["pickup", "mini-truck", "truck", "tempo", "container", "trailer"], {
+    required_error: "Type is required",
+  }),
+  capacityKg: z.number().min(100, "Capacity should be at least 100kg"),
+  fuelType: z.enum(["diesel", "petrol", "cng", "electric"], {
+    required_error: "Fuel type is required",
+  }),
+  fuelEfficiency: z.number().default(6),
+  dcSections: z.number().int().min(1, 'DC sections must be at least 1'),
+  currentStatus: z.enum(["idle", "in-transit", "maintenance"], {
+    required_error: "Status is required",
+  }).default("idle"),
+  location: z.object({
+    type: z.literal("Point").default("Point"),
+    coordinates: z.array(z.number()).length(2, "Coordinates must be [longitude, latitude]").default([0, 0]),
+  }).default({ type: "Point", coordinates: [0, 0] }),
+});
 
+// Helper functions for UI
 const getVehicleTypeColor = (type) => {
   const colors = {
-    'Truck': 'bg-blue-100 text-blue-800',
-    'Mini Truck': 'bg-green-100 text-green-800',
-    'Container': 'bg-purple-100 text-purple-800',
-    'Pickup': 'bg-orange-100 text-orange-800',
-    'Tempo': 'bg-red-100 text-red-800',
-    'Trailer': 'bg-indigo-100 text-indigo-800'
+    'truck': 'bg-blue-100 text-blue-800',
+    'mini-truck': 'bg-green-100 text-green-800',
+    'container': 'bg-purple-100 text-purple-800',
+    'pickup': 'bg-orange-100 text-orange-800',
+    'tempo': 'bg-red-100 text-red-800',
+    'trailer': 'bg-indigo-100 text-indigo-800'
   };
   return colors[type] || 'bg-gray-100 text-gray-800';
 };
 
 const getStatusColor = (status) => {
   const colors = {
-    'Idle': 'bg-gray-100 text-gray-800',
-    'In Transit': 'bg-blue-100 text-blue-800',
-    'Maintenance': 'bg-red-100 text-red-800'
+    'idle': 'bg-gray-100 text-gray-800',
+    'in-transit': 'bg-blue-100 text-blue-800',
+    'maintenance': 'bg-red-100 text-red-800'
   };
   return colors[status] || 'bg-gray-100 text-gray-800';
 };
 
-const getPurchaseTypeColor = (type) => {
-  return type === 'OWNED' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800';
-};
-
 const getFuelTypeColor = (type) => {
   const colors = {
-    'Diesel': 'bg-blue-100 text-blue-800',
-    'Petrol': 'bg-green-100 text-green-800',
-    'CNG': 'bg-purple-100 text-purple-800',
-    'Electric': 'bg-emerald-100 text-emerald-800'
+    'diesel': 'bg-blue-100 text-blue-800',
+    'petrol': 'bg-green-100 text-green-800',
+    'cng': 'bg-purple-100 text-purple-800',
+    'electric': 'bg-emerald-100 text-emerald-800'
   };
   return colors[type] || 'bg-gray-100 text-gray-800';
 };
 
-const isExpiringSoon = (date, days = 30) => {
-  if (!date) return false;
-  const expiryDate = new Date(date);
-  const today = new Date();
-  const diffTime = expiryDate - today;
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays <= days && diffDays > 0;
-};
-
-const isExpired = (date) => {
-  if (!date) return false;
-  return new Date(date) < new Date();
-};
-
 export default function Vehicles() {
+  const [vehicles, setVehicles] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
-  const [purchaseTypeFilter, setPurchaseTypeFilter] = useState('all');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  const [error, setError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredVehicles = mockVehicles.filter(vehicle => {
-    const matchesSearch = vehicle.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         vehicle.type.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || vehicle.currentStatus === statusFilter;
-    const matchesType = typeFilter === 'all' || vehicle.type === typeFilter;
-    const matchesPurchase = purchaseTypeFilter === 'all' || vehicle.purchaseType === purchaseTypeFilter;
-    return matchesSearch && matchesStatus && matchesType && matchesPurchase;
+  // Fetch vehicles
+  const fetchVehicles = async () => {
+    try {
+      setIsLoading(true);
+      const { data } = await api.get('/vehicle');
+      setVehicles(data.data || []);
+      setIsError(false);
+    } catch (err) {
+      setIsError(true);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVehicles();
+  }, []);
+
+  // CRUD operations
+  const addVehicle = async (vehicle) => {
+    try {
+      setIsSubmitting(true);
+      const { data } = await api.post('/vehicle', vehicle);
+      setVehicles(prev => [...prev, data.data]);
+      setShowAddModal(false);
+      reset();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const updateVehicle = async ({ id, ...vehicle }) => {
+    try {
+      setIsSubmitting(true);
+      const { data } = await api.patch(`/vehicle/${id}`, vehicle);
+      setVehicles(prev => prev.map(v => v.id === id ? data.data : v));
+      setShowAddModal(false);
+      reset();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const deleteVehicle = async (id) => {
+    try {
+      await api.delete(`/vehicle/${id}`);
+      setVehicles(prev => prev.filter(v => v.id !== id));
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
+  const fetchVehicleById = async (id) => {
+    const { data } = await api.get(`/vehicle/${id}`);
+    return data.data;
+  };
+
+  const defaultFormValues = {
+    vehicleNumber: '',
+    type: 'truck',
+    capacityKg: 100,
+    fuelType: 'diesel',
+    fuelEfficiency: 6,
+    dcSections: 1,
+    currentStatus: 'idle',
+    location: { type: 'Point', coordinates: [0, 0] },
+  };
+  // React Hook Form with Zod validation
+  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+    resolver: zodResolver(vehicleSchema),
+    defaultValues: defaultFormValues ,
   });
 
+  useEffect(() => {
+    if (editingVehicle) {
+      reset(editingVehicle);
+    }
+  }, [editingVehicle, reset]);
+
+  // Filter vehicles
+  const filteredVehicles = vehicles.filter(vehicle => {
+    const matchesSearch = vehicle.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vehicle.type.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || vehicle.currentStatus === statusFilter;
+    const matchesType = typeFilter === 'all' || vehicle.type === typeFilter;
+    return matchesSearch && matchesStatus && matchesType;
+  });
+
+  // Handle form submission
+  const onSubmit = (data) => {
+    if (editingVehicle) {
+      updateVehicle({ id: editingVehicle.id, ...data });
+    } else {
+      addVehicle(data);
+    }
+  };
+
+  // Open modal for editing
+  const handleEdit = async (vehicle) => {
+    const vehicleData = await fetchVehicleById(vehicle.id);
+    setEditingVehicle(vehicleData);
+    setShowAddModal(true);
+  };
+
+  // Open modal for adding
+  const handleAdd = () => {
+    setEditingVehicle(null);
+    reset(defaultFormValues)
+    setShowAddModal(true);
+  };
+
+  if (isLoading) return <div className="p-6 text-center">Loading...</div>;
+  if (isError) return <div className="p-6 text-center text-red-600">Error: {error}</div>;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Vehicles Management</h1>
           <p className="text-gray-600 mt-1">Manage your poultry transportation fleet</p>
         </div>
-        <button className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
-          <Plus size={20} />
-          Add Vehicle
+        <button
+          onClick={handleAdd}
+          className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+        >
+          <Plus size={20} /> Add Vehicle
         </button>
       </div>
 
@@ -172,9 +233,9 @@ export default function Vehicles() {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">All Status</option>
-              <option value="Idle">Idle</option>
-              <option value="In Transit">In Transit</option>
-              <option value="Maintenance">Maintenance</option>
+              <option value="idle">Idle</option>
+              <option value="in-transit">In Transit</option>
+              <option value="maintenance">Maintenance</option>
             </select>
             <select
               value={typeFilter}
@@ -182,187 +243,190 @@ export default function Vehicles() {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">All Types</option>
-              <option value="Truck">Truck</option>
-              <option value="Mini Truck">Mini Truck</option>
-              <option value="Container">Container</option>
-              <option value="Pickup">Pickup</option>
-              <option value="Tempo">Tempo</option>
-              <option value="Trailer">Trailer</option>
-            </select>
-            <select
-              value={purchaseTypeFilter}
-              onChange={(e) => setPurchaseTypeFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Purchase Types</option>
-              <option value="OWNED">Owned</option>
-              <option value="RENTED">Rented</option>
+              <option value="truck">Truck</option>
+              <option value="mini-truck">Mini Truck</option>
+              <option value="container">Container</option>
+              <option value="pickup">Pickup</option>
+              <option value="tempo">Tempo</option>
+              <option value="trailer">Trailer</option>
             </select>
           </div>
         </div>
       </div>
 
-      {/* Vehicles Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredVehicles.map((vehicle) => (
-          <div key={vehicle.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
-            {/* Header */}
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Car className="w-6 h-6 text-blue-600" />
+      {/* Vehicles Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle Number</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuel</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredVehicles.map((vehicle) => (
+              <tr key={vehicle.id}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{vehicle.vehicleNumber}</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getVehicleTypeColor(vehicle.type)}`}>
+                    {vehicle.type.replace('-', ' ')}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vehicle.capacityKg.toLocaleString()} kg</td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getFuelTypeColor(vehicle.fuelType)}`}>
+                    {vehicle.fuelType}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(vehicle.currentStatus)}`}>
+                    {vehicle.currentStatus.replace('-', ' ')}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
+                  <button className="text-blue-600 hover:text-blue-900">
+                    <Eye size={18} />
+                  </button>
+                  <button
+                    onClick={() => handleEdit(vehicle)}
+                    className="text-green-600 hover:text-green-900"
+                  >
+                    <Edit size={18} />
+                  </button>
+                  <button
+                    onClick={() => deleteVehicle(vehicle.id)}
+                    className="text-red-600 hover:text-red-900"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Add/Edit Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900">
+                {editingVehicle ? 'Edit Vehicle' : 'Add New Vehicle'}
+              </h2>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X size={24} />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Vehicle Number</label>
+                  <input
+                    {...register('vehicleNumber')}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  {errors.vehicleNumber && <p className="mt-1 text-sm text-red-600">{errors.vehicleNumber.message}</p>}
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-900 font-mono">{vehicle.vehicleNumber}</h3>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getVehicleTypeColor(vehicle.type)}`}>
-                    {vehicle.type}
-                  </span>
+                  <label className="block text-sm font-medium text-gray-700">Type</label>
+                  <select
+                    {...register('type')}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="truck">Truck</option>
+                    <option value="mini-truck">Mini Truck</option>
+                    <option value="container">Container</option>
+                    <option value="pickup">Pickup</option>
+                    <option value="tempo">Tempo</option>
+                    <option value="trailer">Trailer</option>
+                  </select>
+                  {errors.type && <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Capacity (kg)</label>
+                  <input
+                    type="number"
+                    {...register('capacityKg', { valueAsNumber: true })}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  {errors.capacityKg && <p className="mt-1 text-sm text-red-600">{errors.capacityKg.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Fuel Type</label>
+                  <select
+                    {...register('fuelType')}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="diesel">Diesel</option>
+                    <option value="petrol">Petrol</option>
+                    <option value="cng">CNG</option>
+                    <option value="electric">Electric</option>
+                  </select>
+                  {errors.fuelType && <p className="mt-1 text-sm text-red-600">{errors.fuelType.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Fuel Efficiency (km/l)</label>
+                  <input
+                    type="number"
+                    {...register('fuelEfficiency', { valueAsNumber: true })}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  {errors.fuelEfficiency && <p className="mt-1 text-sm text-red-600">{errors.fuelEfficiency.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">DC Sections</label>
+                  <input
+                    type="number"
+                    {...register('dcSections', { valueAsNumber: true })}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  {errors.dcSections && <p className="mt-1 text-sm text-red-600">{errors.dcSections.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Status</label>
+                  <select
+                    {...register('currentStatus')}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="idle">Idle</option>
+                    <option value="in-transit">In Transit</option>
+                    <option value="maintenance">Maintenance</option>
+                  </select>
+                  {errors.currentStatus && <p className="mt-1 text-sm text-red-600">{errors.currentStatus.message}</p>}
                 </div>
               </div>
-              <div className="flex items-center gap-1">
-                <button className="p-1 text-gray-400 hover:text-blue-600 transition-colors">
-                  <Eye size={16} />
+              <div className="flex justify-end gap-2 mt-6">
+                <button
+                  type="button"
+                  onClick={() => { setShowAddModal(false); setEditingVehicle(null) }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
                 </button>
-                <button className="p-1 text-gray-400 hover:text-green-600 transition-colors">
-                  <Edit size={16} />
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="animate-spin" size={16} />
+                      Saving...
+                    </>
+                  ) : (
+                    editingVehicle ? 'Update' : 'Add'
+                  )}
                 </button>
-                <button className="p-1 text-gray-400 hover:text-red-600 transition-colors">
-                  <Trash2 size={16} />
-                </button>
               </div>
-            </div>
-
-            {/* Basic Info */}
-            <div className="space-y-3 mb-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Capacity:</span>
-                <span className="font-medium text-gray-900">{vehicle.capacityKg.toLocaleString()} kg</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">DC Sections:</span>
-                <span className="font-medium text-gray-900">{vehicle.dcSections}</span>
-              </div>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-500">Fuel Efficiency:</span>
-                <span className="font-medium text-gray-900">{vehicle.fuelEfficiency} km/l</span>
-              </div>
-            </div>
-
-            {/* Fuel and Purchase Info */}
-            <div className="space-y-3 mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Fuel Type:</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getFuelTypeColor(vehicle.fuelType)}`}>
-                  {vehicle.fuelType}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Purchase Type:</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPurchaseTypeColor(vehicle.purchaseType)}`}>
-                  {vehicle.purchaseType === 'OWNED' ? 'Owned' : 'Rented'}
-                </span>
-              </div>
-              {vehicle.purchaseType === 'OWNED' && vehicle.purchaseAmount && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Purchase Amount:</span>
-                  <span className="font-medium text-gray-900">₹{vehicle.purchaseAmount.toLocaleString()}</span>
-                </div>
-              )}
-              {vehicle.purchaseType === 'RENTED' && vehicle.rentedPerKmCharge && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-500">Per KM Charge:</span>
-                  <span className="font-medium text-gray-900">₹{vehicle.rentedPerKmCharge}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Status and Location */}
-            <div className="space-y-3 mb-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Status:</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(vehicle.currentStatus)}`}>
-                  {vehicle.currentStatus}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <MapPin className="w-4 h-4" />
-                <span>Lat: {vehicle.location.coordinates[1].toFixed(4)}, Long: {vehicle.location.coordinates[0].toFixed(4)}</span>
-              </div>
-            </div>
-
-            {/* Certificates and Insurance */}
-            <div className="space-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-gray-600">Insurance:</span>
-                <div className="flex items-center gap-2">
-                  <Shield className={`w-4 h-4 ${vehicle.isInsured ? 'text-green-600' : 'text-red-600'}`} />
-                  <span className={vehicle.isInsured ? 'text-green-600' : 'text-red-600'}>
-                    {vehicle.isInsured ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-              </div>
-              {vehicle.insuranceExpiryDate && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Insurance Expiry:</span>
-                  <span className={`font-medium ${
-                    isExpired(vehicle.insuranceExpiryDate) ? 'text-red-600' : 
-                    isExpiringSoon(vehicle.insuranceExpiryDate) ? 'text-yellow-600' : 'text-gray-900'
-                  }`}>
-                    {new Date(vehicle.insuranceExpiryDate).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-              {vehicle.fitnessCertificateExpiry && (
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Fitness Expiry:</span>
-                  <span className={`font-medium ${
-                    isExpired(vehicle.fitnessCertificateExpiry) ? 'text-red-600' : 
-                    isExpiringSoon(vehicle.fitnessCertificateExpiry) ? 'text-yellow-600' : 'text-gray-900'
-                  }`}>
-                    {new Date(vehicle.fitnessCertificateExpiry).toLocaleDateString()}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-              <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                View Details
-              </button>
-              <button className="text-sm text-green-600 hover:text-green-700 font-medium">
-                Track Location
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-sm text-gray-500">Total Vehicles</div>
-          <div className="text-2xl font-bold text-gray-900">{filteredVehicles.length}</div>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-sm text-gray-500">Active Vehicles</div>
-          <div className="text-2xl font-bold text-green-600">
-            {filteredVehicles.filter(v => v.currentStatus === 'Idle' || v.currentStatus === 'In Transit').length}
+            </form>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-sm text-gray-500">Total Capacity</div>
-          <div className="text-2xl font-bold text-blue-600">
-            {filteredVehicles.reduce((sum, v) => sum + v.capacityKg, 0).toLocaleString()} kg
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-sm text-gray-500">Owned Vehicles</div>
-          <div className="text-2xl font-bold text-purple-600">
-            {filteredVehicles.filter(v => v.purchaseType === 'OWNED').length}
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
