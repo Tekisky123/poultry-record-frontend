@@ -11,19 +11,6 @@ const api = axios.create({
 	},
 });
 
-api.interceptors.request.use(config => {
-	// Assuming you have access to the cookie value
-	const authToken = 'your-auth-token';
-
-	// Set the cookie in the header
-	config.headers['Cookie'] = `token=${authToken}`;
-
-	return config;
-}, error => {
-	// Do something with request error
-	return Promise.reject(error);
-});
-
 // Request interceptor to add Authorization header
 // api.interceptors.request.use(
 // 	(config) => {
@@ -52,5 +39,15 @@ api.interceptors.request.use(config => {
 // 		return Promise.reject(new Error(message));
 // 	}
 // );
+
+api.interceptors.request.use(
+	(config) => {
+		// No need to manually attach cookies, browser handles it
+		return config;
+	},
+	(error) => {
+		return Promise.reject(error);
+	}
+);
 
 export default api;
