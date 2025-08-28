@@ -16,10 +16,10 @@ import Dropdown from './Dropdown';
 
 const getMenuItems = (userRole) => {
   const baseItems = [
-    { name: 'Vendors', path: '/vendors', icon: UsersIcon },
-    { name: 'Customers', path: '/customers', icon: Store },
     { name: 'Users', path: '/users', icon: UserCheck },
     { name: 'Vehicles', path: '/vehicles', icon: Car },
+    { name: 'Vendors', path: '/vendors', icon: UsersIcon },
+    { name: 'Customers', path: '/customers', icon: Store },
   ];
 
   // Only show Trips for admin/superadmin (view only) and supervisor (full access)

@@ -125,7 +125,7 @@ export default function Trips() {
       console.log('Fetching trips...');
       const { data } = await api.get('/trip');
       console.log('Trips response:', data);
-      setTrips(data.data?.trips || data.data || []);
+      setTrips(data.data?.trips || data.data || data.trips || []);
       setIsError(false);
     } catch (err) {
       console.error('Error fetching trips:', err);
