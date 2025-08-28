@@ -1,5 +1,8 @@
 // src/pages/Customers.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { 
   Plus, 
   Search, 
@@ -12,50 +15,31 @@ import {
   Eye,
   Edit,
   Trash2,
-  TrendingUp
+  TrendingUp,
+  Loader2,
+  X
 } from 'lucide-react';
+import api from '../lib/axios';
+import { useAuth } from '../contexts/AuthContext';
 
-const mockCustomers = [
-  {
-    id: 1,
-    shopName: 'Local Shop A',
-    ownerName: 'Ahmed Khan',
-    contact: '+91 98765 43210',
-    address: '123 Market Street, Mumbai',
-    shopType: 'Retail',
-    creditLimit: 50000,
-    creditDays: 30,
-    isActive: true,
-    totalPurchases: 250000,
-    lastPurchase: '2024-01-10'
-  },
-  {
-    id: 2,
-    shopName: 'Super Market B',
-    ownerName: 'Fatima Ali',
-    contact: '+91 87654 32109',
-    address: '456 Commercial Area, Pune',
-    shopType: 'Supermarket',
-    creditLimit: 100000,
-    creditDays: 45,
-    isActive: true,
-    totalPurchases: 450000,
-    lastPurchase: '2024-01-12'
-  },
-  {
-    id: 3,
-    shopName: 'Corner Store C',
-    ownerName: 'Rahul Sharma',
-    contact: '+91 76543 21098',
-    address: '789 Residential Colony, Nagpur',
-    shopType: 'Corner Store',
-    creditLimit: 25000,
-    creditDays: 15,
-    isActive: false,
-    totalPurchases: 120000,
-    lastPurchase: '2024-01-05'
-  }
-];
+// Zod Schema for Customer validation
+const customerSchema = z.object({
+  shopName: z.string()
+    .min(2, 'Shop name must be at least 2 characters')
+    .max(100, 'Shop name cannot exceed 100 characters'),
+  ownerName: z.string()
+    .max(100, 'Owner name cannot exceed 100 characters')
+    .optional(),
+  contact: z.string()
+    .min(10, 'Contact number must be at least 10 digits')
+    .regex(/^[0-9+\-\s()]+$/, 'Invalid contact number format'),
+  address: z.string()
+    .max(200, 'Address cannot exceed 200 characters')
+    .optional(),
+  area: z.string()
+    .max(100, 'Area name too long')
+    .optional(),
+});
 
 const getShopTypeColor = (type) => {
   const colors = {
@@ -71,19 +55,178 @@ const getStatusColor = (isActive) => {
   return isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
 };
 
-const getCreditStatus = (creditLimit, creditDays) => {
-  if (creditLimit === 0) return { text: 'Cash Only', color: 'bg-gray-100 text-gray-800' };
-  if (creditDays <= 15) return { text: 'Low Risk', color: 'bg-green-100 text-green-800' };
-  if (creditDays <= 30) return { text: 'Medium Risk', color: 'bg-yellow-100 text-yellow-800' };
-  return { text: 'High Risk', color: 'bg-red-100 text-red-800' };
-};
-
 export default function Customers() {
+  const { user } = useAuth();
+  const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [shopTypeFilter, setShopTypeFilter] = useState('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  const [error, setError] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredCustomers = mockCustomers.filter(customer => {
+  // Debug user information
+  useEffect(() => {
+    console.log('Current user:', user);
+    console.log('User role:', user?.role);
+  }, [user]);
+
+  // Check if user has admin privileges
+  const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
+
+  // React Hook Form with Zod validation
+  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm({
+    resolver: zodResolver(customerSchema),
+    defaultValues: {
+      shopName: '',
+      ownerName: '',
+      contact: '',
+      address: '',
+      area: '',
+    }
+  });
+
+  // Fetch customers
+  const fetchCustomers = async () => {
+    try {
+      setIsLoading(true);
+      console.log('Fetching customers...');
+      const { data } = await api.get('/customer');
+      console.log('Customers response:', data);
+      setCustomers(data.data || []);
+      setIsError(false);
+    } catch (err) {
+      console.error('Error fetching customers:', err);
+      setIsError(true);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  // CRUD operations
+  const addCustomer = async (customerData) => {
+    try {
+      setIsSubmitting(true);
+      console.log('Adding customer:', customerData);
+      const { data } = await api.post('/customer', customerData);
+      console.log('Add customer response:', data);
+      setCustomers(prev => [...prev, data.data]);
+      setShowAddModal(false);
+      setEditingCustomer(null);
+      reset();
+      // Show success message
+      alert('Customer added successfully!');
+    } catch (err) {
+      console.error('Error adding customer:', err);
+      setError(err.message);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const updateCustomer = async ({ id, ...customerData }) => {
+    try {
+      setIsSubmitting(true);
+      console.log('Updating customer:', { id, ...customerData });
+      const { data } = await api.put(`/customer/${id}`, customerData);
+      console.log('Update customer response:', data);
+      setCustomers(prev => prev.map(c => c.id === id ? data.data : c));
+      setShowAddModal(false);
+      setEditingCustomer(null);
+      reset();
+      // Show success message
+      alert('Customer updated successfully!');
+    } catch (err) {
+      console.error('Error updating customer:', err);
+      setError(err.message);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const deleteCustomer = async (id) => {
+    try {
+      console.log('Deleting customer:', id);
+      await api.delete(`/customer/${id}`);
+      console.log('Customer deleted successfully');
+      setCustomers(prev => prev.filter(c => c.id !== id));
+      // Show success message
+      alert('Customer deleted successfully!');
+    } catch (err) {
+      console.error('Error deleting customer:', err);
+      setError(err.message);
+      alert(`Error: ${err.message}`);
+    }
+  };
+
+  const fetchCustomerById = async (id) => {
+    try {
+      const { data } = await api.get(`/customer/${id}`);
+      return data.data;
+    } catch (err) {
+      setError(err.message);
+      return null;
+    }
+  };
+
+  const handleEdit = async (customer) => {
+    setEditingCustomer(customer);
+    // Pre-fill form with customer data
+    setValue('shopName', customer.shopName || '');
+    setValue('ownerName', customer.ownerName || '');
+    setValue('contact', customer.contact || '');
+    setValue('address', customer.address || '');
+    setValue('area', customer.area || '');
+    setShowAddModal(true);
+  };
+
+  const handleDelete = async (customer) => {
+    if (window.confirm(`Are you sure you want to delete ${customer.shopName}?`)) {
+      await deleteCustomer(customer.id);
+    }
+  };
+
+  const handleView = async (customer) => {
+    const customerDetails = await fetchCustomerById(customer.id);
+    if (customerDetails) {
+      // You can implement a view modal here or navigate to a details page
+      console.log('Customer details:', customerDetails);
+      alert(`Customer: ${customerDetails.shopName}\nOwner: ${customerDetails.ownerName}\nContact: ${customerDetails.contact}`);
+    }
+  };
+
+  const onSubmit = (data) => {
+    if (editingCustomer) {
+      updateCustomer({ id: editingCustomer.id, ...data });
+    } else {
+      addCustomer(data);
+    }
+  };
+
+  const handleAddNew = () => {
+    setEditingCustomer(null);
+    reset();
+    setShowAddModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowAddModal(false);
+    setEditingCustomer(null);
+    reset();
+    setError('');
+  };
+
+  const filteredCustomers = customers.filter(customer => {
     const matchesSearch = customer.shopName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          customer.ownerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          customer.contact.includes(searchTerm) ||
@@ -95,6 +238,42 @@ export default function Customers() {
     return matchesSearch && matchesStatus && matchesType;
   });
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-600 mb-4">{error}</p>
+        <button 
+          onClick={fetchCustomers}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!hasAdminAccess) {
+    return (
+      <div className="text-center py-8">
+        <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
+        <p className="text-gray-600 mb-4">
+          You need admin privileges to access the Customers Management page.
+        </p>
+        <p className="text-sm text-gray-500">
+          Current role: {user?.role || 'Not logged in'}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -102,8 +281,14 @@ export default function Customers() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Customers Management</h1>
           <p className="text-gray-600 mt-1">Manage your poultry customers and retail partners</p>
+          {/* Debug user info */}
+          <div className="mt-2 text-sm text-gray-500">
+            <p>Current User: {user?.name || 'Not logged in'}</p>
+            <p>User Role: {user?.role || 'No role'}</p>
+            <p>User ID: {user?.id || 'No ID'}</p>
+          </div>
         </div>
-        <button className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+        <button onClick={handleAddNew} className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
           <Plus size={20} />
           Add Customer
         </button>
@@ -155,105 +340,105 @@ export default function Customers() {
 
       {/* Customers Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredCustomers.map((customer) => {
-          const creditStatus = getCreditStatus(customer.creditLimit, customer.creditDays);
-          
-          return (
+        {filteredCustomers.length === 0 ? (
+          <div className="col-span-full text-center py-10 text-gray-600">
+            <p>No customers found matching your criteria.</p>
+          </div>
+        ) : (
+          filteredCustomers.map((customer) => (
             <div key={customer.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
-              {/* Header */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                    <Store className="w-6 h-6 text-green-600" />
+                {/* Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                      <Store className="w-6 h-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-gray-900">{customer.shopName}</h3>
+                      {customer.ownerName && (
+                        <p className="text-sm text-gray-500">Owner: {customer.ownerName}</p>
+                      )}
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{customer.shopName}</h3>
-                    {customer.ownerName && (
-                      <p className="text-sm text-gray-500">Owner: {customer.ownerName}</p>
-                    )}
+                  <div className="flex items-center gap-1">
+                    <button 
+                      onClick={() => handleView(customer)}
+                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                    >
+                      <Eye size={16} />
+                    </button>
+                    <button 
+                      onClick={() => handleEdit(customer)}
+                      className="p-1 text-gray-400 hover:text-green-600 transition-colors"
+                    >
+                      <Edit size={16} />
+                    </button>
+                    <button 
+                      onClick={() => handleDelete(customer)}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  <button className="p-1 text-gray-400 hover:text-blue-600 transition-colors">
-                    <Eye size={16} />
+
+                {/* Contact Info */}
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <Phone className="w-4 h-4" />
+                    <span>{customer.contact}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <MapPin className="w-4 h-4" />
+                    <span>{customer.address}</span>
+                  </div>
+                </div>
+
+                {/* Shop Type and Credit Info */}
+                <div className="space-y-3 mb-4">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Area:</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      {customer.area || 'Not specified'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-500">Status:</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
+                      {customer.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Business Stats */}
+                <div className="space-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Created:</span>
+                    <span className="font-medium text-gray-900">
+                      {new Date(customer.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Last Updated:</span>
+                    <span className="font-medium text-gray-900">
+                      {new Date(customer.updatedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Status and Actions */}
+                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
+                    {customer.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                    View Details
                   </button>
-                  <button className="p-1 text-gray-400 hover:text-green-600 transition-colors">
-                    <Edit size={16} />
-                  </button>
-                  <button className="p-1 text-gray-400 hover:text-red-600 transition-colors">
-                    <Trash2 size={16} />
-                  </button>
                 </div>
               </div>
-
-              {/* Contact Info */}
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Phone className="w-4 h-4" />
-                  <span>{customer.contact}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <MapPin className="w-4 h-4" />
-                  <span>{customer.address}</span>
-                </div>
-              </div>
-
-              {/* Shop Type and Credit Info */}
-              <div className="space-y-3 mb-4">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">Shop Type:</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getShopTypeColor(customer.shopType)}`}>
-                    {customer.shopType}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">Credit Limit:</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    ₹{customer.creditLimit.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">Credit Days:</span>
-                  <span className="text-sm font-medium text-gray-900">
-                    {customer.creditDays} days
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500">Risk Level:</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${creditStatus.color}`}>
-                    {creditStatus.text}
-                  </span>
-                </div>
-              </div>
-
-              {/* Business Stats */}
-              <div className="space-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Total Purchases:</span>
-                  <span className="font-medium text-gray-900">
-                    ₹{customer.totalPurchases.toLocaleString()}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Last Purchase:</span>
-                  <span className="font-medium text-gray-900">
-                    {new Date(customer.lastPurchase).toLocaleDateString()}
-                  </span>
-                </div>
-              </div>
-
-              {/* Status and Actions */}
-              <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
-                  {customer.isActive ? 'Active' : 'Inactive'}
-                </span>
-                <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                  View Details
-                </button>
-              </div>
-            </div>
-          );
-        })}
+            )
+          )
+        )}
       </div>
 
       {/* Summary Stats */}
@@ -269,18 +454,115 @@ export default function Customers() {
           </div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-sm text-gray-500">Total Revenue</div>
-          <div className="text-2xl font-bold text-blue-600">
-            ₹{filteredCustomers.reduce((sum, c) => sum + c.totalPurchases, 0).toLocaleString()}
+          <div className="text-sm text-gray-500">Inactive Customers</div>
+          <div className="text-2xl font-bold text-red-600">
+            {filteredCustomers.filter(c => !c.isActive).length}
           </div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-sm text-gray-500">Avg Credit Limit</div>
-          <div className="text-2xl font-bold text-purple-600">
-            ₹{(filteredCustomers.reduce((sum, c) => sum + c.creditLimit, 0) / filteredCustomers.length).toLocaleString()}
+          <div className="text-sm text-gray-500">With Area Info</div>
+          <div className="text-2xl font-bold text-blue-600">
+            {filteredCustomers.filter(c => c.area).length}
           </div>
         </div>
       </div>
+
+      {/* Customer Form Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {editingCustomer ? 'Edit Customer' : 'Add New Customer'}
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Shop Name *
+                  </label>
+                  <input
+                    type="text"
+                    {...register('shopName')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.shopName && <p className="text-red-500 text-xs mt-1">{errors.shopName.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Owner Name
+                  </label>
+                  <input
+                    type="text"
+                    {...register('ownerName')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.ownerName && <p className="text-red-500 text-xs mt-1">{errors.ownerName.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Contact Number *
+                  </label>
+                  <input
+                    type="tel"
+                    {...register('contact')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.contact && <p className="text-red-500 text-xs mt-1">{errors.contact.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Area
+                  </label>
+                  <input
+                    type="text"
+                    {...register('area')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.area && <p className="text-red-500 text-xs mt-1">{errors.area.message}</p>}
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Address
+                  </label>
+                  <input
+                    type="text"
+                    {...register('address')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address.message}</p>}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {editingCustomer ? 'Update Customer' : 'Add Customer'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

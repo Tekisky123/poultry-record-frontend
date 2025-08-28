@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { 
   Truck, 
   User, 
@@ -8,68 +8,46 @@ import {
   Save, 
   ArrowLeft,
   Plus,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
+import api from '../lib/axios';
+import { useAuth } from '../contexts/AuthContext';
 
 const SupervisorCreateTrip = () => {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const tripType = searchParams.get('type') || 'purchase';
+  const { user } = useAuth();
   
   const [formData, setFormData] = useState({
-    tripType: tripType,
-    date: new Date().toISOString().split('T')[0],
+    place: '',
     vehicle: '',
     driver: '',
-    labours: [],
-    route: {
-      from: '',
-      to: '',
-      distance: ''
+    labours: [''],
+    vehicleReadings: {
+      opening: 0
     },
     notes: ''
   });
 
   const [vehicles, setVehicles] = useState([]);
-  const [drivers, setDrivers] = useState([]);
-  const [labours, setLabours] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    fetchFormData();
+    fetchVehicles();
   }, []);
 
-  const fetchFormData = async () => {
+  const fetchVehicles = async () => {
     try {
-      const [vehiclesRes, driversRes, laboursRes] = await Promise.all([
-        fetch('/api/vehicles', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        }),
-        fetch('/api/users?role=driver', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        }),
-        fetch('/api/users?role=labour', {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-        })
-      ]);
-
-      if (vehiclesRes.ok) {
-        const vehiclesData = await vehiclesRes.json();
-        setVehicles(vehiclesData.data);
-      }
-
-      if (driversRes.ok) {
-        const driversData = await driversRes.json();
-        setDrivers(driversData.data);
-      }
-
-      if (laboursRes.ok) {
-        const laboursData = await laboursRes.json();
-        setLabours(laboursData.data);
-      }
+      setLoading(true);
+      const { data } = await api.get('/vehicle');
+      setVehicles(data.data || []);
     } catch (error) {
-      console.error('Failed to fetch form data:', error);
+      console.error('Failed to fetch vehicles:', error);
+      setError('Failed to fetch vehicles');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -81,7 +59,7 @@ const SupervisorCreateTrip = () => {
         ...prev,
         [parent]: {
           ...prev[parent],
-          [child]: value
+          [child]: name.includes('opening') ? Number(value) : value
         }
       }));
     } else {
@@ -92,118 +70,123 @@ const SupervisorCreateTrip = () => {
     }
   };
 
-  const handleLabourToggle = (labourId) => {
+  const addLabourField = () => {
     setFormData(prev => ({
       ...prev,
-      labours: prev.labours.includes(labourId)
-        ? prev.labours.filter(id => id !== labourId)
-        : [...prev.labours, labourId]
+      labours: [...prev.labours, '']
+    }));
+  };
+
+  const removeLabourField = (index) => {
+    if (formData.labours.length > 1) {
+      setFormData(prev => ({
+        ...prev,
+        labours: prev.labours.filter((_, i) => i !== index)
+      }));
+    }
+  };
+
+  const handleLabourChange = (index, value) => {
+    setFormData(prev => ({
+      ...prev,
+      labours: prev.labours.map((labour, i) => i === index ? value : labour)
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setIsSubmitting(true);
     setError('');
 
     try {
-      // Generate unique trip ID
-      const tripId = `TRIP-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      
+      // Validate required fields
+      if (!formData.place || !formData.vehicle || !formData.driver || formData.labours.length === 0) {
+        setError('Please fill in all required fields');
+        return;
+      }
+
+      // Filter out empty labour fields
+      const validLabours = formData.labours.filter(labour => labour.trim() !== '');
+      if (validLabours.length === 0) {
+        setError('At least one labour worker is required');
+        return;
+      }
+
       const tripData = {
-        ...formData,
-        tripId,
-        status: 'started'
+        place: formData.place,
+        vehicle: formData.vehicle,
+        driver: formData.driver,
+        labours: validLabours,
+        vehicleReadings: formData.vehicleReadings,
+        notes: formData.notes,
+        supervisor: user.id, // Automatically set the supervisor
+        createdBy: user.id,
+        updatedBy: user.id
       };
 
-      const response = await fetch('/api/trips', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(tripData)
-      });
+      console.log('Creating trip with data:', tripData);
 
-      if (response.ok) {
-        const result = await response.json();
-        navigate(`/supervisor/trips/${result.data._id}`);
+      const { data } = await api.post('/trip', tripData);
+      
+      if (data.success) {
+        alert('Trip created successfully!');
+        navigate('/supervisor/trips');
       } else {
-        const errorData = await response.json();
-        setError(errorData.message || 'Failed to create trip');
+        setError(data.message || 'Failed to create trip');
       }
     } catch (error) {
-      setError('An error occurred while creating the trip');
+      console.error('Error creating trip:', error);
+      setError(error.response?.data?.message || 'An error occurred while creating the trip');
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center space-x-3">
         <button
-          onClick={() => navigate(-1)}
+          onClick={() => navigate('/supervisor/trips')}
           className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
         >
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Create New Trip</h1>
+          <h1 className="text-xl font-bold text-gray-900">Create New Round Trip</h1>
           <p className="text-sm text-gray-500">
-            {tripType === 'purchase' ? 'Purchase chickens from vendors' : 'Deliver chickens to customers'}
+            Create a new poultry round trip: start from base → purchase from vendors → sell to customers → return to base
           </p>
-        </div>
-      </div>
-
-      {/* Trip Type Toggle */}
-      <div className="card">
-        <label className="block text-sm font-medium text-gray-700 mb-3">Trip Type</label>
-        <div className="flex rounded-lg border border-gray-300 p-1">
-          <button
-            type="button"
-            onClick={() => setFormData(prev => ({ ...prev, tripType: 'purchase' }))}
-            className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
-              formData.tripType === 'purchase'
-                ? 'bg-primary-600 text-white'
-                : 'text-gray-700 hover:text-gray-900'
-            }`}
-          >
-            Purchase Trip
-          </button>
-          <button
-            type="button"
-            onClick={() => setFormData(prev => ({ ...prev, tripType: 'delivery' }))}
-            className={`flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors ${
-              formData.tripType === 'delivery'
-                ? 'bg-primary-600 text-white'
-                : 'text-gray-700 hover:text-gray-900'
-            }`}
-          >
-            Delivery Trip
-          </button>
         </div>
       </div>
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Details */}
-        <div className="card">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Details</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="date" className="block text-sm font-medium text-gray-700 mb-1">
-                Trip Date *
+              <label htmlFor="place" className="block text-sm font-medium text-gray-700 mb-1">
+                Base Location *
               </label>
               <input
-                type="date"
-                id="date"
-                name="date"
+                type="text"
+                id="place"
+                name="place"
                 required
-                value={formData.date}
+                value={formData.place}
                 onChange={handleChange}
-                className="input-field"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., SNK (Starting and ending point)"
               />
             </div>
 
@@ -217,127 +200,91 @@ const SupervisorCreateTrip = () => {
                 required
                 value={formData.vehicle}
                 onChange={handleChange}
-                className="input-field"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="">Select Vehicle</option>
                 {vehicles.map(vehicle => (
-                  <option key={vehicle._id} value={vehicle._id}>
-                    {vehicle.registrationNumber} - {vehicle.model}
+                  <option key={vehicle.id} value={vehicle.id}>
+                    {vehicle.vehicleNumber} - {vehicle.type}
                   </option>
                 ))}
               </select>
             </div>
-          </div>
-        </div>
 
-        {/* Team Assignment */}
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Team Assignment</h3>
-          <div className="space-y-4">
             <div>
               <label htmlFor="driver" className="block text-sm font-medium text-gray-700 mb-1">
-                Driver *
+                Driver Name *
               </label>
-              <select
+              <input
+                type="text"
                 id="driver"
                 name="driver"
                 required
                 value={formData.driver}
                 onChange={handleChange}
-                className="input-field"
-              >
-                <option value="">Select Driver</option>
-                {drivers.map(driver => (
-                  <option key={driver._id} value={driver._id}>
-                    {driver.name} - {driver.mobileNumber}
-                  </option>
-                ))}
-              </select>
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., ALLABAKSH"
+              />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Labour Workers *
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                {labours.map(labour => (
-                  <label key={labour._id} className="flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={formData.labours.includes(labour._id)}
-                      onChange={() => handleLabourToggle(labour._id)}
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <span className="text-sm text-gray-700">{labour.name}</span>
-                  </label>
-                ))}
-              </div>
-              {formData.labours.length === 0 && (
-                <p className="text-sm text-red-600 mt-1">At least one labour worker is required</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Route Information */}
-        <div className="card">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Route Information</h3>
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label htmlFor="route.from" className="block text-sm font-medium text-gray-700 mb-1">
-                  From *
-                </label>
-                <input
-                  type="text"
-                  id="route.from"
-                  name="route.from"
-                  required
-                  value={formData.route.from}
-                  onChange={handleChange}
-                  className="input-field"
-                  placeholder="Starting location"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="route.to" className="block text-sm font-medium text-gray-700 mb-1">
-                  To *
-                </label>
-                <input
-                  type="text"
-                  id="route.to"
-                  name="route.to"
-                  required
-                  value={formData.route.to}
-                  onChange={handleChange}
-                  className="input-field"
-                  placeholder="Destination"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label htmlFor="route.distance" className="block text-sm font-medium text-gray-700 mb-1">
-                Distance (km)
+              <label htmlFor="opening" className="block text-sm font-medium text-gray-700 mb-1">
+                Opening Odometer *
               </label>
               <input
                 type="number"
-                id="route.distance"
-                name="route.distance"
-                value={formData.route.distance}
+                id="opening"
+                name="vehicleReadings.opening"
+                required
+                value={formData.vehicleReadings.opening}
                 onChange={handleChange}
-                className="input-field"
-                placeholder="Distance in kilometers"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0"
                 min="0"
-                step="0.1"
               />
             </div>
           </div>
         </div>
 
+        {/* Labours Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Labour Workers</h3>
+          <div className="space-y-3">
+            {formData.labours.map((labour, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  type="text"
+                  value={labour}
+                  onChange={(e) => handleLabourChange(index, e.target.value)}
+                  placeholder={`Labour ${index + 1} name`}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {formData.labours.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeLabourField(index)}
+                    className="px-3 py-2 text-red-600 hover:text-red-800"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={addLabourField}
+              className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
+            >
+              <Plus size={16} />
+              Add Labour
+            </button>
+          </div>
+        </div>
+
+
+
         {/* Additional Notes */}
-        <div className="card">
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
           <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
             Additional Notes
           </label>
@@ -347,7 +294,7 @@ const SupervisorCreateTrip = () => {
             rows="3"
             value={formData.notes}
             onChange={handleChange}
-            className="input-field"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             placeholder="Any additional information about the trip..."
           />
         </div>
@@ -363,22 +310,22 @@ const SupervisorCreateTrip = () => {
         <div className="flex space-x-3">
           <button
             type="button"
-            onClick={() => navigate(-1)}
-            className="btn-secondary flex-1"
+            onClick={() => navigate('/supervisor/trips')}
+            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
           >
             Cancel
           </button>
           <button
             type="submit"
-            disabled={loading || formData.labours.length === 0}
-            className="btn-primary flex-1 flex items-center justify-center space-x-2"
+            disabled={isSubmitting || formData.labours.filter(l => l.trim() !== '').length === 0}
+            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
           >
-            {loading ? (
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+            {isSubmitting ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Save size={16} />
             )}
-            <span>{loading ? 'Creating...' : 'Create Trip'}</span>
+            <span>{isSubmitting ? 'Creating...' : 'Create Trip'}</span>
           </button>
         </div>
       </form>

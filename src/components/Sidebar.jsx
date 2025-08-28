@@ -14,15 +14,21 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Dropdown from './Dropdown';
 
-const menuItems = [
-  // { name: 'Dashboard', path: '/', icon: BarChart3 },
-  // { name: 'Trips', path: '/trips', icon: Truck },
-  // { name: 'Vendors', path: '/vendors', icon: UsersIcon },
-  // { name: 'Customers', path: '/customers', icon: Store },
-  { name: 'Users', path: '/users', icon: UserCheck },
-  { name: 'Vehicles', path: '/vehicles', icon: Car },
-  // { name: 'Reports', path: '/reports', icon: FileText },
-];
+const getMenuItems = (userRole) => {
+  const baseItems = [
+    { name: 'Vendors', path: '/vendors', icon: UsersIcon },
+    { name: 'Customers', path: '/customers', icon: Store },
+    { name: 'Users', path: '/users', icon: UserCheck },
+    { name: 'Vehicles', path: '/vehicles', icon: Car },
+  ];
+
+  // Only show Trips for admin/superadmin (view only) and supervisor (full access)
+  if (userRole === 'supervisor' || userRole === 'admin' || userRole === 'superadmin') {
+    baseItems.unshift({ name: 'Trips', path: '/trips', icon: Truck });
+  }
+
+  return baseItems;
+};
 
 export default function Sidebar() {
   const location = useLocation();
@@ -56,7 +62,7 @@ export default function Sidebar() {
 
         <nav className="mt-6 px-3">
           <ul className="space-y-2">
-            {menuItems.map((item) => {
+            {getMenuItems(currentUser?.role).map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
 

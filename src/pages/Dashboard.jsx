@@ -1,118 +1,157 @@
 // src/pages/Dashboard.jsx
-import StatCard from '../components/StatCard';
-import RecentTrips from '../components/RecentTrips';
-import ProfitLossChart from '../components/ProfitLossChart';
-import { Truck, DollarSign, Users, Package, TrendingUp, Calendar, Car } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { 
+  Truck, 
+  TrendingUp, 
+  Users, 
+  DollarSign,
+  Loader2,
+  Calendar,
+  MapPin
+} from 'lucide-react';
+import api from '../lib/axios';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function Dashboard() {
+  const { user } = useAuth();
+  const [stats, setStats] = useState(null);
+  const [recentTrips, setRecentTrips] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setIsLoading(true);
+      const [statsRes, tripsRes] = await Promise.all([
+        api.get('/trip/stats/overview'),
+        api.get('/trip?limit=5')
+      ]);
+      
+      setStats(statsRes.data.data);
+      setRecentTrips(tripsRes.data.data?.trips || tripsRes.data.data || []);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600 mt-1">Welcome back! Here's what's happening with your poultry business.</p>
-        </div>
-        <div className="mt-4 sm:mt-0">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-            + New Trip
-          </button>
-        </div>
+      <div>
+        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+        <p className="text-gray-600 mt-1">Welcome back, {user?.name}!</p>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-        <StatCard 
-          title="Total Trips" 
-          value="24" 
-          change="+12%" 
-          icon={Truck}
-          color="blue"
-        />
-        <StatCard 
-          title="Total Profit" 
-          value="₹6.99L" 
-          change="+8.5%" 
-          icon={DollarSign}
-          color="green"
-        />
-        <StatCard 
-          title="Pending Payments" 
-          value="₹1.2L" 
-          change="-3%" 
-          icon={TrendingUp}
-          color="orange"
-        />
-        <StatCard 
-          title="Chicken Loss" 
-          value="1,342" 
-          change="+2.1%" 
-          icon={Package}
-          color="red"
-        />
-        <StatCard 
-          title="Active Vendors" 
-          value="18" 
-          change="+5%" 
-          icon={Users}
-          color="purple"
-        />
-        <StatCard 
-          title="This Month" 
-          value="8" 
-          change="+15%" 
-          icon={Calendar}
-          color="blue"
-        />
-      </div>
-
-      {/* Charts and Recent Data */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        {/* P&L Chart */}
-        <div className="xl:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Profit & Loss Overview</h3>
-            <select className="text-sm border border-gray-300 rounded-lg px-3 py-1 focus:ring-2 focus:ring-blue-500">
-              <option>Last 7 Days</option>
-              <option>Last 30 Days</option>
-              <option>Last 3 Months</option>
-            </select>
-          </div>
-          <ProfitLossChart />
-        </div>
-
-        {/* Recent Trips */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Trips</h3>
-            <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-              View All
-            </button>
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Truck className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Total Trips</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.totalTrips || 0}</p>
+            </div>
           </div>
-          <RecentTrips />
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-6 h-6 text-green-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Total Revenue</p>
+              <p className="text-2xl font-bold text-gray-900">₹{stats?.totalRevenue?.toLocaleString() || '0'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
+              <DollarSign className="w-6 h-6 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Total Profit</p>
+              <p className="text-2xl font-bold text-gray-900">₹{stats?.totalProfit?.toLocaleString() || '0'}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+              <Users className="w-6 h-6 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500">Birds Sold</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.totalBirdsSold?.toLocaleString() || '0'}</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <button className="p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors text-center">
-            <Truck className="w-8 h-8 text-blue-600 mx-auto mb-2" />
-            <span className="text-sm font-medium text-gray-700">New Trip</span>
-          </button>
-          <button className="p-4 border border-gray-200 rounded-lg hover:border-green-300 hover:bg-green-50 transition-colors text-center">
-            <Users className="w-8 h-8 text-green-600 mx-auto mb-2" />
-            <span className="text-sm font-medium text-gray-700">Add Vendor</span>
-          </button>
-          <button className="p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-colors text-center">
-            <Package className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-            <span className="text-sm font-medium text-gray-700">Add Customer</span>
-          </button>
-          <button className="p-4 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 transition-colors text-center">
-            <Car className="w-8 h-8 text-orange-600 mx-auto mb-2" />
-            <span className="text-sm font-medium text-gray-700">Add Vehicle</span>
-          </button>
+      {/* Recent Trips */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-900">Recent Trips</h2>
+        </div>
+        <div className="p-6">
+          {recentTrips.length === 0 ? (
+            <p className="text-gray-500 text-center py-8">No recent trips found.</p>
+          ) : (
+            <div className="space-y-4">
+              {recentTrips.map((trip) => (
+                <div key={trip.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <Truck className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-gray-900">{trip.tripId}</h3>
+                      <div className="flex items-center gap-4 text-sm text-gray-500">
+                        <span className="flex items-center gap-1">
+                          <Calendar className="w-4 h-4" />
+                          {new Date(trip.date).toLocaleDateString()}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-4 h-4" />
+                          {trip.place}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      trip.status === 'completed' ? 'bg-green-100 text-green-800' :
+                      trip.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
+                      'bg-yellow-100 text-yellow-800'
+                    }`}>
+                      {trip.status}
+                    </span>
+                    <p className="text-sm text-gray-600 mt-1">
+                      ₹{trip.summary?.netProfit?.toLocaleString() || '0'}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

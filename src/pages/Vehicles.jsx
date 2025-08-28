@@ -113,7 +113,7 @@ export default function Vehicles() {
   const updateVehicle = async ({ id, ...vehicle }) => {
     try {
       setIsSubmitting(true);
-      const { data } = await api.patch(`/vehicle/${id}`, vehicle);
+      const { data } = await api.put(`/vehicle/${id}`, vehicle);
       setVehicles(prev => prev.map(v => v.id === id ? data.data : v));
       setShowAddModal(false);
       reset();

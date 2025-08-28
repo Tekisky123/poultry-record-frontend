@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useState, useEffect } from 'react';
 import Dashboard from './pages/Dashboard';
 import Trips from './pages/Trips';
+import TripDetails from './pages/TripDetails';
 import Vendors from './pages/Vendors';
 import Customers from './pages/Customers';
 import Vehicles from './pages/Vehicles';
@@ -23,9 +24,6 @@ import SupervisorProfile from './pages/SupervisorProfile';
 import SupervisorHeader from './components/SupervisorHeader';
 import BottomNavigation from './components/BottomNavigation';
 import { LogOut } from 'lucide-react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-
-const queryClient = new QueryClient();
 
 // Protected Route Component
 const ProtectedRoute = ({ children, allowedRoles = [] }) => {
@@ -95,7 +93,7 @@ const AppContent = () => {
     );
   }
 
-  // Admin Dashboard
+  // Admin Dashboard (can view trips but not create)
   if ((user.role === 'superadmin' || user.role === 'admin') && user.approvalStatus === 'approved') {
     return (
       <div className="flex h-screen bg-gray-50">
@@ -108,10 +106,10 @@ const AppContent = () => {
 
           <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
             <Routes>
-              {/* <Route path="/" element={<Dashboard />} /> */}
-              <Route path="/" element={<><h1>DASHBOARD</h1></>} />
+              <Route path="/" element={<Dashboard />} />
               <Route path="/users" element={<Users />} />
               <Route path="/trips" element={<Trips />} />
+              <Route path="/trips/:id" element={<TripDetails />} />
               <Route path="/vendors" element={<Vendors />} />
               <Route path="/customers" element={<Customers />} />
               <Route path="/vehicles" element={<Vehicles />} />
@@ -137,9 +135,7 @@ function App() {
   return (
     <AuthProvider >
       <Router>
-        <QueryClientProvider client={queryClient}>
-          <AppContent />
-        </QueryClientProvider>
+        <AppContent />
       </Router>
     </AuthProvider>
   );

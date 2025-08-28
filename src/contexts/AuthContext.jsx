@@ -47,9 +47,19 @@ export const AuthProvider = ({ children }) => {
         password: credentials?.password,
       };
       const { data } = await api.post('/auth/login', payload);
+      console.log('Login response:', data);
+      
+      // Store the token in localStorage
+      if (data?.data?.token) {
+        localStorage.setItem('token', data.data.token);
+      } else if (data?.token) {
+        localStorage.setItem('token', data.token);
+      }
+      
       setUser(data?.data);
       return { success: true, data: data?.data };
     } catch (error) {
+      console.error('Login error:', error);
       return { success: false, error: error.message };
     }
   };
@@ -71,6 +81,9 @@ export const AuthProvider = ({ children }) => {
       // ignore
     } finally {
       setUser(null);
+      // Clear the token from localStorage
+      localStorage.removeItem('token');
+      localStorage.removeItem('accessToken');
     }
   };
 

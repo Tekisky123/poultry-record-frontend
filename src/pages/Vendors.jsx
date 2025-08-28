@@ -1,5 +1,8 @@
 // src/pages/Vendors.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
 import { 
   Plus, 
   Search, 
@@ -12,53 +15,50 @@ import {
   Eye,
   Edit,
   Trash2,
-  MoreHorizontal
+  MoreHorizontal,
+  Loader2,
+  X
 } from 'lucide-react';
+import api from '../lib/axios';
+import { useAuth } from '../contexts/AuthContext';
 
-const mockVendors = [
-  {
-    id: 1,
-    vendorName: 'Rafeeq Chicken Center',
-    companyName: 'Rafeeq Poultry Ltd.',
-    gstNumber: '27AABFR1234Z1Z5',
-    contactNumber: '+91 98765 43210',
-    email: 'rafeeq@poultry.com',
-    address: '123 Main Street, Mumbai',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    country: 'India',
-    defaultPaymentMode: 'cash',
-    isActive: true
-  },
-  {
-    id: 2,
-    vendorName: 'Fresh Farm Suppliers',
-    companyName: 'Fresh Farm Group',
-    gstNumber: '29AAFFS5678Z1Z9',
-    contactNumber: '+91 87654 32109',
-    email: 'freshfarm@suppliers.com',
-    address: '456 Industrial Area, Pune',
-    city: 'Pune',
-    state: 'Maharashtra',
-    country: 'India',
-    defaultPaymentMode: 'credit',
-    isActive: true
-  },
-  {
-    id: 3,
-    vendorName: 'Quality Birds Co.',
-    companyName: 'Quality Birds Corporation',
-    gstNumber: '32AAQBC9012Z1Z2',
-    contactNumber: '+91 76543 21098',
-    email: 'quality@birds.com',
-    address: '789 Farm Road, Nagpur',
-    city: 'Nagpur',
-    state: 'Maharashtra',
-    country: 'India',
-    defaultPaymentMode: 'advance',
-    isActive: false
-  }
-];
+// Zod Schema for Vendor validation
+const vendorSchema = z.object({
+  vendorName: z.string()
+    .min(3, 'Vendor name must be at least 3 characters')
+    .max(100, 'Vendor name cannot exceed 100 characters'),
+  companyName: z.string()
+    .max(150, 'Company name cannot exceed 150 characters')
+    .optional(),
+  gstNumber: z.string()
+    // Make GST validation less strict for testing
+    // .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GST number format')
+    .optional(),
+  contactNumber: z.string()
+    .min(10, 'Contact number must be at least 10 digits')
+    .regex(/^[0-9+\-\s()]+$/, 'Invalid contact number format'),
+  email: z.string()
+    .email('Invalid email address')
+    .toLowerCase(),
+  address: z.string()
+    .max(200, 'Address cannot exceed 200 characters')
+    .optional(),
+  city: z.string()
+    .max(100, 'City name too long')
+    .optional(),
+  state: z.string()
+    .max(100, 'State name too long')
+    .optional(),
+  postalCode: z.string()
+    .regex(/^[0-9A-Z\-\s]+$/, 'Invalid postal code format')
+    .optional(),
+  country: z.string()
+    .max(100, 'Country name too long')
+    .optional(),
+  defaultPaymentMode: z.enum(['cash', 'credit', 'advance'], {
+    required_error: 'Payment mode is required',
+  }).default('cash'),
+});
 
 const getPaymentModeColor = (mode) => {
   const colors = {
@@ -74,11 +74,189 @@ const getStatusColor = (isActive) => {
 };
 
 export default function Vendors() {
+  const { user } = useAuth();
+  const [vendors, setVendors] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isError, setIsError] = useState(false);
+  const [error, setError] = useState('');
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [editingVendor, setEditingVendor] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const filteredVendors = mockVendors.filter(vendor => {
+  // Debug user information
+  useEffect(() => {
+    console.log('Current user:', user);
+    console.log('User role:', user?.role);
+  }, [user]);
+
+  // Check if user has admin privileges
+  const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
+
+  // React Hook Form with Zod validation
+  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm({
+    resolver: zodResolver(vendorSchema),
+    defaultValues: {
+      vendorName: '',
+      companyName: '',
+      gstNumber: '',
+      contactNumber: '',
+      email: '',
+      address: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: '',
+      defaultPaymentMode: 'cash',
+    }
+  });
+
+  // Fetch vendors
+  const fetchVendors = async () => {
+    try {
+      setIsLoading(true);
+      console.log('Fetching vendors...');
+      const { data } = await api.get('/vendor');
+      console.log('Vendors response:', data);
+      setVendors(data.data || []);
+      setIsError(false);
+    } catch (err) {
+      console.error('Error fetching vendors:', err);
+      setIsError(true);
+      setError(err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVendors();
+  }, []);
+
+  // CRUD operations
+  const addVendor = async (vendorData) => {
+    try {
+      setIsSubmitting(true);
+      console.log('Adding vendor:', vendorData);
+      const { data } = await api.post('/vendor', vendorData);
+      console.log('Add vendor response:', data);
+      setVendors(prev => [...prev, data.data]);
+      setShowAddModal(false);
+      setEditingVendor(null);
+      reset();
+      // Show success message
+      alert('Vendor added successfully!');
+    } catch (err) {
+      console.error('Error adding vendor:', err);
+      setError(err.message);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const updateVendor = async ({ id, ...vendorData }) => {
+    try {
+      setIsSubmitting(true);
+      console.log('Updating vendor:', { id, ...vendorData });
+      const { data } = await api.put(`/vendor/${id}`, vendorData);
+      console.log('Update vendor response:', data);
+      setVendors(prev => prev.map(v => v.id === id ? data.data : v));
+      setShowAddModal(false);
+      setEditingVendor(null);
+      reset();
+      // Show success message
+      alert('Vendor updated successfully!');
+    } catch (err) {
+      console.error('Error updating vendor:', err);
+      setError(err.message);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const deleteVendor = async (id) => {
+    try {
+      console.log('Deleting vendor:', id);
+      await api.delete(`/vendor/${id}`);
+      console.log('Vendor deleted successfully');
+      setVendors(prev => prev.filter(v => v.id !== id));
+      // Show success message
+      alert('Vendor deleted successfully!');
+    } catch (err) {
+      console.error('Error deleting vendor:', err);
+      setError(err.message);
+      alert(`Error: ${err.message}`);
+    }
+  };
+
+  const fetchVendorById = async (id) => {
+    try {
+      const { data } = await api.get(`/vendor/${id}`);
+      return data.data;
+    } catch (err) {
+      setError(err.message);
+      return null;
+    }
+  };
+
+  const handleEdit = async (vendor) => {
+    setEditingVendor(vendor);
+    // Pre-fill form with vendor data
+    setValue('vendorName', vendor.vendorName || '');
+    setValue('companyName', vendor.companyName || '');
+    setValue('gstNumber', vendor.gstNumber || '');
+    setValue('contactNumber', vendor.contactNumber || '');
+    setValue('email', vendor.email || '');
+    setValue('address', vendor.address || '');
+    setValue('city', vendor.city || '');
+    setValue('state', vendor.state || '');
+    setValue('postalCode', vendor.postalCode || '');
+    setValue('country', vendor.country || '');
+    setValue('defaultPaymentMode', vendor.defaultPaymentMode || 'cash');
+    setShowAddModal(true);
+  };
+
+  const handleDelete = async (vendor) => {
+    if (window.confirm(`Are you sure you want to delete ${vendor.vendorName}?`)) {
+      await deleteVendor(vendor.id);
+    }
+  };
+
+  const handleView = async (vendor) => {
+    const vendorDetails = await fetchVendorById(vendor.id);
+    if (vendorDetails) {
+      // You can implement a view modal here or navigate to a details page
+      console.log('Vendor details:', vendorDetails);
+      alert(`Vendor: ${vendorDetails.vendorName}\nEmail: ${vendorDetails.email}\nContact: ${vendorDetails.contactNumber}`);
+    }
+  };
+
+  const onSubmit = (data) => {
+    if (editingVendor) {
+      updateVendor({ id: editingVendor.id, ...data });
+    } else {
+      addVendor(data);
+    }
+  };
+
+  const handleAddNew = () => {
+    setEditingVendor(null);
+    reset();
+    setShowAddModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowAddModal(false);
+    setEditingVendor(null);
+    reset();
+    setError('');
+  };
+
+  const filteredVendors = vendors.filter(vendor => {
     const matchesSearch = vendor.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          vendor.contactNumber.includes(searchTerm) ||
@@ -90,6 +268,42 @@ export default function Vendors() {
     return matchesSearch && matchesStatus && matchesPayment;
   });
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-red-600 mb-4">{error}</p>
+        <button 
+          onClick={fetchVendors}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (!hasAdminAccess) {
+    return (
+      <div className="text-center py-8">
+        <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
+        <p className="text-gray-600 mb-4">
+          You need admin privileges to access the Vendors Management page.
+        </p>
+        <p className="text-sm text-gray-500">
+          Current role: {user?.role || 'Not logged in'}
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -97,8 +311,17 @@ export default function Vendors() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Vendors Management</h1>
           <p className="text-gray-600 mt-1">Manage your poultry suppliers and vendors</p>
+          {/* Debug user info */}
+          <div className="mt-2 text-sm text-gray-500">
+            <p>Current User: {user?.name || 'Not logged in'}</p>
+            <p>User Role: {user?.role || 'No role'}</p>
+            <p>User ID: {user?.id || 'No ID'}</p>
+          </div>
         </div>
-        <button className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
+        <button 
+          onClick={handleAddNew}
+          className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+        >
           <Plus size={20} />
           Add Vendor
         </button>
@@ -165,13 +388,22 @@ export default function Vendors() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button className="p-1 text-gray-400 hover:text-blue-600 transition-colors">
+                <button 
+                  onClick={() => handleView(vendor)}
+                  className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                >
                   <Eye size={16} />
                 </button>
-                <button className="p-1 text-gray-400 hover:text-green-600 transition-colors">
+                <button 
+                  onClick={() => handleEdit(vendor)}
+                  className="p-1 text-gray-400 hover:text-green-600 transition-colors"
+                >
                   <Edit size={16} />
                 </button>
-                <button className="p-1 text-gray-400 hover:text-red-600 transition-colors">
+                <button 
+                  onClick={() => handleDelete(vendor)}
+                  className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                >
                   <Trash2 size={16} />
                 </button>
               </div>
@@ -247,6 +479,172 @@ export default function Vendors() {
           </div>
         </div>
       </div>
+
+      {/* Vendor Form Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {editingVendor ? 'Edit Vendor' : 'Add New Vendor'}
+              </h2>
+              <button
+                onClick={handleCloseModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Vendor Name *
+                  </label>
+                  <input
+                    type="text"
+                    {...register('vendorName')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.vendorName && <p className="text-red-500 text-xs mt-1">{errors.vendorName.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    {...register('companyName')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.companyName && <p className="text-red-500 text-xs mt-1">{errors.companyName.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    GST Number
+                  </label>
+                  <input
+                    type="text"
+                    {...register('gstNumber')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.gstNumber && <p className="text-red-500 text-xs mt-1">{errors.gstNumber.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Contact Number *
+                  </label>
+                  <input
+                    type="tel"
+                    {...register('contactNumber')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.contactNumber && <p className="text-red-500 text-xs mt-1">{errors.contactNumber.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email *
+                  </label>
+                  <input
+                    type="email"
+                    {...register('email')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Default Payment Mode
+                  </label>
+                  <select
+                    {...register('defaultPaymentMode')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="credit">Credit</option>
+                    <option value="advance">Advance</option>
+                  </select>
+                  {errors.defaultPaymentMode && <p className="text-red-500 text-xs mt-1">{errors.defaultPaymentMode.message}</p>}
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Address
+                  </label>
+                  <input
+                    type="text"
+                    {...register('address')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    {...register('city')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.city && <p className="text-red-500 text-xs mt-1">{errors.city.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    {...register('state')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.state && <p className="text-red-500 text-xs mt-1">{errors.state.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Postal Code
+                  </label>
+                  <input
+                    type="text"
+                    {...register('postalCode')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.postalCode && <p className="text-red-500 text-xs mt-1">{errors.postalCode.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    {...register('country')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.country && <p className="text-red-500 text-xs mt-1">{errors.country.message}</p>}
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {editingVendor ? 'Update Vendor' : 'Add Vendor'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
