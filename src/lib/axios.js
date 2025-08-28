@@ -11,6 +11,19 @@ const api = axios.create({
 	},
 });
 
+api.interceptors.request.use(config => {
+	// Assuming you have access to the cookie value
+	const authToken = 'your-auth-token';
+
+	// Set the cookie in the header
+	config.headers['Cookie'] = `token=${authToken}`;
+
+	return config;
+}, error => {
+	// Do something with request error
+	return Promise.reject(error);
+});
+
 // Request interceptor to add Authorization header
 // api.interceptors.request.use(
 // 	(config) => {
@@ -27,17 +40,17 @@ const api = axios.create({
 // 	}
 // );
 
-api.interceptors.response.use(
-	(response) => response,
-	(error) => {
-		// Normalize error
-		const message =
-			error?.response?.data?.message ||
-			error?.response?.data?.error ||
-			error?.message ||
-			'Unexpected error';
-		return Promise.reject(new Error(message));
-	}
-);
+// api.interceptors.response.use(
+// 	(response) => response,
+// 	(error) => {
+// 		// Normalize error
+// 		const message =
+// 			error?.response?.data?.message ||
+// 			error?.response?.data?.error ||
+// 			error?.message ||
+// 			'Unexpected error';
+// 		return Promise.reject(new Error(message));
+// 	}
+// );
 
 export default api;
