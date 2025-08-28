@@ -12,20 +12,20 @@ const api = axios.create({
 });
 
 // Request interceptor to add Authorization header
-api.interceptors.request.use(
-	(config) => {
-		// Get token from localStorage or cookies
-		const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
-		if (token) {
-			config.headers.Authorization = `Bearer ${token}`;
-		}
-		console.log('Request config:', config);
-		return config;
-	},
-	(error) => {
-		return Promise.reject(error);
-	}
-);
+// api.interceptors.request.use(
+// 	(config) => {
+// 		// Get token from localStorage or cookies
+// 		const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+// 		if (token) {
+// 			config.headers.Authorization = `Bearer ${token}`;
+// 		}
+// 		console.log('Request config:', config);
+// 		return config;
+// 	},
+// 	(error) => {
+// 		return Promise.reject(error);
+// 	}
+// );
 
 api.interceptors.response.use(
 	(response) => response,
