@@ -49,11 +49,15 @@ export const AuthProvider = ({ children }) => {
       const { data } = await api.post('/auth/login', payload);
       console.log('Login response:', data);
       
-      // Store the token in localStorage
+      // Store the token in localStorage for frontend use
       if (data?.data?.token) {
         localStorage.setItem('token', data.data.token);
+        console.log('Token stored in localStorage');
       } else if (data?.token) {
         localStorage.setItem('token', data.token);
+        console.log('Token stored in localStorage');
+      } else {
+        console.log('No token found in response');
       }
       
       setUser(data?.data);
@@ -87,12 +91,19 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Helper function to check if token exists
+  const hasToken = () => {
+    const token = localStorage.getItem('token') || localStorage.getItem('accessToken');
+    return !!token;
+  };
+
   const value = {
     user,
     loading,
     login,
     signup,
     logout,
+    hasToken,
     showFailureModal,
     setShowFailureModal,
     error  
