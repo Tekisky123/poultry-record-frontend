@@ -42,17 +42,17 @@ api.interceptors.request.use(
 		
 		if (token) {
 			config.headers.Authorization = `Bearer ${token}`;
-			console.log(`✅ Token attached to request from ${tokenSource}:`, token.substring(0, 20) + '...');
-			console.log('🔍 Full Authorization header:', config.headers.Authorization);
+			// console.log(`✅ Token attached to request from ${tokenSource}:`, token.substring(0, 20) + '...');
+			// console.log('🔍 Full Authorization header:', config.headers.Authorization);
 		} else {
 			console.log('❌ No token found in cookies or localStorage');
-			console.log('🔍 Available cookies:', document.cookie);
-			console.log('🔍 localStorage token:', localStorage.getItem('token'));
+			// console.log('🔍 Available cookies:', document.cookie);
+			// console.log('🔍 localStorage token:', localStorage.getItem('token'));
 		}
 		
-		console.log('📤 Request config headers:', config.headers);
-		console.log('🌐 Request URL:', config.url);
-		console.log('📋 Request method:', config.method);
+		// console.log('📤 Request config headers:', config.headers);
+		// console.log('🌐 Request URL:', config.url);
+		// console.log('📋 Request method:', config.method);
 		return config;
 	},
 	(error) => {
