@@ -31,7 +31,7 @@ export default function Dashboard() {
       ]);
       
       setStats(statsRes.data.data);
-      setRecentTrips(tripsRes.data.data?.trips || tripsRes.data.data || []);
+      setRecentTrips(tripsRes.data?.trips || tripsRes.data.data.trips || []);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
     } finally {

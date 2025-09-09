@@ -172,11 +172,11 @@ const SupervisorCreateTrip = () => {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Details */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Basic Details</h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Trip Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label htmlFor="place" className="block text-sm font-medium text-gray-700 mb-1">
-                Base Location *
+                Base Location (Start & End Point) *
               </label>
               <input
                 type="text"
@@ -242,6 +242,42 @@ const SupervisorCreateTrip = () => {
                 placeholder="0"
                 min="0"
               />
+            </div>
+          </div>
+        </div>
+
+        {/* Round Trip Activities */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Round Trip Activities</h3>
+          <div className="space-y-4">
+            <div className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Plus className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h4 className="font-medium text-blue-900">Purchase Phase</h4>
+                <p className="text-sm text-blue-700">Buy chickens from vendors during this trip</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start space-x-3 p-4 bg-green-50 rounded-lg border border-green-200">
+              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Truck className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h4 className="font-medium text-green-900">Delivery Phase</h4>
+                <p className="text-sm text-green-700">Sell chickens to customers during this trip</p>
+              </div>
+            </div>
+            
+            <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <MapPin className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900">Return Phase</h4>
+                <p className="text-sm text-gray-700">Return to base location after completing purchases and deliveries</p>
+              </div>
             </div>
           </div>
         </div>

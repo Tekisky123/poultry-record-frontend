@@ -64,11 +64,11 @@ const SignIn = () => {
           </p>
         </div>
 
-        <FailureModal
+        {/* <FailureModal
           show={showFailureModal}
           onClose={() => setShowFailureModal(false)}
           message={authError}
-        />
+        /> */}
 
         {/* Form */}
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>

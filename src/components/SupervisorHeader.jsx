@@ -22,7 +22,7 @@ const SupervisorHeader = () => {
           </div>
           <div>
             <h1 className="text-lg font-semibold text-gray-900">Poultry Supervisor</h1>
-            <p className="text-xs text-gray-500">Farm Management</p>
+            <p className="text-xs text-gray-500">RCC AND TRADING COMPANY</p>
           </div>
         </div>
 

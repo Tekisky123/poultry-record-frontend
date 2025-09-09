@@ -1,5 +1,6 @@
 // src/pages/Trips.jsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -70,6 +71,7 @@ const getStatusText = (status) => {
 
 export default function Trips() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [trips, setTrips] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
@@ -254,8 +256,8 @@ export default function Trips() {
   };
 
   const handleView = async (trip) => {
-    // Navigate to trip details page
-    window.location.href = `/trips/${trip.id}`;
+    // Navigate to trip details page using React Router
+    navigate(`/trips/${trip.id}`);
   };
 
   const onSubmit = (data) => {
@@ -369,12 +371,6 @@ export default function Trips() {
                : 'View and track all poultry transportation trips (read-only access)'
              }
            </p>
-                     {/* Debug user info */}
-           <div className="mt-2 text-sm text-gray-500">
-             <p>Current User: {user?.name || 'Not logged in'}</p>
-             <p>User Role: {user?.role || 'No role'}</p>
-             <p>User ID: {user?.id || 'No ID'}</p>
-           </div>
            
            {/* Access level info */}
            {isAdmin && !isSupervisor && (
@@ -563,7 +559,7 @@ export default function Trips() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="text-sm text-gray-500">Total Trips</div>
           <div className="text-2xl font-bold text-gray-900">{filteredTrips.length}</div>
@@ -586,7 +582,7 @@ export default function Trips() {
             {filteredTrips.reduce((sum, trip) => sum + (trip.summary?.totalBirdsSold || 0), 0).toLocaleString()}
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Trip Form Modal */}
       {showAddModal && (

@@ -311,12 +311,6 @@ export default function Vendors() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Vendors Management</h1>
           <p className="text-gray-600 mt-1">Manage your poultry suppliers and vendors</p>
-          {/* Debug user info */}
-          <div className="mt-2 text-sm text-gray-500">
-            <p>Current User: {user?.name || 'Not logged in'}</p>
-            <p>User Role: {user?.role || 'No role'}</p>
-            <p>User ID: {user?.id || 'No ID'}</p>
-          </div>
         </div>
         <button 
           onClick={handleAddNew}
@@ -455,7 +449,7 @@ export default function Vendors() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="text-sm text-gray-500">Total Vendors</div>
           <div className="text-2xl font-bold text-gray-900">{filteredVendors.length}</div>
@@ -478,7 +472,7 @@ export default function Vendors() {
             {filteredVendors.filter(v => v.defaultPaymentMode === 'credit').length}
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Vendor Form Modal */}
       {showAddModal && (

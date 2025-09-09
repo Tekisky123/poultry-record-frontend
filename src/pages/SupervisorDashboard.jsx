@@ -10,13 +10,17 @@ import {
   Clock,
   AlertCircle
 } from 'lucide-react';
+import api from '../lib/axios';
 
 const SupervisorDashboard = () => {
   const [stats, setStats] = useState({
     totalTrips: 0,
-    activeTrips: 0,
-    monthlyProfit: 0,
-    monthlyExpenses: 0
+    completedTrips: 0,
+    totalSales: 0,
+    totalPurchases: 0,
+    totalProfit: 0,
+    totalBirdsSold: 0,
+    totalWeightSold: 0
   });
   const [recentTrips, setRecentTrips] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -28,26 +32,18 @@ const SupervisorDashboard = () => {
   const fetchDashboardData = async () => {
     try {
       const [statsResponse, tripsResponse] = await Promise.all([
-        fetch('/api/dashboard/supervisor-stats', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        }),
-        fetch('/api/trips/recent', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        })
+        api.post('/dashboard/stats').catch(() => ({ data: { success: false } })),
+        api.get('/trip?limit=5').catch(() => ({ data: { success: false } }))
       ]);
-
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        setStats(statsData.data);
-      }
-
-      if (tripsResponse.ok) {
-        const tripsData = await tripsResponse.json();
-        setRecentTrips(tripsData.data);
+      
+      // if (statsResponse.data.success) {
+      //   const dashboardData = statsResponse?.data?.data;
+      //   setStats(dashboardData?.stats);
+      // }
+      
+      if (tripsResponse.data.success) {
+        const tripsData = tripsResponse.data.trips || [];
+        setRecentTrips(tripsData);
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -78,7 +74,7 @@ const SupervisorDashboard = () => {
       {/* Welcome Section */}
       <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg p-6 text-white">
         <h1 className="text-2xl font-bold mb-2">Welcome back!</h1>
-        <p className="text-primary-100">Ready to manage your next trip?</p>
+        <p className="text-primary-100">Ready to create your next round trip?</p>
         
         {/* Quick Actions */}
         <div className="mt-4 flex space-x-3">
@@ -87,7 +83,7 @@ const SupervisorDashboard = () => {
             className="bg-white text-primary-600 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors flex items-center space-x-2"
           >
             <Plus size={16} />
-            <span>New Trip</span>
+            <span>New Round Trip</span>
           </Link>
           <Link
             to="/supervisor/trips"
@@ -116,8 +112,8 @@ const SupervisorDashboard = () => {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Active Trips</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.activeTrips}</p>
+              <p className="text-sm text-gray-600">Completed Trips</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.completedTrips}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <Clock className="w-6 h-6 text-green-600" />
@@ -128,8 +124,8 @@ const SupervisorDashboard = () => {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Monthly Profit</p>
-              <p className="text-2xl font-bold text-green-600">₹{stats.monthlyProfit.toLocaleString()}</p>
+              <p className="text-sm text-gray-600">Total Profit</p>
+              <p className="text-2xl font-bold text-green-600">₹{stats.totalProfit.toLocaleString()}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <TrendingUp className="w-6 h-6 text-green-600" />
@@ -140,11 +136,11 @@ const SupervisorDashboard = () => {
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Monthly Expenses</p>
-              <p className="text-2xl font-bold text-red-600">₹{stats.monthlyExpenses.toLocaleString()}</p>
+              <p className="text-sm text-gray-600">Total Sales</p>
+              <p className="text-2xl font-bold text-blue-600">₹{stats.totalSales.toLocaleString()}</p>
             </div>
-            <div className="p-3 bg-red-100 rounded-lg">
-              <TrendingDown className="w-6 h-6 text-red-600" />
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <DollarSign className="w-6 h-6 text-blue-600" />
             </div>
           </div>
         </div>
@@ -177,18 +173,18 @@ const SupervisorDashboard = () => {
                       {trip.status}
                     </span>
                     <span className="text-xs text-gray-500">
-                      {new Date(trip.date).toLocaleDateString()}
+                      {new Date(trip.date || trip.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                   <p className="text-sm font-medium text-gray-900">
-                    {trip.route?.from} → {trip.route?.to}
+                    {trip.place || 'Round Trip'}
                   </p>
                   <p className="text-xs text-gray-500">
-                    Vehicle: {trip.vehicle?.registrationNumber || 'N/A'}
+                    Vehicle: {trip.vehicle?.vehicleNumber || 'N/A'}
                   </p>
                 </div>
                 <Link
-                  to={`/supervisor/trips/${trip._id}`}
+                  to={`/supervisor/trips/${trip.id}`}
                   className="text-primary-600 hover:text-primary-700 p-2"
                 >
                   <MapPin size={16} />
@@ -199,33 +195,6 @@ const SupervisorDashboard = () => {
         )}
       </div>
 
-      {/* Quick Actions */}
-      <div className="card">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <Link
-            to="/supervisor/trips/create?type=purchase"
-            className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-center hover:bg-blue-100 transition-colors"
-          >
-            <div className="w-8 h-8 bg-blue-600 rounded-lg mx-auto mb-2 flex items-center justify-center">
-              <Plus className="w-5 h-5 text-white" />
-            </div>
-            <p className="text-sm font-medium text-blue-900">Purchase Trip</p>
-            <p className="text-xs text-blue-600">Buy chickens</p>
-          </Link>
-
-          <Link
-            to="/supervisor/trips/create?type=delivery"
-            className="p-4 bg-green-50 border border-green-200 rounded-lg text-center hover:bg-green-100 transition-colors"
-          >
-            <div className="w-8 h-8 bg-green-600 rounded-lg mx-auto mb-2 flex items-center justify-center">
-              <Truck className="w-5 h-5 text-white" />
-            </div>
-            <p className="text-sm font-medium text-green-900">Delivery Trip</p>
-            <p className="text-xs text-green-600">Sell chickens</p>
-          </Link>
-        </div>
-      </div>
     </div>
   );
 };

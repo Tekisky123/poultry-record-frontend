@@ -57,7 +57,7 @@ export default function Sidebar() {
       >
         <div className="p-6 border-b border-blue-700">
           <h1 className="text-2xl font-bold text-white">Poultry Admin</h1>
-          <p className="text-blue-200 text-sm mt-1">Farm Management System</p>
+          <p className="text-blue-200 text-sm mt-1">RCC AND TRADING COMPANY</p>
         </div>
 
         <nav className="mt-6 px-3">

@@ -32,12 +32,16 @@ const customerSchema = z.object({
     .optional(),
   contact: z.string()
     .min(10, 'Contact number must be at least 10 digits')
-    .regex(/^[0-9+\-\s()]+$/, 'Invalid contact number format'),
+    .max(10, 'Contact number must be exactly 10 digits')
+    .regex(/^[0-9]{10}$/, 'Contact number must be exactly 10 digits'),
   address: z.string()
     .max(200, 'Address cannot exceed 200 characters')
     .optional(),
   area: z.string()
     .max(100, 'Area name too long')
+    .optional(),
+  gstOrPanNumber: z.string()
+    .max(100, 'GST or PAN number cannot exceed 100 characters')
     .optional(),
 });
 
@@ -184,9 +188,14 @@ export default function Customers() {
     // Pre-fill form with customer data
     setValue('shopName', customer.shopName || '');
     setValue('ownerName', customer.ownerName || '');
-    setValue('contact', customer.contact || '');
+    // Remove +91 prefix for editing (show only 10 digits)
+    const contactNumber = customer.contact?.startsWith('+91') 
+      ? customer.contact.substring(3) 
+      : customer.contact || '';
+    setValue('contact', contactNumber);
     setValue('address', customer.address || '');
     setValue('area', customer.area || '');
+    setValue('gstOrPanNumber', customer.gstOrPanNumber || '');
     setShowAddModal(true);
   };
 
@@ -206,10 +215,16 @@ export default function Customers() {
   };
 
   const onSubmit = (data) => {
+    // Add +91 prefix to contact number
+    const customerData = {
+      ...data,
+      contact: `+91${data.contact}`
+    };
+    
     if (editingCustomer) {
-      updateCustomer({ id: editingCustomer.id, ...data });
+      updateCustomer({ id: editingCustomer.id, ...customerData });
     } else {
-      addCustomer(data);
+      addCustomer(customerData);
     }
   };
 
@@ -230,7 +245,8 @@ export default function Customers() {
     const matchesSearch = customer.shopName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          customer.ownerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          customer.contact.includes(searchTerm) ||
-                         customer.address.toLowerCase().includes(searchTerm.toLowerCase());
+                         customer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         customer.gstOrPanNumber?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || 
                          (statusFilter === 'active' && customer.isActive) ||
                          (statusFilter === 'inactive' && !customer.isActive);
@@ -281,12 +297,6 @@ export default function Customers() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Customers Management</h1>
           <p className="text-gray-600 mt-1">Manage your poultry customers and retail partners</p>
-          {/* Debug user info */}
-          <div className="mt-2 text-sm text-gray-500">
-            <p>Current User: {user?.name || 'Not logged in'}</p>
-            <p>User Role: {user?.role || 'No role'}</p>
-            <p>User ID: {user?.id || 'No ID'}</p>
-          </div>
         </div>
         <button onClick={handleAddNew} className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2">
           <Plus size={20} />
@@ -392,6 +402,12 @@ export default function Customers() {
                     <MapPin className="w-4 h-4" />
                     <span>{customer.address}</span>
                   </div>
+                  {customer.gstOrPanNumber && (
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <CreditCard className="w-4 h-4" />
+                      <span>GST/PAN: {customer.gstOrPanNumber}</span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Shop Type and Credit Info */}
@@ -442,7 +458,7 @@ export default function Customers() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="text-sm text-gray-500">Total Customers</div>
           <div className="text-2xl font-bold text-gray-900">{filteredCustomers.length}</div>
@@ -465,7 +481,7 @@ export default function Customers() {
             {filteredCustomers.filter(c => c.area).length}
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Customer Form Modal */}
       {showAddModal && (
@@ -511,11 +527,18 @@ export default function Customers() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Contact Number *
                   </label>
-                  <input
-                    type="tel"
-                    {...register('contact')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <span className="text-gray-500 sm:text-sm">+91</span>
+                    </div>
+                    <input
+                      type="tel"
+                      {...register('contact')}
+                      placeholder="Enter 10-digit mobile number"
+                      maxLength="10"
+                      className="w-full pl-12 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
                   {errors.contact && <p className="text-red-500 text-xs mt-1">{errors.contact.message}</p>}
                 </div>
                 <div>
@@ -528,6 +551,18 @@ export default function Customers() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   {errors.area && <p className="text-red-500 text-xs mt-1">{errors.area.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    GST/PAN Number
+                  </label>
+                  <input
+                    type="text"
+                    {...register('gstOrPanNumber')}
+                    placeholder="Enter GST or PAN number"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.gstOrPanNumber && <p className="text-red-500 text-xs mt-1">{errors.gstOrPanNumber.message}</p>}
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">

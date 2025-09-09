@@ -27,7 +27,7 @@ export default function SupervisorTrips() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   useEffect(() => {
     if (user?.role === 'supervisor') {
@@ -68,7 +68,9 @@ export default function SupervisorTrips() {
 
   const filteredTrips = trips.filter(trip => {
     const matchesSearch = trip.tripId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         trip.vehicle?.vehicleNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+                         trip.vehicle?.vehicleNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         trip.place?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         trip.driver?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || trip.status === statusFilter;
     return matchesSearch && matchesStatus;
   });

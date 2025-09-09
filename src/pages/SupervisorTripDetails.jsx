@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { 
-  Truck, 
-  MapPin, 
-  Users, 
-  DollarSign, 
-  Plus, 
+import {
+  Truck,
+  MapPin,
+  Users,
+  DollarSign,
+  Plus,
   X,
   Save,
   Loader2,
@@ -18,27 +18,48 @@ import {
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
+import InvoiceGenerator from '../components/InvoiceGenerator';
 
 const SupervisorTripDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  
+
+  // Generate unique bill number
+  const generateBillNumber = () => {
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2);
+    const month = (now.getMonth() + 1).toString().padStart(2, '0');
+    const day = now.getDate().toString().padStart(2, '0');
+    const hours = now.getHours().toString().padStart(2, '0');
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    
+    return `BILL${year}${month}${day}${hours}${minutes}${seconds}`;
+  };
+
   const [trip, setTrip] = useState(null);
   const [vendors, setVendors] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [filteredCustomers, setFilteredCustomers] = useState([]);
+  const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // Form states
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showDieselModal, setShowDieselModal] = useState(false);
+  const [showDeathBirdsModal, setShowDeathBirdsModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
-  
+
+
+
   // Form data
   const [purchaseData, setPurchaseData] = useState({
     supplier: '',
@@ -49,27 +70,31 @@ const SupervisorTripDetails = () => {
     rate: 0,
     amount: 0
   });
-  
+
   const [saleData, setSaleData] = useState({
     client: '',
-    billNumber: '',
+    billNumber: generateBillNumber(),
     birds: 0,
     weight: 0,
     avgWeight: 0,
     rate: 0,
     amount: 0,
+    paymentMode: 'cash',
+    paymentStatus: 'pending',
+    receivedAmount: 0,
+    discount: 0,
+    balance: 0,
     cashPaid: 0,
-    onlinePaid: 0,
-    balance: 0
+    onlinePaid: 0
   });
-  
+
   const [expenseData, setExpenseData] = useState({
     category: 'fuel',
     description: '',
     amount: 0,
     date: new Date().toISOString().split('T')[0]
   });
-  
+
   const [dieselData, setDieselData] = useState({
     stationName: '',
     volume: 0,
@@ -77,7 +102,17 @@ const SupervisorTripDetails = () => {
     amount: 0,
     date: new Date().toISOString().split('T')[0]
   });
-  
+
+  const [deathBirdsData, setDeathBirdsData] = useState({
+    quantity: 0,
+    weight: 0,
+    avgWeight: 0,
+    rate: 0,
+    total: 0,
+    reason: '',
+    date: new Date().toISOString().split('T')[0]
+  });
+
   const [completeData, setCompleteData] = useState({
     closingOdometer: 0,
     finalRemarks: '',
@@ -98,7 +133,7 @@ const SupervisorTripDetails = () => {
         setPurchaseData(prev => ({ ...prev, avgWeight }));
       }
     }
-    
+
     if (purchaseData.weight > 0 && purchaseData.rate > 0) {
       const amount = calculateAmount(purchaseData.weight, purchaseData.rate);
       if (amount !== purchaseData.amount) {
@@ -115,21 +150,80 @@ const SupervisorTripDetails = () => {
         setSaleData(prev => ({ ...prev, avgWeight }));
       }
     }
-    
+
     if (saleData.weight > 0 && saleData.rate > 0) {
       const amount = calculateAmount(saleData.weight, saleData.rate);
       if (amount !== saleData.amount) {
         setSaleData(prev => ({ ...prev, amount }));
       }
     }
-    
+
     if (saleData.amount > 0) {
-      const balance = saleData.amount - saleData.cashPaid - saleData.onlinePaid;
-      if (balance !== saleData.balance) {
-        setSaleData(prev => ({ ...prev, balance }));
+      const receivedAmount = saleData.cashPaid + saleData.onlinePaid;
+      const balance = saleData.amount - receivedAmount - saleData.discount;
+      if (receivedAmount !== saleData.receivedAmount || balance !== saleData.balance) {
+        setSaleData(prev => ({ 
+          ...prev, 
+          receivedAmount,
+          balance 
+        }));
       }
     }
-  }, [saleData.birds, saleData.weight, saleData.rate, saleData.amount, saleData.cashPaid, saleData.onlinePaid]);
+  }, [saleData.birds, saleData.weight, saleData.rate, saleData.amount, saleData.cashPaid, saleData.onlinePaid, saleData.discount]);
+
+  // Auto-calculate avgWeight and total when deathBirdsData changes
+  useEffect(() => {
+    if (deathBirdsData.quantity > 0 && deathBirdsData.weight > 0) {
+      const avgWeight = calculateAvgWeight(deathBirdsData.quantity, deathBirdsData.weight);
+      if (avgWeight !== deathBirdsData.avgWeight) {
+        setDeathBirdsData(prev => ({ ...prev, avgWeight }));
+      }
+    }
+
+    if (deathBirdsData.weight > 0 && deathBirdsData.rate > 0) {
+      const total = calculateAmount(deathBirdsData.weight, deathBirdsData.rate);
+      if (total !== deathBirdsData.total) {
+        setDeathBirdsData(prev => ({ ...prev, total }));
+      }
+    }
+  }, [deathBirdsData.quantity, deathBirdsData.weight, deathBirdsData.rate]);
+
+  // Filter customers based on search term
+  useEffect(() => {
+    if (customerSearchTerm.trim() === '') {
+      setFilteredCustomers(customers);
+    } else {
+      const filtered = customers.filter(customer =>
+        customer.shopName.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+        customer.ownerName?.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+        customer.contact?.includes(customerSearchTerm) ||
+        customer.area?.toLowerCase().includes(customerSearchTerm.toLowerCase())
+      );
+      setFilteredCustomers(filtered);
+    }
+  }, [customers, customerSearchTerm]);
+
+  // Group customers by area for better organization
+  const getCustomersByArea = (customerList) => {
+    const grouped = customerList.reduce((acc, customer) => {
+      const area = customer.area || 'No Area';
+      if (!acc[area]) {
+        acc[area] = [];
+      }
+      acc[area].push(customer);
+      return acc;
+    }, {});
+
+    // Sort areas by customer count (descending) and then alphabetically
+    return Object.entries(grouped)
+      .sort(([a, aCustomers], [b, bCustomers]) => {
+        if (bCustomers.length !== aCustomers.length) {
+          return bCustomers.length - aCustomers.length;
+        }
+        return a.localeCompare(b);
+      })
+      .map(([area, customersGrp]) => ({ area, customersGrp, count: customersGrp.length }));
+  };
 
   const fetchVendorsAndCustomers = async () => {
     try {
@@ -137,13 +231,16 @@ const SupervisorTripDetails = () => {
         api.get('/vendor'),
         api.get('/customer')
       ]);
-      
+
       if (vendorsRes.data.success) {
         setVendors(vendorsRes.data.data || []);
       }
-      
+
       if (customersRes.data.success) {
-        setCustomers(customersRes.data.data || []);
+        const customersData = customersRes.data.data || [];
+        // console.log('Fetched customers:', customersData);
+        setCustomers(customersData);
+        setFilteredCustomers(customersData);
       }
     } catch (error) {
       console.error('Error fetching vendors/customers:', error);
@@ -164,39 +261,69 @@ const SupervisorTripDetails = () => {
 
   const handlePurchaseDataChange = (field, value) => {
     const newData = { ...purchaseData, [field]: value };
-    
+
     // Auto-calculate avgWeight when birds or weight changes
     if (field === 'birds' || field === 'weight') {
       newData.avgWeight = calculateAvgWeight(newData.birds, newData.weight);
     }
-    
+
     // Auto-calculate amount when weight or rate changes
     if (field === 'weight' || field === 'rate') {
       newData.amount = calculateAmount(newData.weight, newData.rate);
     }
-    
+
     setPurchaseData(newData);
   };
 
   const handleSaleDataChange = (field, value) => {
     const newData = { ...saleData, [field]: value };
-    
+
     // Auto-calculate avgWeight when birds or weight changes
     if (field === 'birds' || field === 'weight') {
       newData.avgWeight = calculateAvgWeight(newData.birds, newData.weight);
     }
-    
+
     // Auto-calculate amount when weight or rate changes
     if (field === 'weight' || field === 'rate') {
       newData.amount = calculateAmount(newData.weight, newData.rate);
     }
-    
-    // Auto-calculate balance when amount, cashPaid, or onlinePaid changes
-    if (field === 'amount' || field === 'cashPaid' || field === 'onlinePaid') {
-      newData.balance = newData.amount - newData.cashPaid - newData.onlinePaid;
+
+    // Auto-calculate balance when amount, receivedAmount, or discount changes
+    if (field === 'amount' || field === 'receivedAmount' || field === 'discount') {
+      newData.balance = newData.amount - newData.receivedAmount - newData.discount;
     }
     
+    // Auto-calculate receivedAmount when cashPaid or onlinePaid changes
+    if (field === 'cashPaid' || field === 'onlinePaid') {
+      newData.receivedAmount = newData.cashPaid + newData.onlinePaid;
+      newData.balance = newData.amount - newData.receivedAmount - newData.discount;
+    }
+
     setSaleData(newData);
+  };
+
+  const handleCustomerSearch = (searchTerm) => {
+    setCustomerSearchTerm(searchTerm);
+    setShowCustomerDropdown(true);
+  };
+
+  const handleCustomerSelect = (customer) => {
+    setSelectedCustomer(customer);
+    setSaleData(prev => ({ ...prev, client: customer._id || customer.id }));
+    setCustomerSearchTerm(`${customer.shopName} - ${customer.ownerName || 'N/A'}`);
+    setShowCustomerDropdown(false);
+  };
+
+  const handleCustomerInputFocus = () => {
+    setShowCustomerDropdown(true);
+  };
+  
+
+  const handleCustomerInputBlur = () => {
+    // Delay hiding dropdown to allow for click events
+    setTimeout(() => {
+      setShowCustomerDropdown(false);
+    }, 150);
   };
 
   const fetchTrip = async () => {
@@ -219,7 +346,7 @@ const SupervisorTripDetails = () => {
   const handlePurchaseSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       const { data } = await api.post(`/trip/${id}/purchase`, purchaseData);
       if (data.success) {
@@ -239,13 +366,16 @@ const SupervisorTripDetails = () => {
   const handleSaleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       const { data } = await api.post(`/trip/${id}/sale`, saleData);
       if (data.success) {
         setTrip(data.data);
         setShowSaleModal(false);
-        setSaleData({ client: '', billNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, cashPaid: 0, onlinePaid: 0, balance: 0 });
+        setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+        setSelectedCustomer(null);
+        setCustomerSearchTerm('');
+        setShowCustomerDropdown(false);
         alert('Sale added successfully!');
       }
     } catch (error) {
@@ -259,7 +389,7 @@ const SupervisorTripDetails = () => {
   const handleExpenseSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       const { data } = await api.put(`/trip/${id}/expenses`, { expenses: [...(trip.expenses || []), expenseData] });
       if (data.success) {
@@ -279,10 +409,10 @@ const SupervisorTripDetails = () => {
   const handleDieselSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
-      const { data } = await api.put(`/trip/${id}/diesel`, { 
-        stations: [...(trip.diesel?.stations || []), dieselData] 
+      const { data } = await api.put(`/trip/${id}/diesel`, {
+        stations: [...(trip.diesel?.stations || []), dieselData]
       });
       if (data.success) {
         setTrip(data.data);
@@ -298,10 +428,47 @@ const SupervisorTripDetails = () => {
     }
   };
 
+  const handleDeathBirdsDataChange = (field, value) => {
+    const newData = { ...deathBirdsData, [field]: value };
+
+    // Auto-calculate avgWeight when quantity or weight changes
+    if (field === 'quantity' || field === 'weight') {
+      newData.avgWeight = calculateAvgWeight(newData.quantity, newData.weight);
+    }
+
+    // Auto-calculate total when weight or rate changes
+    if (field === 'weight' || field === 'rate') {
+      newData.total = calculateAmount(newData.weight, newData.rate);
+    }
+
+    setDeathBirdsData(newData);
+  };
+
+  const handleDeathBirdsSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      const { data } = await api.put(`/trip/${id}/death-birds`, deathBirdsData);
+      if (data.success) {
+        setTrip(data.data);
+        setShowDeathBirdsModal(false);
+        setDeathBirdsData({ quantity: 0, weight: 0, avgWeight: 0, rate: 0, total: 0, reason: '', date: new Date().toISOString().split('T')[0] });
+        alert('Death birds record added successfully!');
+      }
+    } catch (error) {
+      console.error('Error adding death birds record:', error);
+      alert(error.response?.data?.message || 'Failed to add death birds record');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+  
+
   const handleCompleteTrip = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    
+
     try {
       const { data } = await api.put(`/trip/${id}/complete`, completeData);
       if (data.success) {
@@ -318,6 +485,20 @@ const SupervisorTripDetails = () => {
     }
   };
 
+  const handleDownloadInvoice = (sale) => {
+    // Find customer details for this sale
+    console.log(sale);
+    const customer = customers.find(c => c._id === sale?.client?.id || c.id === sale?.client?.id);
+    
+    if (!customer) {
+      alert('Customer details not found for this sale');
+      return;
+    }
+
+    // Generate and download invoice
+    InvoiceGenerator.downloadInvoice(sale, trip, customer);
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -330,7 +511,7 @@ const SupervisorTripDetails = () => {
     return (
       <div className="text-center py-8">
         <p className="text-red-600 mb-4">{error}</p>
-        <button 
+        <button
           onClick={fetchTrip}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
@@ -364,21 +545,24 @@ const SupervisorTripDetails = () => {
             <p className="text-gray-600">Manage trip details and operations</p>
           </div>
         </div>
-        
+
         <div className="flex space-x-2">
-                     <button
-                         onClick={() => {
+          <button
+            onClick={() => {
               setPurchaseData({ supplier: '', dcNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0 });
               setShowPurchaseModal(true);
             }}
-             className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-           >
+            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+          >
             <Plus size={16} />
             Add Purchase
           </button>
           <button
             onClick={() => {
-              setSaleData({ client: '', billNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, cashPaid: 0, onlinePaid: 0, balance: 0 });
+              setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+              setSelectedCustomer(null);
+              setCustomerSearchTerm('');
+              setShowCustomerDropdown(false);
               setShowSaleModal(true);
             }}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
@@ -400,6 +584,16 @@ const SupervisorTripDetails = () => {
             <Fuel size={16} />
             Add Diesel
           </button>
+          <button
+            onClick={() => {
+              setDeathBirdsData({ quantity: 0, weight: 0, avgWeight: 0, rate: 0, total: 0, reason: '', date: new Date().toISOString().split('T')[0] });
+              setShowDeathBirdsModal(true);
+            }}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+          >
+            <X size={16} />
+            Add Death Birds
+          </button>
           {trip.status !== 'completed' && (
             <button
               onClick={() => setShowCompleteModal(true)}
@@ -416,11 +610,10 @@ const SupervisorTripDetails = () => {
       <div className="bg-white p-4 rounded-lg border border-gray-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-              trip.status === 'completed' ? 'bg-green-100 text-green-800' :
-              trip.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
-              'bg-yellow-100 text-yellow-800'
-            }`}>
+            <span className={`px-3 py-1 rounded-full text-sm font-medium ${trip.status === 'completed' ? 'bg-green-100 text-green-800' :
+                trip.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
+                  'bg-yellow-100 text-yellow-800'
+              }`}>
               {trip.status}
             </span>
             <span className="text-sm text-gray-600">
@@ -429,7 +622,7 @@ const SupervisorTripDetails = () => {
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold text-green-600">
-              ₹{trip.summary?.netProfit?.toLocaleString() || '0'}
+              ₹{trip.summary?.netProfit?.toFixed(2) || '0.00'}
             </div>
             <div className="text-sm text-gray-500">Net Profit</div>
           </div>
@@ -440,15 +633,14 @@ const SupervisorTripDetails = () => {
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
-            {['overview', 'purchases', 'sales', 'expenses', 'diesel', 'financials'].map((tab) => (
+            {['overview', 'purchases', 'sales', 'expenses', 'diesel', 'losses', 'financials'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm capitalize ${
-                  activeTab === tab
+                className={`py-4 px-1 border-b-2 font-medium text-sm capitalize ${activeTab === tab
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 {tab}
               </button>
@@ -489,28 +681,28 @@ const SupervisorTripDetails = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-gray-900">Financial Summary</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Total Sales:</span>
-                    <span className="font-medium">₹{trip.summary?.totalSalesAmount?.toLocaleString() || '0'}</span>
+                    <span className="font-medium">₹{trip.summary?.totalSalesAmount?.toFixed(2) || '0.00'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Total Purchases:</span>
-                    <span className="font-medium">₹{trip.summary?.totalPurchaseAmount?.toLocaleString() || '0'}</span>
+                    <span className="font-medium">₹{trip.summary?.totalPurchaseAmount?.toFixed(2) || '0.00'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Total Expenses:</span>
-                    <span className="font-medium">₹{trip.summary?.totalExpenses?.toLocaleString() || '0'}</span>
+                    <span className="font-medium">₹{trip.summary?.totalExpenses?.toFixed(2) || '0.00'}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2">
                     <span className="text-sm font-medium text-gray-900">Net Profit:</span>
-                    <span className="font-bold text-green-600">₹{trip.summary?.netProfit?.toLocaleString() || '0'}</span>
+                    <span className="font-bold text-green-600">₹{trip.summary?.netProfit?.toFixed(2) || '0.00'}</span>
                   </div>
                 </div>
-                
+
                 {/* Bird Summary */}
                 <div className="mt-4 pt-4 border-t">
                   <h4 className="font-medium text-gray-900 mb-2">Bird Summary</h4>
@@ -533,6 +725,31 @@ const SupervisorTripDetails = () => {
                     </div>
                   </div>
                 </div>
+
+                {/* Weight Summary */}
+                <div className="mt-4 pt-4 border-t">
+                  <h4 className="font-medium text-gray-900 mb-2">Weight Summary</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Purchased Weight:</span>
+                      <span className="font-medium">{(trip.summary?.totalWeightPurchased || 0).toFixed(2)} kg</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Sold Weight:</span>
+                      <span className="font-medium">{(trip.summary?.totalWeightSold || 0).toFixed(2)} kg</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Lost Weight:</span>
+                      <span className="font-medium text-red-600">{(trip.summary?.totalWeightLost || 0).toFixed(2)} kg</span>
+                    </div>
+                    {/* <div className="flex justify-between border-t pt-1">
+                      <span className="text-gray-600 font-medium">Weight Loss:</span>
+                      <span className={`font-bold ${(trip.summary?.birdWeightLoss || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                        {(trip.summary?.birdWeightLoss || 0).toFixed(2)} kg
+                      </span>
+                    </div> */}
+                  </div>
+                </div>
               </div>
             </div>
           )}
@@ -543,25 +760,31 @@ const SupervisorTripDetails = () => {
               <h3 className="text-lg font-semibold text-gray-900">Purchases</h3>
               {trip.purchases && trip.purchases.length > 0 ? (
                 <div className="space-y-3">
-                  {trip.purchases.map((purchase, index) => (
-                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <div className="font-medium">
-                            {purchase.supplier?.vendorName || purchase.supplier || 'Unknown Vendor'}
+                  {trip.purchases.map((purchase, index) => {
+                    return (
+                      <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <div className="font-medium">
+                              {purchase.supplier?.vendorName || 
+                               purchase.supplier?.name || 
+                               purchase.supplier?.companyName || 
+                               (purchase.supplier ? `Vendor (${purchase.supplier._id})` : 'Unknown Vendor')}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              DC: {purchase.dcNumber}, {purchase.birds} birds, {purchase.weight} kg
+                              {purchase.avgWeight && ` (Avg: ${purchase.avgWeight} kg/bird)`}
+                            </div>
                           </div>
-                                                     <div className="text-sm text-gray-600">
-                             DC: {purchase.dcNumber}, {purchase.birds} birds, {purchase.weight} kg
-                             {purchase.avgWeight && ` (Avg: ${purchase.avgWeight} kg/bird)`}
-                           </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium">₹{purchase.amount?.toLocaleString()}</div>
-                                                     <div className="text-sm text-gray-500">₹{purchase.rate}/kg</div>
+                          <div className="text-right">
+                            <div className="font-medium">₹{purchase.amount?.toLocaleString()}</div>
+                            <div className="text-sm text-gray-500">₹{purchase.rate}/kg</div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  }
+                  )}
                 </div>
               ) : (
                 <p className="text-gray-500 text-center py-8">No purchases recorded yet</p>
@@ -578,23 +801,33 @@ const SupervisorTripDetails = () => {
                   {trip.sales.map((sale, index) => (
                     <div key={index} className="bg-gray-50 p-4 rounded-lg">
                       <div className="flex justify-between items-start">
-                        <div>
+                        <div className="flex-1">
                           <div className="font-medium">
                             {sale.client?.shopName || sale.client || 'Unknown Customer'}
                           </div>
-                                                     <div className="text-sm text-gray-600">
-                             Bill: {sale.billNumber}, {sale.birds} birds, {sale.weight} kg
-                             {sale.avgWeight && ` (Avg: ${sale.avgWeight} kg/bird)`}
-                           </div>
-                           <div className="text-xs text-gray-500 mt-1">
-                             Cash: ₹{sale.cashPaid?.toLocaleString() || '0'} | 
-                             Online: ₹{sale.onlinePaid?.toLocaleString() || '0'} | 
-                             Balance: ₹{sale.balance?.toLocaleString() || '0'}
-                           </div>
+                          <div className="text-sm text-gray-600">
+                            Bill: {sale.billNumber}, {sale.birds} birds, {sale.weight} kg
+                            {sale.avgWeight && ` (Avg: ${sale.avgWeight} kg/bird)`}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">
+                            {sale.paymentMode}: ₹{sale.receivedAmount?.toLocaleString() || '0'} |
+                            payment Status: {sale.paymentStatus} |
+                            Balance: ₹{sale.balance?.toFixed(2) || '0.00'} | 
+                            Discount: ₹{sale.discount?.toLocaleString() || '0'}
+                          </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-medium">₹{sale.amount?.toLocaleString()}</div>
-                                                     <div className="text-sm text-gray-500">₹{sale.rate}/kg</div>
+                        <div className="flex flex-col items-end space-y-2">
+                          <div className="text-right">
+                            <div className="font-medium">₹{sale.amount?.toFixed(2)}</div>
+                            <div className="text-sm text-gray-500">₹{sale.rate}/kg</div>
+                          </div>
+                          <button
+                            onClick={() => handleDownloadInvoice(sale)}
+                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                          >
+                            <Receipt size={12} />
+                            Download Invoice
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -617,15 +850,14 @@ const SupervisorTripDetails = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              expense.category === 'fuel' ? 'bg-blue-100 text-blue-800' :
-                              expense.category === 'lunch' ? 'bg-green-100 text-green-800' :
-                              expense.category === 'tea' ? 'bg-yellow-100 text-yellow-800' :
-                              expense.category === 'toll' ? 'bg-purple-100 text-purple-800' :
-                              expense.category === 'parking' ? 'bg-indigo-100 text-indigo-800' :
-                              expense.category === 'maintenance' ? 'bg-red-100 text-red-800' :
-                              'bg-gray-100 text-gray-800'
-                            }`}>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${expense.category === 'fuel' ? 'bg-blue-100 text-blue-800' :
+                                expense.category === 'lunch' ? 'bg-green-100 text-green-800' :
+                                  expense.category === 'tea' ? 'bg-yellow-100 text-yellow-800' :
+                                    expense.category === 'toll' ? 'bg-purple-100 text-purple-800' :
+                                      expense.category === 'parking' ? 'bg-indigo-100 text-indigo-800' :
+                                        expense.category === 'maintenance' ? 'bg-red-100 text-red-800' :
+                                          'bg-gray-100 text-gray-800'
+                              }`}>
                               {expense.category}
                             </span>
                             {expense.date && (
@@ -644,7 +876,7 @@ const SupervisorTripDetails = () => {
               ) : (
                 <p className="text-gray-500 text-center py-8">No expenses recorded yet</p>
               )}
-              
+
               {/* Expense Summary by Category */}
               {trip.expenses && trip.expenses.length > 0 && (
                 <div className="mt-6 bg-blue-50 p-4 rounded-lg">
@@ -654,9 +886,9 @@ const SupervisorTripDetails = () => {
                       const categoryTotal = trip.expenses
                         .filter(exp => exp.category === category)
                         .reduce((sum, exp) => sum + (exp.amount || 0), 0);
-                      
+
                       if (categoryTotal === 0) return null;
-                      
+
                       return (
                         <div key={category} className="text-center p-2 bg-white rounded border">
                           <div className="text-xs text-gray-500 capitalize">{category}</div>
@@ -696,7 +928,7 @@ const SupervisorTripDetails = () => {
                       </div>
                     </div>
                   ))}
-                  
+
                   {/* Diesel Summary */}
                   <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                     <h4 className="font-medium text-gray-900 mb-2">Diesel Summary</h4>
@@ -732,30 +964,108 @@ const SupervisorTripDetails = () => {
             </div>
           )}
 
+          {/* Losses Tab */}
+          {activeTab === 'losses' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Losses - Death Birds</h3>
+              {trip.deathBirds && trip.deathBirds.length > 0 ? (
+                <div className="space-y-3">
+                  {trip.deathBirds.map((deathBird, index) => (
+                    <div key={index} className="bg-red-50 p-4 rounded-lg border border-red-200">
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="font-medium text-red-800">
+                            Death Birds - {deathBird.quantity} birds
+                          </div>
+                          <div className="text-sm text-red-600">
+                            Weight: {deathBird.weight} kg | Avg: {deathBird.avgWeight} kg/bird
+                            {deathBird.reason && ` | Reason: ${deathBird.reason}`}
+                          </div>
+                          <div className="text-xs text-red-500 mt-1">
+                            Rate: ₹{deathBird.rate}/kg | Date: {new Date(deathBird.date).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-medium text-red-800">₹{deathBird.total?.toFixed(2)}</div>
+                          <div className="text-sm text-red-500">Total Loss</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Death Birds Summary */}
+                  <div className="mt-4 p-4 bg-red-100 rounded-lg">
+                    <h4 className="font-medium text-red-900 mb-2">Death Birds Summary</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                      <div>
+                        <div className="text-sm text-red-600">Total Birds</div>
+                        <div className="font-medium text-red-800">
+                          {trip.deathBirds.reduce((sum, db) => sum + (db.quantity || 0), 0)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-red-600">Total Weight</div>
+                        <div className="font-medium text-red-800">
+                          {trip.deathBirds.reduce((sum, db) => sum + (db.weight || 0), 0).toFixed(2)} kg
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-red-600">Avg Weight</div>
+                        <div className="font-medium text-red-800">
+                          {trip.deathBirds.length > 0 ? 
+                            (trip.deathBirds.reduce((sum, db) => sum + (db.avgWeight || 0), 0) / trip.deathBirds.length).toFixed(2) : '0.00'} kg/bird
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-red-600">Total Loss</div>
+                        <div className="font-medium text-red-800">
+                          ₹{trip.deathBirds.reduce((sum, db) => sum + (db.total || 0), 0).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 mb-4">No death birds recorded yet</p>
+                  <button
+                    onClick={() => {
+                      setDeathBirdsData({ quantity: 0, weight: 0, avgWeight: 0, rate: 0, total: 0, reason: '', date: new Date().toISOString().split('T')[0] });
+                      setShowDeathBirdsModal(true);
+                    }}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  >
+                    Add Death Birds Record
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Financials Tab */}
           {activeTab === 'financials' && (
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-gray-900">Financial Summary</h3>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-green-50 p-4 rounded-lg border border-green-200">
                   <div className="text-sm text-green-600">Total Revenue</div>
                   <div className="text-2xl font-bold text-green-700">
-                    ₹{trip.summary?.totalSalesAmount?.toLocaleString() || '0'}
+                    ₹{trip.summary?.totalSalesAmount?.toFixed(2) || '0.00'}
                   </div>
                 </div>
-                
+
                 <div className="bg-red-50 p-4 rounded-lg border border-red-200">
                   <div className="text-sm text-red-600">Total Costs</div>
                   <div className="text-2xl font-bold text-red-700">
-                    ₹{((trip.summary?.totalPurchaseAmount || 0) + (trip.summary?.totalExpenses || 0)).toLocaleString()}
+                    ₹{((trip.summary?.totalPurchaseAmount || 0) + (trip.summary?.totalExpenses || 0)).toFixed(2)}
                   </div>
                 </div>
-                
+
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <div className="text-sm text-blue-600">Net Profit</div>
                   <div className="text-2xl font-bold text-blue-700">
-                    ₹{trip.summary?.netProfit?.toLocaleString() || '0'}
+                    ₹{trip.summary?.netProfit?.toFixed(2) || '0.00'}
                   </div>
                 </div>
               </div>
@@ -781,6 +1091,30 @@ const SupervisorTripDetails = () => {
                   </div>
                 </div>
               </div>
+
+              <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                <h4 className="font-medium text-red-900 mb-3">Weight Analysis</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Purchased Weight:</span>
+                    <span>{(trip.summary?.totalWeightPurchased || 0).toFixed(2)} kg</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Sold Weight:</span>
+                    <span>{(trip.summary?.totalWeightSold || 0).toFixed(2)} kg</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Lost Weight:</span>
+                    <span className="text-red-600">{(trip.summary?.totalWeightLost || 0).toFixed(2)} kg</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="font-medium">Total Weight Loss:</span>
+                    <span className={`font-bold ${(trip.summary?.birdWeightLoss || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {(trip.summary?.birdWeightLoss || 0).toFixed(2)} kg
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -791,7 +1125,7 @@ const SupervisorTripDetails = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">Add Purchase</h3>
-            
+
             {/* Summary Section */}
             {purchaseData.birds > 0 && purchaseData.weight > 0 && (
               <div className="bg-blue-50 p-3 rounded-lg mb-4">
@@ -819,7 +1153,7 @@ const SupervisorTripDetails = () => {
                 </div>
               </div>
             )}
-            
+
             <form onSubmit={handlePurchaseSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Supplier *</label>
@@ -885,18 +1219,18 @@ const SupervisorTripDetails = () => {
                     step="0.01"
                   />
                 </div>
-                                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">RATE (₹/kg) *</label>
-                   <input
-                     type="number"
-                     value={purchaseData.rate}
-                     onChange={(e) => handlePurchaseDataChange('rate', Number(e.target.value))}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                     placeholder="Rate per kg"
-                     required
-                     step="0.01"
-                   />
-                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">RATE (₹/kg) *</label>
+                  <input
+                    type="number"
+                    value={purchaseData.rate}
+                    onChange={(e) => handlePurchaseDataChange('rate', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Rate per kg"
+                    required
+                    step="0.01"
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">AMOUNT (₹)</label>
@@ -926,7 +1260,7 @@ const SupervisorTripDetails = () => {
                 </button>
               </div>
             </form>
-            
+
             {/* Help Text */}
             <div className="mt-4 text-xs text-gray-500">
               <p>• <strong>SUPPLIER:</strong> Select the vendor from the dropdown</p>
@@ -941,208 +1275,348 @@ const SupervisorTripDetails = () => {
         </div>
       )}
 
-             {/* Sale Modal */}
-       {showSaleModal && (
-         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-             <h3 className="text-lg font-semibold mb-4">Add Sale</h3>
-             
-             {/* Summary Section */}
-             {saleData.birds > 0 && saleData.weight > 0 && (
-               <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                 <div className="text-sm text-blue-800">
-                   <div className="grid grid-cols-2 gap-4">
-                     <div>
-                       <span className="font-medium">Bill Number:</span> {saleData.billNumber}
-                     </div>
-                     <div>
-                       <span className="font-medium">Total Birds:</span> {saleData.birds}
-                     </div>
-                     <div>
-                       <span className="font-medium">Total Weight:</span> {saleData.weight} kg
-                     </div>
-                     <div>
-                       <span className="font-medium">Avg Weight:</span> {saleData.avgWeight} kg/bird
-                     </div>
-                     <div>
-                       <span className="font-medium">Rate:</span> ₹{saleData.rate}/kg
-                     </div>
-                     <div>
-                       <span className="font-medium">Total Amount:</span> ₹{saleData.amount?.toLocaleString() || '0'}
-                     </div>
-                     <div>
-                       <span className="font-medium">Cash Paid:</span> ₹{saleData.cashPaid?.toLocaleString() || '0'}
-                     </div>
-                     <div>
-                       <span className="font-medium">Online Paid:</span> ₹{saleData.onlinePaid?.toLocaleString() || '0'}
-                     </div>
-                     <div>
-                       <span className="font-medium">Balance:</span> ₹{saleData.balance?.toLocaleString() || '0'}
-                     </div>
-                   </div>
-                 </div>
-               </div>
-             )}
-             
-             <form onSubmit={handleSaleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Client *</label>
-                <select
-                  value={saleData.client}
-                  onChange={(e) => setSaleData(prev => ({ ...prev, client: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  required
-                >
-                  <option value="">Select Customer</option>
-                  {customers.map(customer => (
-                    <option key={customer._id || customer.id} value={customer._id || customer.id}>
-                      {customer.shopName} - {customer.ownerName}
-                    </option>
-                  ))}
-                </select>
+      {/* Sale Modal */}
+      {showSaleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
+            <div className="p-6 pb-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold">Add Sale</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 pt-4">
+
+              {/* Summary Section */}
+              {saleData.birds > 0 && saleData.weight > 0 && (
+                <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                  <div className="text-sm text-blue-800">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="font-medium">Bill Number:</span> {saleData.billNumber}
+                      </div>
+                      <div>
+                        <span className="font-medium">Total Birds:</span> {saleData.birds}
+                      </div>
+                      <div>
+                        <span className="font-medium">Total Weight:</span> {saleData.weight} kg
+                      </div>
+                      <div>
+                        <span className="font-medium">Avg Weight:</span> {saleData.avgWeight} kg/bird
+                      </div>
+                      <div>
+                        <span className="font-medium">Rate:</span> ₹{saleData.rate}/kg
+                      </div>
+                      <div>
+                        <span className="font-medium">Total Amount:</span> ₹{saleData.amount?.toFixed(2) || '0.00'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Payment Mode:</span> {saleData.paymentMode}
+                      </div>
+                      <div>
+                        <span className="font-medium">Payment Status:</span> {saleData.paymentStatus}
+                      </div>
+                      <div>
+                        <span className="font-medium">Cash Paid:</span> ₹{saleData.cashPaid?.toLocaleString() || '0'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Online Paid:</span> ₹{saleData.onlinePaid?.toLocaleString() || '0'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Discount:</span> ₹{saleData.discount?.toLocaleString() || '0'}
+                      </div>
+                      <div>
+                        <span className="font-medium">Balance:</span> ₹{saleData.balance?.toFixed(2) || '0.00'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleSaleSubmit} className="space-y-4">
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer *</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={selectedCustomer ? `${selectedCustomer.shopName} - ${selectedCustomer.ownerName || 'N/A'}` : customerSearchTerm}
+                      onChange={(e) => {
+                        setCustomerSearchTerm(e.target.value);
+                        setSelectedCustomer(null);
+                        setSaleData(prev => ({ ...prev, client: '' }));
+                      }}
+                      onFocus={handleCustomerInputFocus}
+                      onBlur={handleCustomerInputBlur}
+                      placeholder="Search customer by name, owner, contact, or area..."
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+
+
+
+                    {selectedCustomer && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCustomer(null);
+                          setCustomerSearchTerm('');
+                          setSaleData(prev => ({ ...prev, client: '' }));
+                        }}
+                        className="absolute right-2 top-1/3 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  {showCustomerDropdown && filteredCustomers.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {/* Area Statistics Summary (only when no search) */}
+                      {customerSearchTerm.trim() === '' && (
+                        <div className="px-4 py-3 bg-blue-50 border-b border-blue-200">
+                          <div className="text-sm font-medium text-blue-800 mb-2">Area-wise Customer Distribution</div>
+                          <div className="flex flex-wrap gap-2">
+                            {getCustomersByArea(filteredCustomers).slice(0, 5).map(({ area, count }) => (
+                              <span key={area} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                {area}: {count}
+                              </span>
+                            ))}
+                            {getCustomersByArea(filteredCustomers).length > 5 && (
+                              <span className="text-xs text-blue-600 px-2 py-1">
+                                +{getCustomersByArea(filteredCustomers).length - 5} more areas
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {getCustomersByArea(filteredCustomers).map(({ area, customersGrp, count }) => (
+                        <div key={area} className="border-b border-gray-200 last:border-b-0">
+                          {/* Area Header */}
+                          <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-gray-800 text-sm">
+                                {area}
+                              </span>
+                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                {count} customer{count !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Customers in this area */}
+                          {customersGrp.map(customer => (
+                            <div
+                              key={customer._id || customer.id}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleCustomerSelect(customer);
+                              }}
+                              className="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="font-medium text-gray-900">{customer.shopName}</div>
+                              {customer.ownerName && (
+                                <div className="text-sm text-gray-600">Owner: {customer.ownerName}</div>
+                              )}
+                              <div className="text-sm text-gray-500">{customer.contact}</div>
+                              {customer.gstOrPanNumber && (
+                                <div className="text-xs text-gray-400">GST/PAN: {customer.gstOrPanNumber}</div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {showCustomerDropdown && filteredCustomers.length === 0 && customerSearchTerm.trim() !== '' && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+                      <div className="px-4 py-3 text-gray-500 text-center">
+                        No customers found
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bill Number</label>
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                    {saleData.billNumber}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Auto-generated bill number</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Birds *</label>
+                    <input
+                      type="number"
+                      value={saleData.birds}
+                      onChange={(e) => handleSaleDataChange('birds', Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg) *</label>
+                    <input
+                      type="number"
+                      value={saleData.weight}
+                      onChange={(e) => handleSaleDataChange('weight', Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">AVG (kg/bird)</label>
+                    <input
+                      type="number"
+                      value={saleData.avgWeight}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                      placeholder="Auto-calculated"
+                      readOnly
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Rate per kg *</label>
+                    <input
+                      type="number"
+                      value={saleData.rate}
+                      onChange={(e) => handleSaleDataChange('rate', Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (₹)</label>
+                  <input
+                    type="number"
+                    value={saleData.amount.toFixed(2)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                    placeholder="Auto-calculated"
+                    readOnly
+                    step="0.01"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Payment Mode</label>
+                    <select
+                      value={saleData.paymentMode}
+                      onChange={(e) => handleSaleDataChange('paymentMode', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="online">Online</option>
+                      <option value="credit">Credit</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Payment Status</label>
+                    <select
+                      value={saleData.paymentStatus}
+                      onChange={(e) => handleSaleDataChange('paymentStatus', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    >
+                      <option value="paid">Paid</option>
+                      <option value="pending">Pending</option>
+                      <option value="partial">Partial</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cash Paid (₹)</label>
+                    <input
+                      type="number"
+                      value={saleData.cashPaid}
+                      onChange={(e) => handleSaleDataChange('cashPaid', Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="0"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Online Paid (₹)</label>
+                    <input
+                      type="number"
+                      value={saleData.onlinePaid}
+                      onChange={(e) => handleSaleDataChange('onlinePaid', Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="0"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Discount (₹)</label>
+                  <input
+                    type="number"
+                    value={saleData.discount}
+                    onChange={(e) => handleSaleDataChange('discount', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="0"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Balance (₹)</label>
+                  <input
+                    type="number"
+                    value={saleData.balance.toFixed(2)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                    placeholder="Auto-calculated"
+                    readOnly
+                    step="0.01"
+                  />
+                </div>
+              </form>
+
+              {/* Help Text */}
+              <div className="mt-4 text-xs text-gray-500">
+                <p>• <strong>CLIENT:</strong> Select the customer from the dropdown</p>
+                <p>• <strong>BILL NUMBER:</strong> Automatically generated with timestamp</p>
+                <p>• <strong>BIRDS:</strong> Enter the total number of birds sold</p>
+                <p>• <strong>WEIGHT:</strong> Enter the total weight of all birds in kg</p>
+                <p>• <strong>AVG:</strong> Automatically calculated as Weight ÷ Birds</p>
+                <p>• <strong>RATE:</strong> Enter the price per kg</p>
+                <p>• <strong>TOTAL AMOUNT:</strong> Automatically calculated as Weight × Rate</p>
+                <p>• <strong>PAYMENT MODE:</strong> Select cash, online, or credit</p>
+                <p>• <strong>PAYMENT STATUS:</strong> Select paid, pending, or partial</p>
+                <p>• <strong>CASH PAID:</strong> Enter amount paid in cash</p>
+                <p>• <strong>ONLINE PAID:</strong> Enter amount paid online</p>
+                <p>• <strong>DISCOUNT:</strong> Enter any discount amount</p>
+                <p>• <strong>BALANCE:</strong> Automatically calculated as Total Amount - Received Amount - Discount</p>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Bill Number *</label>
-                <input
-                  type="text"
-                  value={saleData.billNumber}
-                  onChange={(e) => setSaleData(prev => ({ ...prev, billNumber: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder="Bill/Invoice Number"
-                  required
-                />
-              </div>
-                             <div className="grid grid-cols-2 gap-4">
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Birds *</label>
-                   <input
-                     type="number"
-                     value={saleData.birds}
-                     onChange={(e) => handleSaleDataChange('birds', Number(e.target.value))}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                     required
-                   />
-                 </div>
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg) *</label>
-                   <input
-                     type="number"
-                     value={saleData.weight}
-                     onChange={(e) => handleSaleDataChange('weight', Number(e.target.value))}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                     required
-                     step="0.01"
-                   />
-                 </div>
-               </div>
-               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">AVG (kg/bird)</label>
-                   <input
-                     type="number"
-                     value={saleData.avgWeight}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                     placeholder="Auto-calculated"
-                     readOnly
-                     step="0.01"
-                   />
-                 </div>
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Rate per kg *</label>
-                   <input
-                     type="number"
-                     value={saleData.rate}
-                     onChange={(e) => handleSaleDataChange('rate', Number(e.target.value))}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                     required
-                     step="0.01"
-                   />
-                 </div>
-               </div>
-                             <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (₹)</label>
-                 <input
-                   type="number"
-                   value={saleData.amount}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                   placeholder="Auto-calculated"
-                   readOnly
-                   step="0.01"
-                 />
-               </div>
-               <div className="grid grid-cols-2 gap-4">
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Cash Paid (₹)</label>
-                   <input
-                     type="number"
-                     value={saleData.cashPaid}
-                     onChange={(e) => handleSaleDataChange('cashPaid', Number(e.target.value))}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                     placeholder="0"
-                     min="0"
-                     step="0.01"
-                   />
-                 </div>
-                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Online Paid (₹)</label>
-                   <input
-                     type="number"
-                     value={saleData.onlinePaid}
-                     onChange={(e) => handleSaleDataChange('onlinePaid', Number(e.target.value))}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                     placeholder="0"
-                     min="0"
-                     step="0.01"
-                   />
-                 </div>
-               </div>
-               <div>
-                 <label className="block text-sm font-medium text-gray-700 mb-1">Balance (₹)</label>
-                 <input
-                   type="number"
-                   value={saleData.balance}
-                   className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                   placeholder="Auto-calculated"
-                   readOnly
-                   step="0.01"
-                 />
-               </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 pt-4 border-t border-gray-200 bg-gray-50 rounded-b-lg">
               <div className="flex space-x-3">
                 <button
                   type="button"
                   onClick={() => setShowSaleModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
-                  type="submit"
+                  type="button"
+                  onClick={handleSaleSubmit}
                   disabled={isSubmitting}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Add Sale'}
                 </button>
-                             </div>
-             </form>
-             
-             {/* Help Text */}
-             <div className="mt-4 text-xs text-gray-500">
-               <p>• <strong>CLIENT:</strong> Select the customer from the dropdown</p>
-               <p>• <strong>BILL NUMBER:</strong> Enter the bill/invoice number</p>
-               <p>• <strong>BIRDS:</strong> Enter the total number of birds sold</p>
-               <p>• <strong>WEIGHT:</strong> Enter the total weight of all birds in kg</p>
-               <p>• <strong>AVG:</strong> Automatically calculated as Weight ÷ Birds</p>
-               <p>• <strong>RATE:</strong> Enter the price per kg</p>
-               <p>• <strong>TOTAL AMOUNT:</strong> Automatically calculated as Weight × Rate</p>
-               <p>• <strong>CASH PAID:</strong> Enter amount paid in cash</p>
-               <p>• <strong>ONLINE PAID:</strong> Enter amount paid online</p>
-               <p>• <strong>BALANCE:</strong> Automatically calculated as Total Amount - Cash Paid - Online Paid</p>
-             </div>
-           </div>
-         </div>
-       )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
-       {/* Expense Modal */}
+      {/* Expense Modal */}
       {showExpenseModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
@@ -1369,6 +1843,155 @@ const SupervisorTripDetails = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Death Birds Modal */}
+      {showDeathBirdsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Add Death Birds</h3>
+
+            {/* Summary Section */}
+            {deathBirdsData.quantity > 0 && deathBirdsData.weight > 0 && (
+              <div className="bg-red-50 p-3 rounded-lg mb-4">
+                <div className="text-sm text-red-800">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="font-medium">Quantity:</span> {deathBirdsData.quantity} birds
+                    </div>
+                    <div>
+                      <span className="font-medium">Weight:</span> {deathBirdsData.weight} kg
+                    </div>
+                    <div>
+                      <span className="font-medium">Avg Weight:</span> {deathBirdsData.avgWeight} kg/bird
+                    </div>
+                    <div>
+                      <span className="font-medium">Rate:</span> ₹{deathBirdsData.rate}/kg
+                    </div>
+                    <div>
+                      <span className="font-medium">Total Loss:</span> ₹{deathBirdsData.total?.toFixed(2) || '0.00'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Reason:</span> {deathBirdsData.reason || 'N/A'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <form onSubmit={handleDeathBirdsSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                  <input
+                    type="number"
+                    value={deathBirdsData.quantity}
+                    onChange={(e) => handleDeathBirdsDataChange('quantity', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Number of dead birds"
+                    required
+                    min="1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg) *</label>
+                  <input
+                    type="number"
+                    value={deathBirdsData.weight}
+                    onChange={(e) => handleDeathBirdsDataChange('weight', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Total weight of dead birds"
+                    required
+                    step="0.01"
+                    min="0.01"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Avg Weight (kg/bird)</label>
+                  <input
+                    type="number"
+                    value={deathBirdsData.avgWeight}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                    placeholder="Auto-calculated"
+                    readOnly
+                    step="0.01"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rate (₹/kg) *</label>
+                  <input
+                    type="number"
+                    value={deathBirdsData.rate}
+                    onChange={(e) => handleDeathBirdsDataChange('rate', Number(e.target.value))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Rate per kg"
+                    required
+                    step="0.01"
+                    min="0"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Total Loss (₹)</label>
+                <input
+                  type="number"
+                  value={deathBirdsData.total.toFixed(2)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                  placeholder="Auto-calculated"
+                  readOnly
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Death</label>
+                <input
+                  type="text"
+                  value={deathBirdsData.reason}
+                  onChange={(e) => handleDeathBirdsDataChange('reason', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  placeholder="e.g., Disease, Heat stroke, Transport stress"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={deathBirdsData.date}
+                  onChange={(e) => handleDeathBirdsDataChange('date', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeathBirdsModal(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting || deathBirdsData.quantity <= 0 || deathBirdsData.weight <= 0 || deathBirdsData.rate <= 0}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                >
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Add Death Birds'}
+                </button>
+              </div>
+            </form>
+
+            {/* Help Text */}
+            <div className="mt-4 text-xs text-gray-500">
+              <p>• <strong>QUANTITY:</strong> Enter the number of dead birds</p>
+              <p>• <strong>WEIGHT:</strong> Enter the total weight of dead birds in kg</p>
+              <p>• <strong>AVG WEIGHT:</strong> Automatically calculated as Weight ÷ Quantity</p>
+              <p>• <strong>RATE:</strong> Enter the rate per kg for calculating loss</p>
+              <p>• <strong>TOTAL LOSS:</strong> Automatically calculated as Weight × Rate</p>
+              <p>• <strong>REASON:</strong> Optional reason for bird deaths</p>
+            </div>
           </div>
         </div>
       )}
