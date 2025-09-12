@@ -14,7 +14,8 @@ import {
   Receipt,
   Fuel,
   TrendingUp,
-  CheckCircle
+  CheckCircle,
+  Lock
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -55,8 +56,15 @@ const SupervisorTripDetails = () => {
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showDieselModal, setShowDieselModal] = useState(false);
-  const [showDeathBirdsModal, setShowDeathBirdsModal] = useState(false);
+  const [showStockModal, setShowStockModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+
+  // Edit states
+  const [editingPurchaseIndex, setEditingPurchaseIndex] = useState(null);
+  const [editingSaleIndex, setEditingSaleIndex] = useState(null);
+  const [editingExpenseIndex, setEditingExpenseIndex] = useState(null);
+  const [editingDieselIndex, setEditingDieselIndex] = useState(null);
+  const [editingStockIndex, setEditingStockIndex] = useState(null);
 
 
 
@@ -89,7 +97,7 @@ const SupervisorTripDetails = () => {
   });
 
   const [expenseData, setExpenseData] = useState({
-    category: 'fuel',
+    category: 'meals',
     description: '',
     amount: 0,
     date: new Date().toISOString().split('T')[0]
@@ -103,20 +111,19 @@ const SupervisorTripDetails = () => {
     date: new Date().toISOString().split('T')[0]
   });
 
-  const [deathBirdsData, setDeathBirdsData] = useState({
-    quantity: 0,
+  const [stockData, setStockData] = useState({
+    birds: 0,
     weight: 0,
     avgWeight: 0,
     rate: 0,
-    total: 0,
-    reason: '',
-    date: new Date().toISOString().split('T')[0]
+    value: 0,
+    notes: ''
   });
+
 
   const [completeData, setCompleteData] = useState({
     closingOdometer: 0,
     finalRemarks: '',
-    birdsRemaining: 0,
     mortality: 0
   });
 
@@ -171,22 +178,37 @@ const SupervisorTripDetails = () => {
     }
   }, [saleData.birds, saleData.weight, saleData.rate, saleData.amount, saleData.cashPaid, saleData.onlinePaid, saleData.discount]);
 
-  // Auto-calculate avgWeight and total when deathBirdsData changes
+  // Auto-calculate amount when diesel volume or rate changes
   useEffect(() => {
-    if (deathBirdsData.quantity > 0 && deathBirdsData.weight > 0) {
-      const avgWeight = calculateAvgWeight(deathBirdsData.quantity, deathBirdsData.weight);
-      if (avgWeight !== deathBirdsData.avgWeight) {
-        setDeathBirdsData(prev => ({ ...prev, avgWeight }));
+    if (dieselData.volume > 0 && dieselData.rate > 0) {
+      const amount = Number((dieselData.volume * dieselData.rate).toFixed(2));
+      if (amount !== dieselData.amount) {
+        setDieselData(prev => ({ ...prev, amount }));
       }
+    } else if (dieselData.volume === 0 || dieselData.rate === 0) {
+      setDieselData(prev => ({ ...prev, amount: 0 }));
     }
+  }, [dieselData.volume, dieselData.rate]);
 
-    if (deathBirdsData.weight > 0 && deathBirdsData.rate > 0) {
-      const total = calculateAmount(deathBirdsData.weight, deathBirdsData.rate);
-      if (total !== deathBirdsData.total) {
-        setDeathBirdsData(prev => ({ ...prev, total }));
-      }
+  // Auto-calculate stock values when birds, weight, or rate changes
+  useEffect(() => {
+    if (stockData.birds > 0 && stockData.weight > 0) {
+      const avgWeight = Number((stockData.weight / stockData.birds).toFixed(2));
+      const value = Number((stockData.weight * stockData.rate).toFixed(2));
+      
+      setStockData(prev => ({
+        ...prev,
+        avgWeight,
+        value
+      }));
+    } else if (stockData.birds === 0 || stockData.weight === 0) {
+      setStockData(prev => ({
+        ...prev,
+        avgWeight: 0,
+        value: 0
+      }));
     }
-  }, [deathBirdsData.quantity, deathBirdsData.weight, deathBirdsData.rate]);
+  }, [stockData.birds, stockData.weight, stockData.rate]);
 
   // Filter customers based on search term
   useEffect(() => {
@@ -348,16 +370,36 @@ const SupervisorTripDetails = () => {
     setIsSubmitting(true);
 
     try {
-      const { data } = await api.post(`/trip/${id}/purchase`, purchaseData);
-      if (data.success) {
-        setTrip(data.data);
-        setShowPurchaseModal(false);
-        setPurchaseData({ supplier: '', dcNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0 });
-        alert('Purchase added successfully!');
+      // Clean the data before sending - convert empty string supplier to null
+      const cleanedPurchaseData = {
+        ...purchaseData,
+        supplier: purchaseData.supplier === '' ? null : purchaseData.supplier
+      };
+
+      let data;
+      if (editingPurchaseIndex !== null) {
+        // Edit existing purchase
+        data = await api.put(`/trip/${id}/purchase/${editingPurchaseIndex}`, cleanedPurchaseData);
+        if (data.data.success) {
+          setTrip(data.data.data);
+          setShowPurchaseModal(false);
+          setPurchaseData({ supplier: '', dcNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0 });
+          setEditingPurchaseIndex(null);
+          alert('Purchase updated successfully!');
+        }
+      } else {
+        // Add new purchase
+        data = await api.post(`/trip/${id}/purchase`, cleanedPurchaseData);
+        if (data.data.success) {
+          setTrip(data.data.data);
+          setShowPurchaseModal(false);
+          setPurchaseData({ supplier: '', dcNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0 });
+          alert('Purchase added successfully!');
+        }
       }
     } catch (error) {
-      console.error('Error adding purchase:', error);
-      alert(error.response?.data?.message || 'Failed to add purchase');
+      console.error('Error with purchase:', error);
+      alert(error.response?.data?.message || 'Failed to save purchase');
     } finally {
       setIsSubmitting(false);
     }
@@ -368,19 +410,42 @@ const SupervisorTripDetails = () => {
     setIsSubmitting(true);
 
     try {
-      const { data } = await api.post(`/trip/${id}/sale`, saleData);
-      if (data.success) {
-        setTrip(data.data);
-        setShowSaleModal(false);
-        setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
-        setSelectedCustomer(null);
-        setCustomerSearchTerm('');
-        setShowCustomerDropdown(false);
-        alert('Sale added successfully!');
+      // Clean the data before sending - convert empty string client to null
+      const cleanedSaleData = {
+        ...saleData,
+        client: saleData.client === '' ? null : saleData.client
+      };
+
+      let data;
+      if (editingSaleIndex !== null) {
+        // Edit existing sale
+        data = await api.put(`/trip/${id}/sale/${editingSaleIndex}`, cleanedSaleData);
+        if (data.data.success) {
+          setTrip(data.data.data);
+          setShowSaleModal(false);
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+          setSelectedCustomer(null);
+          setCustomerSearchTerm('');
+          setShowCustomerDropdown(false);
+          setEditingSaleIndex(null);
+          alert('Sale updated successfully!');
+        }
+      } else {
+        // Add new sale
+        data = await api.post(`/trip/${id}/sale`, cleanedSaleData);
+        if (data.data.success) {
+          setTrip(data.data.data);
+          setShowSaleModal(false);
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+          setSelectedCustomer(null);
+          setCustomerSearchTerm('');
+          setShowCustomerDropdown(false);
+          alert('Sale added successfully!');
+        }
       }
     } catch (error) {
-      console.error('Error adding sale:', error);
-      alert(error.response?.data?.message || 'Failed to add sale');
+      console.error('Error with sale:', error);
+      alert(error.response?.data?.message || 'Failed to save sale');
     } finally {
       setIsSubmitting(false);
     }
@@ -395,7 +460,7 @@ const SupervisorTripDetails = () => {
       if (data.success) {
         setTrip(data.data);
         setShowExpenseModal(false);
-        setExpenseData({ category: 'fuel', description: '', amount: 0, date: new Date().toISOString().split('T')[0] });
+        setExpenseData({ category: 'meals', description: '', amount: 0, date: new Date().toISOString().split('T')[0] });
         alert('Expense added successfully!');
       }
     } catch (error) {
@@ -411,59 +476,90 @@ const SupervisorTripDetails = () => {
     setIsSubmitting(true);
 
     try {
-      const { data } = await api.put(`/trip/${id}/diesel`, {
-        stations: [...(trip.diesel?.stations || []), dieselData]
-      });
-      if (data.success) {
-        setTrip(data.data);
-        setShowDieselModal(false);
-        setDieselData({ stationName: '', volume: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
-        alert('Diesel record added successfully!');
+      let data;
+      if (editingDieselIndex !== null) {
+        // Edit existing diesel record
+        data = await api.put(`/trip/${id}/diesel/${editingDieselIndex}`, dieselData);
+        if (data.data.success) {
+          setTrip(data.data.data);
+          setShowDieselModal(false);
+          setEditingDieselIndex(null);
+          setDieselData({ stationName: '', volume: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
+          alert('Diesel record updated successfully!');
+        }
+      } else {
+        // Add new diesel record
+        data = await api.put(`/trip/${id}/diesel`, {
+          stations: [...(trip.diesel?.stations || []), dieselData]
+        });
+        if (data.data.success) {
+          setTrip(data.data.data);
+          setShowDieselModal(false);
+          setDieselData({ stationName: '', volume: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
+          alert('Diesel record added successfully!');
+        }
       }
     } catch (error) {
-      console.error('Error adding diesel record:', error);
-      alert(error.response?.data?.message || 'Failed to add diesel record');
+      console.error('Error with diesel record:', error);
+      alert(error.response?.data?.message || 'Failed to save diesel record');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleDeathBirdsDataChange = (field, value) => {
-    const newData = { ...deathBirdsData, [field]: value };
-
-    // Auto-calculate avgWeight when quantity or weight changes
-    if (field === 'quantity' || field === 'weight') {
-      newData.avgWeight = calculateAvgWeight(newData.quantity, newData.weight);
-    }
-
-    // Auto-calculate total when weight or rate changes
-    if (field === 'weight' || field === 'rate') {
-      newData.total = calculateAmount(newData.weight, newData.rate);
-    }
-
-    setDeathBirdsData(newData);
-  };
-
-  const handleDeathBirdsSubmit = async (e) => {
+  const handleStockSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const { data } = await api.put(`/trip/${id}/death-birds`, deathBirdsData);
-      if (data.success) {
-        setTrip(data.data);
-        setShowDeathBirdsModal(false);
-        setDeathBirdsData({ quantity: 0, weight: 0, avgWeight: 0, rate: 0, total: 0, reason: '', date: new Date().toISOString().split('T')[0] });
-        alert('Death birds record added successfully!');
+      // Clean the data before sending
+      const cleanedStockData = {
+        birds: Number(stockData.birds),
+        weight: Number(stockData.weight),
+        rate: Number(stockData.rate),
+        notes: stockData.notes
+      };
+
+      let response;
+      if (editingStockIndex !== null) {
+        // Edit existing stock
+        response = await api.put(`/trip/${id}/stock/${editingStockIndex}`, cleanedStockData);
+      } else {
+        // Add new stock
+        response = await api.post(`/trip/${id}/stock`, cleanedStockData);
+      }
+
+      if (response.data.success) {
+        setTrip(response.data.data);
+        setShowStockModal(false);
+        setEditingStockIndex(null);
+        setStockData({ birds: 0, weight: 0, avgWeight: 0, rate: 0, value: 0, notes: '' });
+        alert(editingStockIndex !== null ? 'Stock updated successfully!' : 'Stock added successfully!');
       }
     } catch (error) {
-      console.error('Error adding death birds record:', error);
-      alert(error.response?.data?.message || 'Failed to add death birds record');
+      console.error('Error updating stock:', error);
+      alert(error.response?.data?.message || 'Failed to update stock');
     } finally {
       setIsSubmitting(false);
     }
   };
-  
+
+  const handleDeleteStock = async (stockIndex) => {
+    if (!window.confirm('Are you sure you want to delete this stock entry?')) {
+      return;
+    }
+
+    try {
+      const { data } = await api.delete(`/trip/${id}/stock/${stockIndex}`);
+      if (data.success) {
+        setTrip(data.data);
+        alert('Stock deleted successfully!');
+      }
+    } catch (error) {
+      console.error('Error deleting stock:', error);
+      alert(error.response?.data?.message || 'Failed to delete stock');
+    }
+  };
 
   const handleCompleteTrip = async (e) => {
     e.preventDefault();
@@ -547,56 +643,84 @@ const SupervisorTripDetails = () => {
         </div>
 
         <div className="flex space-x-2">
-          <button
-            onClick={() => {
-              setPurchaseData({ supplier: '', dcNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0 });
-              setShowPurchaseModal(true);
-            }}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-          >
-            <Plus size={16} />
-            Add Purchase
-          </button>
-          <button
-            onClick={() => {
-              setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
-              setSelectedCustomer(null);
-              setCustomerSearchTerm('');
-              setShowCustomerDropdown(false);
-              setShowSaleModal(true);
-            }}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-          >
-            <Plus size={16} />
-            Add Sale
-          </button>
-          <button
-            onClick={() => setShowExpenseModal(true)}
-            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
-          >
-            <Plus size={16} />
-            Add Expense
-          </button>
-          <button
-            onClick={() => setShowDieselModal(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
-          >
-            <Fuel size={16} />
-            Add Diesel
-          </button>
-          <button
-            onClick={() => {
-              setDeathBirdsData({ quantity: 0, weight: 0, avgWeight: 0, rate: 0, total: 0, reason: '', date: new Date().toISOString().split('T')[0] });
-              setShowDeathBirdsModal(true);
-            }}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-          >
-            <X size={16} />
-            Add Death Birds
-          </button>
+          {trip.status !== 'completed' ? (
+            <>
+              <button
+                onClick={() => {
+                  setPurchaseData({ supplier: '', dcNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0 });
+                  setEditingPurchaseIndex(null);
+                  setShowPurchaseModal(true);
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Add Purchase
+              </button>
+              <button
+                onClick={() => {
+                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+                  setSelectedCustomer(null);
+                  setCustomerSearchTerm('');
+                  setShowCustomerDropdown(false);
+                  setEditingSaleIndex(null);
+                  setShowSaleModal(true);
+                }}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Add Sale
+              </button>
+              <button
+                onClick={() => setShowExpenseModal(true)}
+                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Add Expense
+              </button>
+              <button
+                onClick={() => {
+                  setEditingDieselIndex(null);
+                  setDieselData({ stationName: '', volume: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
+                  setShowDieselModal(true);
+                }}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+              >
+                <Fuel size={16} />
+                Add Diesel
+              </button>
+              <button
+                onClick={() => {
+                  setEditingStockIndex(null);
+                  setStockData({ 
+                    birds: 0, 
+                    weight: 0, 
+                    avgWeight: 0, 
+                    rate: trip.summary?.avgPurchaseRate || 0, 
+                    value: 0,
+                    notes: ''
+                  });
+                  setShowStockModal(true);
+                }}
+                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 flex items-center gap-2"
+              >
+                <Plus size={16} />
+                Add to Stock
+              </button>
+            </>
+          ) : (
+            <div className="flex items-center px-4 py-2 bg-gray-100 text-gray-500 rounded-lg">
+              <Lock size={16} />
+              <span className="ml-2 text-sm font-medium">Trip Completed - No modifications allowed</span>
+            </div>
+          )}
           {trip.status !== 'completed' && (
             <button
-              onClick={() => setShowCompleteModal(true)}
+              onClick={() => {
+                // Pre-fill mortality with remaining birds
+                const remainingBirds = trip.summary?.birdsRemaining || 0;
+                setCompleteData(prev => ({ ...prev, mortality: remainingBirds }));
+                setShowCompleteModal(true);
+              }}
               className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
             >
               <CheckCircle size={16} />
@@ -622,7 +746,7 @@ const SupervisorTripDetails = () => {
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold text-green-600">
-              ₹{trip.summary?.netProfit?.toFixed(2) || '0.00'}
+              ₹{trip.status === 'completed' ? (trip.summary?.netProfit?.toFixed(2) || '0.00') : Math.max(0, trip.summary?.netProfit || 0).toFixed(2)}
             </div>
             <div className="text-sm text-gray-500">Net Profit</div>
           </div>
@@ -633,7 +757,7 @@ const SupervisorTripDetails = () => {
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
-            {['overview', 'purchases', 'sales', 'expenses', 'diesel', 'losses', 'financials'].map((tab) => (
+            {['overview', 'purchases', 'sales', 'stock', 'expenses', 'diesel', 'losses', 'financials'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -690,16 +814,28 @@ const SupervisorTripDetails = () => {
                     <span className="font-medium">₹{trip.summary?.totalSalesAmount?.toFixed(2) || '0.00'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Total Purchases:</span>
+                    <span className="text-sm text-gray-600">Total Purchase Amount:</span>
                     <span className="font-medium">₹{trip.summary?.totalPurchaseAmount?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Sales Profit:</span>
+                    <span className="font-medium text-green-600">₹{trip.summary?.totalProfitMargin?.toFixed(2) || '0.00'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-gray-600">Total Expenses:</span>
                     <span className="font-medium">₹{trip.summary?.totalExpenses?.toFixed(2) || '0.00'}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Diesel Cost:</span>
+                    <span className="font-medium">₹{trip.summary?.totalDieselAmount?.toFixed(2) || '0.00'}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Death Losses:</span>
+                    <span className="font-medium text-red-600">₹{trip.summary?.totalLosses?.toFixed(2) || '0.00'}</span>
+                  </div>
                   <div className="flex justify-between border-t pt-2">
                     <span className="text-sm font-medium text-gray-900">Net Profit:</span>
-                    <span className="font-bold text-green-600">₹{trip.summary?.netProfit?.toFixed(2) || '0.00'}</span>
+                    <span className="font-bold text-green-600">₹{trip.status === 'completed' ? (trip.summary?.netProfit?.toFixed(2) || '0.00') : Math.max(0, trip.summary?.netProfit || 0).toFixed(2)}</span>
                   </div>
                 </div>
 
@@ -716,12 +852,16 @@ const SupervisorTripDetails = () => {
                       <span className="font-medium">{trip.summary?.totalBirdsSold || 0} birds</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Remaining:</span>
-                      <span className="font-medium">{trip.summary?.birdsRemaining || 0} birds</span>
+                      <span className="text-gray-600">In Stock:</span>
+                      <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0} birds</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Mortality:</span>
-                      <span className="font-medium">{trip.summary?.mortality || 0} birds</span>
+                      <span className="text-gray-600">Death:</span>
+                      <span className="font-medium text-red-600">{trip.summary?.mortality || 0} birds</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-1">
+                      <span className="text-gray-600 font-medium">Remaining:</span>
+                      <span className="font-bold text-blue-600">{trip.summary?.birdsRemaining || 0} birds</span>
                     </div>
                   </div>
                 </div>
@@ -739,15 +879,19 @@ const SupervisorTripDetails = () => {
                       <span className="font-medium">{(trip.summary?.totalWeightSold || 0).toFixed(2)} kg</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Lost Weight:</span>
+                      <span className="text-gray-600">Total Stock Weight:</span>
+                      <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0).toFixed(2) || '0.00'} kg</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Death Weight:</span>
                       <span className="font-medium text-red-600">{(trip.summary?.totalWeightLost || 0).toFixed(2)} kg</span>
                     </div>
-                    {/* <div className="flex justify-between border-t pt-1">
-                      <span className="text-gray-600 font-medium">Weight Loss:</span>
-                      <span className={`font-bold ${(trip.summary?.birdWeightLoss || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {(trip.summary?.birdWeightLoss || 0).toFixed(2)} kg
+                    <div className="flex justify-between border-t pt-1">
+                      <span className="text-gray-600 font-medium">Natural Weight Loss:</span>
+                      <span className="font-bold text-orange-600">
+                        {trip.status === 'completed' ? Math.abs(trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'} kg
                       </span>
-                    </div> */}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -764,7 +908,7 @@ const SupervisorTripDetails = () => {
                     return (
                       <div key={index} className="bg-gray-50 p-4 rounded-lg">
                         <div className="flex justify-between items-start">
-                          <div>
+                          <div className="flex-1">
                             <div className="font-medium">
                               {purchase.supplier?.vendorName || 
                                purchase.supplier?.name || 
@@ -776,9 +920,32 @@ const SupervisorTripDetails = () => {
                               {purchase.avgWeight && ` (Avg: ${purchase.avgWeight} kg/bird)`}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="font-medium">₹{purchase.amount?.toLocaleString()}</div>
-                            <div className="text-sm text-gray-500">₹{purchase.rate}/kg</div>
+                          <div className="flex items-center space-x-3">
+                            <div className="text-right">
+                              <div className="font-medium">₹{purchase.amount?.toLocaleString()}</div>
+                              <div className="text-sm text-gray-500">₹{purchase.rate}/kg</div>
+                            </div>
+                            {trip.status !== 'completed' && (
+                              <button
+                                onClick={() => {
+                                  setPurchaseData({
+                                    supplier: purchase.supplier?._id || '',
+                                    dcNumber: purchase.dcNumber || '',
+                                    birds: purchase.birds || 0,
+                                    weight: purchase.weight || 0,
+                                    avgWeight: purchase.avgWeight || 0,
+                                    rate: purchase.rate || 0,
+                                    amount: purchase.amount || 0
+                                  });
+                                  setEditingPurchaseIndex(index);
+                                  setShowPurchaseModal(true);
+                                }}
+                                className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                              >
+                                <Save size={12} />
+                                Edit
+                              </button>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -797,45 +964,288 @@ const SupervisorTripDetails = () => {
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Sales</h3>
               {trip.sales && trip.sales.length > 0 ? (
-                <div className="space-y-3">
-                  {trip.sales.map((sale, index) => (
-                    <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="font-medium">
-                            {sale.client?.shopName || sale.client || 'Unknown Customer'}
-                          </div>
-                          <div className="text-sm text-gray-600">
-                            Bill: {sale.billNumber}, {sale.birds} birds, {sale.weight} kg
-                            {sale.avgWeight && ` (Avg: ${sale.avgWeight} kg/bird)`}
-                          </div>
-                          <div className="text-xs text-gray-500 mt-1">
-                            {sale.paymentMode}: ₹{sale.receivedAmount?.toLocaleString() || '0'} |
-                            payment Status: {sale.paymentStatus} |
-                            Balance: ₹{sale.balance?.toFixed(2) || '0.00'} | 
-                            Discount: ₹{sale.discount?.toLocaleString() || '0'}
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-end space-y-2">
-                          <div className="text-right">
-                            <div className="font-medium">₹{sale.amount?.toFixed(2)}</div>
-                            <div className="text-sm text-gray-500">₹{sale.rate}/kg</div>
-                          </div>
-                          <button
-                            onClick={() => handleDownloadInvoice(sale)}
-                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
-                          >
-                            <Receipt size={12} />
-                            Download Invoice
-                          </button>
-                        </div>
+                <div className="space-y-4">
+                  {/* Sales Summary */}
+                  <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                    <h4 className="font-medium text-green-900 mb-2">Sales Summary</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                      <div>
+                        <div className="text-sm text-green-600">Total Sales</div>
+                        <div className="font-medium text-green-800">₹{trip.summary?.totalSalesAmount?.toFixed(2) || '0.00'}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-green-600">Total Profit</div>
+                        <div className="font-medium text-green-800">₹{trip.summary?.totalProfitMargin?.toFixed(2) || '0.00'}</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-green-600">Avg Purchase Rate</div>
+                        <div className="font-medium text-green-800">₹{trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00'}/kg</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-green-600">Total Birds Sold</div>
+                        <div className="font-medium text-green-800">{trip.summary?.totalBirdsSold || 0}</div>
                       </div>
                     </div>
-                  ))}
+                  </div>
+
+                  {/* Area-wise Sales */}
+                  {(() => {
+                    const salesByArea = trip.sales.reduce((acc, sale) => {
+                      const area = sale.client?.area || 'Unknown Area';
+                      if (!acc[area]) acc[area] = [];
+                      acc[area].push(sale);
+                      return acc;
+                    }, {});
+
+                    return Object.entries(salesByArea).map(([area, salesInArea]) => (
+                      <div key={area} className="border border-gray-200 rounded-lg">
+                        <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
+                          <div className="flex justify-between items-center">
+                            <h4 className="font-medium text-gray-800">{area}</h4>
+                            <div className="text-sm text-gray-600">
+                              {salesInArea.length} sale{salesInArea.length !== 1 ? 's' : ''} | 
+                              Total: ₹{salesInArea.reduce((sum, sale) => sum + (sale.amount || 0), 0).toFixed(2)} | 
+                              Profit: ₹{salesInArea.reduce((sum, sale) => sum + (sale.profitAmount || 0), 0).toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-4 space-y-3">
+                          {salesInArea.map((sale, index) => (
+                            <div key={index} className="bg-white p-3 rounded border border-gray-100">
+                              <div className="flex justify-between items-start">
+                                <div className="flex-1">
+                                  <div className="font-medium text-gray-900">
+                                    {sale.client?.shopName || 'Unknown Customer'}
+                                  </div>
+                                  <div className="text-sm text-gray-600">
+                                    Bill: {sale.billNumber} | {sale.birds} birds | {sale.weight} kg
+                                    {sale.avgWeight && ` (Avg: ${sale.avgWeight} kg/bird)`}
+                                  </div>
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {sale.paymentMode}: ₹{sale.receivedAmount?.toLocaleString() || '0'} |
+                                    Status: {sale.paymentStatus} |
+                                    Balance: ₹{sale.balance?.toFixed(2) || '0.00'}
+                                  </div>
+                                </div>
+                                <div className="flex flex-col items-end space-y-2">
+                                  <div className="text-right">
+                                    <div className="font-medium">₹{sale.amount?.toFixed(2)}</div>
+                                    <div className="text-sm text-gray-500">₹{sale.rate}/kg</div>
+                                    <div className="text-xs text-green-600 font-medium">
+                                      Profit: ₹{sale.profitAmount?.toFixed(2)} ({sale.profitMargin > 0 ? '+' : ''}{sale.profitMargin?.toFixed(2)}/kg)
+                                    </div>
+                                  </div>
+                                  <div className="flex space-x-2">
+                                    {trip.status !== 'completed' && (
+                                      <button
+                                        onClick={() => {
+                                          setSaleData({
+                                            client: sale.client?._id || '',
+                                            billNumber: sale.billNumber || generateBillNumber(),
+                                            birds: sale.birds || 0,
+                                            weight: sale.weight || 0,
+                                            avgWeight: sale.avgWeight || 0,
+                                            rate: sale.rate || 0,
+                                            amount: sale.amount || 0,
+                                            paymentMode: sale.paymentMode || 'cash',
+                                            paymentStatus: sale.paymentStatus || 'pending',
+                                            receivedAmount: sale.receivedAmount || 0,
+                                            discount: sale.discount || 0,
+                                            balance: sale.balance || 0,
+                                            cashPaid: sale.cashPaid || 0,
+                                            onlinePaid: sale.onlinePaid || 0
+                                          });
+                                          setSelectedCustomer(sale.client);
+                                          setEditingSaleIndex(trip.sales.findIndex(s => s._id === sale._id));
+                                          setShowSaleModal(true);
+                                        }}
+                                        className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 flex items-center gap-1"
+                                      >
+                                        <Save size={12} />
+                                        Edit
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={() => handleDownloadInvoice(sale)}
+                                      className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                                    >
+                                      <Receipt size={12} />
+                                      Download
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ));
+                  })()}
                 </div>
               ) : (
                 <p className="text-gray-500 text-center py-8">No sales recorded yet</p>
               )}
+            </div>
+          )}
+
+          {/* Stock Tab */}
+          {activeTab === 'stock' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-lg font-semibold text-gray-900">Stock Management</h3>
+                {trip.status !== 'completed' ? (
+                  <button
+                    onClick={() => {
+                      setEditingStockIndex(null);
+                      setStockData({ 
+                        birds: 0, 
+                        weight: 0, 
+                        avgWeight: 0, 
+                        rate: trip.summary?.avgPurchaseRate || 0, 
+                        value: 0,
+                        notes: ''
+                      });
+                      setShowStockModal(true);
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Add to Stock
+                  </button>
+                ) : (
+                  <div className="flex items-center px-3 py-2 bg-gray-100 text-gray-500 rounded-lg text-sm">
+                    <Lock size={14} />
+                    <span className="ml-1">No modifications allowed</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Stock Summary */}
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 className="font-medium text-blue-900 mb-3">Total Stock Summary</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div>
+                    <div className="text-sm text-blue-600">Total Birds in Stock</div>
+                    <div className="font-medium text-blue-800">{trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-blue-600">Total Stock Weight</div>
+                    <div className="font-medium text-blue-800">{trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0).toFixed(2) || '0.00'} kg</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-blue-600">Total Stock Value</div>
+                    <div className="font-medium text-blue-800">₹{trip.stocks?.reduce((sum, stock) => sum + (stock.value || 0), 0).toFixed(2) || '0.00'}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-blue-600">Stock Entries</div>
+                    <div className="font-medium text-blue-800">{trip.stocks?.length || 0}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stock Entries List */}
+              {trip.stocks && trip.stocks.length > 0 ? (
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-900">Stock Entries</h4>
+                  {trip.stocks.map((stock, index) => (
+                    <div key={index} className="bg-white p-4 rounded-lg border border-gray-200">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h5 className="font-medium text-gray-900">Stock Entry #{index + 1}</h5>
+                          <p className="text-sm text-gray-500">
+                            Added: {new Date(stock.addedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                        {trip.status !== 'completed' && (
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingStockIndex(index);
+                                setStockData({
+                                  birds: stock.birds,
+                                  weight: stock.weight,
+                                  avgWeight: stock.avgWeight,
+                                  rate: stock.rate,
+                                  value: stock.value,
+                                  notes: stock.notes || ''
+                                });
+                                setShowStockModal(true);
+                              }}
+                              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteStock(index)}
+                              className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-600">Birds:</span>
+                          <span className="font-medium ml-2">{stock.birds}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Weight:</span>
+                          <span className="font-medium ml-2">{stock.weight.toFixed(2)} kg</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Rate:</span>
+                          <span className="font-medium ml-2">₹{stock.rate.toFixed(2)}/kg</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Value:</span>
+                          <span className="font-medium ml-2">₹{stock.value.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      
+                      {stock.notes && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <span className="text-gray-600 text-sm">Notes:</span>
+                          <p className="text-sm text-gray-800 mt-1">{stock.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center">
+                  <p className="text-gray-500">No stock entries found</p>
+                  <p className="text-sm text-gray-400 mt-1">Click "Add to Stock" to create your first stock entry</p>
+                </div>
+              )}
+
+              {/* Remaining Birds Calculation */}
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <h4 className="font-medium text-yellow-900 mb-3">Birds Remaining Calculation</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Birds Purchased:</span>
+                    <span className="font-medium">{trip.summary?.totalBirdsPurchased || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Birds Sold:</span>
+                    <span className="font-medium">{trip.summary?.totalBirdsSold || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Birds in Stock:</span>
+                    <span className="font-medium">{trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Death Birds:</span>
+                    <span className="font-medium">{trip.summary?.mortality || 0}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="font-medium text-gray-900">Remaining Birds:</span>
+                    <span className="font-bold text-blue-600">{trip.summary?.birdsRemaining || 0}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -850,8 +1260,7 @@ const SupervisorTripDetails = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${expense.category === 'fuel' ? 'bg-blue-100 text-blue-800' :
-                                expense.category === 'lunch' ? 'bg-green-100 text-green-800' :
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${expense.category === 'lunch' ? 'bg-green-100 text-green-800' :
                                   expense.category === 'tea' ? 'bg-yellow-100 text-yellow-800' :
                                     expense.category === 'toll' ? 'bg-purple-100 text-purple-800' :
                                       expense.category === 'parking' ? 'bg-indigo-100 text-indigo-800' :
@@ -882,7 +1291,7 @@ const SupervisorTripDetails = () => {
                 <div className="mt-6 bg-blue-50 p-4 rounded-lg">
                   <h4 className="font-medium text-gray-900 mb-3">Expense Summary by Category</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {['fuel', 'lunch', 'tea', 'toll', 'parking', 'maintenance', 'other'].map(category => {
+                    {['lunch', 'tea', 'toll', 'parking', 'maintenance', 'other'].map(category => {
                       const categoryTotal = trip.expenses
                         .filter(exp => exp.category === category)
                         .reduce((sum, exp) => sum + (exp.amount || 0), 0);
@@ -922,8 +1331,28 @@ const SupervisorTripDetails = () => {
                             </div>
                           )}
                         </div>
-                        <div className="text-right">
-                          <div className="font-medium">₹{station.amount?.toLocaleString()}</div>
+                        <div className="flex items-center space-x-2">
+                          <div className="text-right">
+                            <div className="font-medium">₹{station.amount?.toLocaleString()}</div>
+                          </div>
+                          {trip.status !== 'completed' && (
+                            <button
+                              onClick={() => {
+                                setEditingDieselIndex(index);
+                                setDieselData({
+                                  stationName: station.stationName || '',
+                                  volume: station.volume || 0,
+                                  rate: station.rate || 0,
+                                  amount: station.amount || 0,
+                                  date: station.date || new Date().toISOString().split('T')[0]
+                                });
+                                setShowDieselModal(true);
+                              }}
+                              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                            >
+                              Edit
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -954,7 +1383,11 @@ const SupervisorTripDetails = () => {
                 <div className="text-center py-8">
                   <p className="text-gray-500 mb-4">No diesel records yet</p>
                   <button
-                    onClick={() => setShowDieselModal(true)}
+                    onClick={() => {
+                      setEditingDieselIndex(null);
+                      setDieselData({ stationName: '', volume: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
+                      setShowDieselModal(true);
+                    }}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                   >
                     Add Diesel Record
@@ -968,75 +1401,72 @@ const SupervisorTripDetails = () => {
           {activeTab === 'losses' && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Losses - Death Birds</h3>
-              {trip.deathBirds && trip.deathBirds.length > 0 ? (
-                <div className="space-y-3">
-                  {trip.deathBirds.map((deathBird, index) => (
-                    <div key={index} className="bg-red-50 p-4 rounded-lg border border-red-200">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="font-medium text-red-800">
-                            Death Birds - {deathBird.quantity} birds
-                          </div>
-                          <div className="text-sm text-red-600">
-                            Weight: {deathBird.weight} kg | Avg: {deathBird.avgWeight} kg/bird
-                            {deathBird.reason && ` | Reason: ${deathBird.reason}`}
-                          </div>
-                          <div className="text-xs text-red-500 mt-1">
-                            Rate: ₹{deathBird.rate}/kg | Date: {new Date(deathBird.date).toLocaleDateString()}
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="font-medium text-red-800">₹{deathBird.total?.toFixed(2)}</div>
-                          <div className="text-sm text-red-500">Total Loss</div>
-                        </div>
+              {/* Automatic Death Calculation Info */}
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 className="font-medium text-blue-900 mb-3">Automatic Death Calculation</h4>
+                <p className="text-sm text-blue-800 mb-3">
+                  Death birds are automatically calculated based on the remaining birds at the end of the trip. 
+                  The system tracks birds that cannot be accounted for through sales or stock.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-sm text-blue-600">Total Birds Purchased</div>
+                    <div className="font-medium text-blue-800">{trip.summary?.totalBirdsPurchased || 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-blue-600">Birds Accounted For</div>
+                    <div className="font-medium text-blue-800">
+                      {(trip.summary?.totalBirdsSold || 0) + (trip.stock?.birds || 0)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-blue-600">Death Birds (Auto)</div>
+                    <div className="font-medium text-red-600">{trip.summary?.mortality || 0}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Death Birds Summary */}
+              {trip.summary?.mortality > 0 && (
+                <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                  <h4 className="font-medium text-red-900 mb-3">Death Birds Summary</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div>
+                      <div className="text-sm text-red-600">Death Birds</div>
+                      <div className="font-medium text-red-800">{trip.summary?.mortality || 0}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-red-600">Death Weight</div>
+                      <div className="font-medium text-red-800">
+                        {(trip.summary?.totalWeightLost || 0).toFixed(2)} kg
                       </div>
                     </div>
-                  ))}
-
-                  {/* Death Birds Summary */}
-                  <div className="mt-4 p-4 bg-red-100 rounded-lg">
-                    <h4 className="font-medium text-red-900 mb-2">Death Birds Summary</h4>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                      <div>
-                        <div className="text-sm text-red-600">Total Birds</div>
-                        <div className="font-medium text-red-800">
-                          {trip.deathBirds.reduce((sum, db) => sum + (db.quantity || 0), 0)}
-                        </div>
+                    <div>
+                      <div className="text-sm text-red-600">Avg Purchase Rate</div>
+                      <div className="font-medium text-red-800">
+                        ₹{trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00'}/kg
                       </div>
-                      <div>
-                        <div className="text-sm text-red-600">Total Weight</div>
-                        <div className="font-medium text-red-800">
-                          {trip.deathBirds.reduce((sum, db) => sum + (db.weight || 0), 0).toFixed(2)} kg
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-red-600">Avg Weight</div>
-                        <div className="font-medium text-red-800">
-                          {trip.deathBirds.length > 0 ? 
-                            (trip.deathBirds.reduce((sum, db) => sum + (db.avgWeight || 0), 0) / trip.deathBirds.length).toFixed(2) : '0.00'} kg/bird
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-sm text-red-600">Total Loss</div>
-                        <div className="font-medium text-red-800">
-                          ₹{trip.deathBirds.reduce((sum, db) => sum + (db.total || 0), 0).toFixed(2)}
-                        </div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-red-600">Total Loss</div>
+                      <div className="font-medium text-red-800">
+                        ₹{((trip.summary?.totalWeightLost || 0) * (trip.summary?.avgPurchaseRate || 0)).toFixed(2)}
                       </div>
                     </div>
                   </div>
+                  <div className="mt-3 text-xs text-red-600">
+                    Note: Death birds are automatically calculated as: Purchased - Sold - Stock - Remaining
+                  </div>
                 </div>
-              ) : (
+              )}
+
+              {trip.summary?.mortality === 0 && (
                 <div className="text-center py-8">
-                  <p className="text-gray-500 mb-4">No death birds recorded yet</p>
-                  <button
-                    onClick={() => {
-                      setDeathBirdsData({ quantity: 0, weight: 0, avgWeight: 0, rate: 0, total: 0, reason: '', date: new Date().toISOString().split('T')[0] });
-                      setShowDeathBirdsModal(true);
-                    }}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                  >
-                    Add Death Birds Record
-                  </button>
+                  <div className="text-green-600 mb-2">
+                    <CheckCircle size={48} className="mx-auto" />
+                  </div>
+                  <p className="text-gray-700 font-medium">No Death Birds</p>
+                  <p className="text-sm text-gray-500">All purchased birds have been accounted for</p>
                 </div>
               )}
             </div>
@@ -1065,7 +1495,7 @@ const SupervisorTripDetails = () => {
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <div className="text-sm text-blue-600">Net Profit</div>
                   <div className="text-2xl font-bold text-blue-700">
-                    ₹{trip.summary?.netProfit?.toFixed(2) || '0.00'}
+                    ₹{trip.status === 'completed' ? (trip.summary?.netProfit?.toFixed(2) || '0.00') : Math.max(0, trip.summary?.netProfit || 0).toFixed(2)}
                   </div>
                 </div>
               </div>
@@ -1109,8 +1539,8 @@ const SupervisorTripDetails = () => {
                   </div>
                   <div className="flex justify-between border-t pt-2">
                     <span className="font-medium">Total Weight Loss:</span>
-                    <span className={`font-bold ${(trip.summary?.birdWeightLoss || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {(trip.summary?.birdWeightLoss || 0).toFixed(2)} kg
+                    <span className={`font-bold ${trip.status === 'completed' && (trip.summary?.birdWeightLoss || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'} kg
                     </span>
                   </div>
                 </div>
@@ -1124,7 +1554,9 @@ const SupervisorTripDetails = () => {
       {showPurchaseModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Add Purchase</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              {editingPurchaseIndex !== null ? 'Edit Purchase' : 'Add Purchase'}
+            </h3>
 
             {/* Summary Section */}
             {purchaseData.birds > 0 && purchaseData.weight > 0 && (
@@ -1256,7 +1688,7 @@ const SupervisorTripDetails = () => {
                   disabled={isSubmitting || !purchaseData.supplier || !purchaseData.dcNumber || purchaseData.birds <= 0 || purchaseData.weight <= 0 || purchaseData.rate <= 0}
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
                 >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Add Purchase'}
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingPurchaseIndex !== null ? 'Update Purchase' : 'Add Purchase')}
                 </button>
               </div>
             </form>
@@ -1280,7 +1712,9 @@ const SupervisorTripDetails = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-lg w-full max-w-md max-h-[80vh] flex flex-col">
             <div className="p-6 pb-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold">Add Sale</h3>
+              <h3 className="text-lg font-semibold">
+                {editingSaleIndex !== null ? 'Edit Sale' : 'Add Sale'}
+              </h3>
             </div>
             <div className="flex-1 overflow-y-auto p-6 pt-4">
 
@@ -1608,7 +2042,7 @@ const SupervisorTripDetails = () => {
                   disabled={isSubmitting}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Add Sale'}
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingSaleIndex !== null ? 'Update Sale' : 'Add Sale')}
                 </button>
               </div>
             </div>
@@ -1630,7 +2064,6 @@ const SupervisorTripDetails = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   required
                 >
-                  <option value="fuel">Fuel</option>
                   <option value="lunch">Lunch</option>
                   <option value="tea">Tea/Snacks</option>
                   <option value="toll">Toll Tax</option>
@@ -1646,7 +2079,7 @@ const SupervisorTripDetails = () => {
                   value={expenseData.description}
                   onChange={(e) => setExpenseData(prev => ({ ...prev, description: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder="e.g., Diesel at HP pump, Lunch at dhaba"
+                  placeholder="e.g. Lunch at dhaba, Tea at hotel etc."
                   required
                 />
               </div>
@@ -1717,27 +2150,19 @@ const SupervisorTripDetails = () => {
                   rows="3"
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Birds Remaining</label>
-                  <input
-                    type="number"
-                    value={completeData.birdsRemaining}
-                    onChange={(e) => setCompleteData(prev => ({ ...prev, birdsRemaining: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mortality</label>
-                  <input
-                    type="number"
-                    value={completeData.mortality}
-                    onChange={(e) => setCompleteData(prev => ({ ...prev, mortality: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    required
-                  />
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mortality (Death Birds)</label>
+                <input
+                  type="number"
+                  value={completeData.mortality}
+                  onChange={(e) => setCompleteData(prev => ({ ...prev, mortality: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  required
+                  placeholder="Enter number of birds that died"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  This represents the remaining birds that are automatically considered as death birds.
+                </p>
               </div>
               <div className="flex space-x-3">
                 <button
@@ -1764,7 +2189,29 @@ const SupervisorTripDetails = () => {
       {showDieselModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Add Diesel Record</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              {editingDieselIndex !== null ? 'Edit Diesel Record' : 'Add Diesel Record'}
+            </h3>
+
+            {/* Summary Section */}
+            {dieselData.volume > 0 && dieselData.rate > 0 && (
+              <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                <div className="text-sm text-blue-800">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <span className="font-medium">Volume:</span> {dieselData.volume} liters
+                    </div>
+                    <div>
+                      <span className="font-medium">Rate:</span> ₹{dieselData.rate}/liter
+                    </div>
+                    <div className="col-span-2">
+                      <span className="font-medium">Total Amount:</span> ₹{(dieselData.volume * dieselData.rate).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleDieselSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Station Name *</label>
@@ -1805,15 +2252,14 @@ const SupervisorTripDetails = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (Auto-calculated)</label>
                   <input
                     type="number"
-                    value={dieselData.amount}
-                    onChange={(e) => setDieselData(prev => ({ ...prev, amount: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    required
-                    min="0"
+                    value={dieselData.amount.toFixed(2)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                    readOnly
                     step="0.01"
+                    placeholder="Volume × Rate"
                   />
                 </div>
                 <div>
@@ -1836,10 +2282,10 @@ const SupervisorTripDetails = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || !dieselData.stationName || dieselData.volume <= 0 || dieselData.rate <= 0}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Add Diesel Record'}
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingDieselIndex !== null ? 'Update Diesel Record' : 'Add Diesel Record')}
                 </button>
               </div>
             </form>
@@ -1847,154 +2293,145 @@ const SupervisorTripDetails = () => {
         </div>
       )}
 
-      {/* Death Birds Modal */}
-      {showDeathBirdsModal && (
+      {/* Stock Modal */}
+      {showStockModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Add Death Birds</h3>
+            <h3 className="text-lg font-semibold mb-4">
+              {editingStockIndex !== null ? 'Edit Stock Entry' : 'Add to Stock'}
+            </h3>
 
             {/* Summary Section */}
-            {deathBirdsData.quantity > 0 && deathBirdsData.weight > 0 && (
-              <div className="bg-red-50 p-3 rounded-lg mb-4">
-                <div className="text-sm text-red-800">
+            {stockData.birds > 0 && stockData.weight > 0 && stockData.rate > 0 && (
+              <div className="bg-cyan-50 p-3 rounded-lg mb-4">
+                <div className="text-sm text-cyan-800">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <span className="font-medium">Quantity:</span> {deathBirdsData.quantity} birds
+                      <span className="font-medium">Birds:</span> {stockData.birds}
                     </div>
                     <div>
-                      <span className="font-medium">Weight:</span> {deathBirdsData.weight} kg
+                      <span className="font-medium">Weight:</span> {stockData.weight} kg
                     </div>
                     <div>
-                      <span className="font-medium">Avg Weight:</span> {deathBirdsData.avgWeight} kg/bird
+                      <span className="font-medium">Avg Weight:</span> {stockData.avgWeight} kg/bird
                     </div>
                     <div>
-                      <span className="font-medium">Rate:</span> ₹{deathBirdsData.rate}/kg
+                      <span className="font-medium">Rate:</span> ₹{stockData.rate}/kg
                     </div>
-                    <div>
-                      <span className="font-medium">Total Loss:</span> ₹{deathBirdsData.total?.toFixed(2) || '0.00'}
-                    </div>
-                    <div>
-                      <span className="font-medium">Reason:</span> {deathBirdsData.reason || 'N/A'}
+                    <div className="col-span-2">
+                      <span className="font-medium">Stock Value:</span> ₹{stockData.value.toFixed(2)}
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            <form onSubmit={handleDeathBirdsSubmit} className="space-y-4">
+            <form onSubmit={handleStockSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Quantity *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Birds in Stock *</label>
                   <input
                     type="number"
-                    value={deathBirdsData.quantity}
-                    onChange={(e) => handleDeathBirdsDataChange('quantity', Number(e.target.value))}
+                    value={stockData.birds}
+                    onChange={(e) => setStockData(prev => ({ ...prev, birds: Number(e.target.value) }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Number of dead birds"
                     required
-                    min="1"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg) *</label>
-                  <input
-                    type="number"
-                    value={deathBirdsData.weight}
-                    onChange={(e) => handleDeathBirdsDataChange('weight', Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Total weight of dead birds"
-                    required
-                    step="0.01"
-                    min="0.01"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Avg Weight (kg/bird)</label>
-                  <input
-                    type="number"
-                    value={deathBirdsData.avgWeight}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                    placeholder="Auto-calculated"
-                    readOnly
-                    step="0.01"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Rate (₹/kg) *</label>
-                  <input
-                    type="number"
-                    value={deathBirdsData.rate}
-                    onChange={(e) => handleDeathBirdsDataChange('rate', Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Rate per kg"
-                    required
-                    step="0.01"
                     min="0"
+                    step="1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Weight (kg) *</label>
+                  <input
+                    type="number"
+                    value={stockData.weight}
+                    onChange={(e) => setStockData(prev => ({ ...prev, weight: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    required
+                    min="0"
+                    step="0.1"
                   />
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Total Loss (₹)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rate per kg (₹) *</label>
                 <input
                   type="number"
-                  value={deathBirdsData.total.toFixed(2)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                  placeholder="Auto-calculated"
-                  readOnly
+                  value={stockData.rate}
+                  onChange={(e) => setStockData(prev => ({ ...prev, rate: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  required
+                  min="0"
                   step="0.01"
+                  placeholder="Enter purchase rate per kg"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Reason for Death</label>
-                <input
-                  type="text"
-                  value={deathBirdsData.reason}
-                  onChange={(e) => handleDeathBirdsDataChange('reason', e.target.value)}
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                <textarea
+                  value={stockData.notes}
+                  onChange={(e) => setStockData(prev => ({ ...prev, notes: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder="e.g., Disease, Heat stroke, Transport stress"
+                  rows="2"
+                  placeholder="Add any notes about this stock entry..."
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                <input
-                  type="date"
-                  value={deathBirdsData.date}
-                  onChange={(e) => handleDeathBirdsDataChange('date', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Avg Weight (Auto-calculated)</label>
+                  <input
+                    type="number"
+                    value={stockData.avgWeight.toFixed(2)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                    readOnly
+                    step="0.01"
+                    placeholder="Weight ÷ Birds"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Stock Value (Auto-calculated)</label>
+                  <input
+                    type="number"
+                    value={stockData.value.toFixed(2)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                    readOnly
+                    step="0.01"
+                    placeholder="Weight × Rate"
+                  />
+                </div>
+              </div>
+              <div className="bg-yellow-50 p-3 rounded-lg">
+                <div className="text-sm text-yellow-800">
+                  <div className="font-medium mb-1">Note:</div>
+                  <ul className="text-xs space-y-1">
+                    <li>• Stock represents birds kept for future sales</li>
+                    <li>• Stock value is calculated at purchase rate</li>
+                    <li>• Stock is not included in current profit calculations</li>
+                    <li>• Death birds are calculated automatically from remaining birds</li>
+                  </ul>
+                </div>
               </div>
               <div className="flex space-x-3">
                 <button
                   type="button"
-                  onClick={() => setShowDeathBirdsModal(false)}
+                  onClick={() => setShowStockModal(false)}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || deathBirdsData.quantity <= 0 || deathBirdsData.weight <= 0 || deathBirdsData.rate <= 0}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                  disabled={isSubmitting || stockData.birds <= 0 || stockData.weight <= 0 || stockData.rate <= 0}
+                  className="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50"
                 >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Add Death Birds'}
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingStockIndex !== null ? 'Update Stock' : 'Add to Stock')}
                 </button>
               </div>
             </form>
-
-            {/* Help Text */}
-            <div className="mt-4 text-xs text-gray-500">
-              <p>• <strong>QUANTITY:</strong> Enter the number of dead birds</p>
-              <p>• <strong>WEIGHT:</strong> Enter the total weight of dead birds in kg</p>
-              <p>• <strong>AVG WEIGHT:</strong> Automatically calculated as Weight ÷ Quantity</p>
-              <p>• <strong>RATE:</strong> Enter the rate per kg for calculating loss</p>
-              <p>• <strong>TOTAL LOSS:</strong> Automatically calculated as Weight × Rate</p>
-              <p>• <strong>REASON:</strong> Optional reason for bird deaths</p>
-            </div>
           </div>
         </div>
       )}
+
     </div>
   );
 };

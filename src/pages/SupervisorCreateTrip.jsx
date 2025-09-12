@@ -33,6 +33,8 @@ const SupervisorCreateTrip = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showVehicleStatusModal, setShowVehicleStatusModal] = useState(false);
+  const [selectedVehicleStatus, setSelectedVehicleStatus] = useState('');
 
   useEffect(() => {
     fetchVehicles();
@@ -53,6 +55,22 @@ const SupervisorCreateTrip = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // Check if vehicle is being selected
+    if (name === 'vehicle' && value) {
+      const selectedVehicle = vehicles.find(v => v.id === value);
+      if (selectedVehicle && selectedVehicle.currentStatus !== 'idle') {
+        // Vehicle is not idle, show modal and reset selection
+        setSelectedVehicleStatus(selectedVehicle.currentStatus);
+        setShowVehicleStatusModal(true);
+        setFormData(prev => ({
+          ...prev,
+          [name]: '' // Reset vehicle selection
+        }));
+        return;
+      }
+    }
+    
     if (name.includes('.')) {
       const [parent, child] = name.split('.');
       setFormData(prev => ({
@@ -204,11 +222,19 @@ const SupervisorCreateTrip = () => {
               >
                 <option value="">Select Vehicle</option>
                 {vehicles.map(vehicle => (
-                  <option key={vehicle.id} value={vehicle.id}>
-                    {vehicle.vehicleNumber} - {vehicle.type}
+                  <option 
+                    key={vehicle.id} 
+                    value={vehicle.id}
+                    className={vehicle.currentStatus !== 'idle' ? 'text-gray-500' : ''}
+                  >
+                    {vehicle.vehicleNumber} - {vehicle.type} 
+                    {vehicle.currentStatus !== 'idle' && ` (${vehicle.currentStatus})`}
                   </option>
                 ))}
               </select>
+              <p className="text-sm text-gray-500 mt-1">
+                Only vehicles with 'idle' status can be selected for new trips
+              </p>
             </div>
 
             <div>
@@ -242,42 +268,6 @@ const SupervisorCreateTrip = () => {
                 placeholder="0"
                 min="0"
               />
-            </div>
-          </div>
-        </div>
-
-        {/* Round Trip Activities */}
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Round Trip Activities</h3>
-          <div className="space-y-4">
-            <div className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Plus className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h4 className="font-medium text-blue-900">Purchase Phase</h4>
-                <p className="text-sm text-blue-700">Buy chickens from vendors during this trip</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-3 p-4 bg-green-50 rounded-lg border border-green-200">
-              <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <Truck className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h4 className="font-medium text-green-900">Delivery Phase</h4>
-                <p className="text-sm text-green-700">Sell chickens to customers during this trip</p>
-              </div>
-            </div>
-            
-            <div className="flex items-start space-x-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-              <div className="w-8 h-8 bg-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <MapPin className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h4 className="font-medium text-gray-900">Return Phase</h4>
-                <p className="text-sm text-gray-700">Return to base location after completing purchases and deliveries</p>
-              </div>
             </div>
           </div>
         </div>
@@ -365,6 +355,44 @@ const SupervisorCreateTrip = () => {
           </button>
         </div>
       </form>
+
+      {/* Vehicle Status Modal */}
+      {showVehicleStatusModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Vehicle Not Available</h3>
+              <button
+                onClick={() => setShowVehicleStatusModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="mb-6">
+              <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 bg-red-100 rounded-full">
+                <Truck className="w-8 h-8 text-red-600" />
+              </div>
+              <p className="text-center text-gray-700">
+                Vehicle Not Available Due to <span className="font-semibold capitalize">{selectedVehicleStatus}</span>
+              </p>
+              <p className="text-center text-sm text-gray-500 mt-2">
+                Please select a vehicle with 'idle' status to create a new trip.
+              </p>
+            </div>
+            
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowVehicleStatusModal(false)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

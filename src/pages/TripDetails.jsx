@@ -213,9 +213,9 @@ export default function TripDetails() {
       [''],
       ['WEIGHT LOSS TRACKING'],
       ['', 'BIRDS', 'WEIGHT', 'AVG', 'RATE', 'AMOUNT'],
-      ['DEATH BIRDS', trip.deathBirds || 0, trip.deathWeight || 0, trip.deathAvg || 0, trip.deathRate || 0, trip.deathAmount || 0],
-      ['WEIGHT LOSS', '', trip.weightLoss || 0, trip.weightLossAvg || 0, trip.weightLossRate || 0, trip.weightLossAmount || 0],
-      ['TOTAL W LOSS', trip.deathBirds || 0, ((trip.deathWeight || 0) + (trip.weightLoss || 0)).toFixed(2), '', trip.deathRate || 0, ((trip.deathAmount || 0) + (trip.weightLossAmount || 0))]
+      ['DEATH BIRDS', trip.summary?.totalBirdsLost || 0, (trip.summary?.totalWeightLost || 0).toFixed(2), trip.summary?.totalBirdsLost > 0 ? ((trip.summary?.totalWeightLost / trip.summary?.totalBirdsLost) || 0).toFixed(2) : 0, trip.summary?.avgPurchaseRate?.toFixed(2) || 0, (trip.summary?.totalLosses || 0).toFixed(2)],
+      ['WEIGHT LOSS', '', trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00', 0, 0, 0],
+      ['TOTAL W LOSS', trip.summary?.totalBirdsLost || 0, ((trip.summary?.totalWeightLost || 0) + (trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0) : 0)).toFixed(2), '', trip.summary?.avgPurchaseRate?.toFixed(2) || 0, (trip.summary?.totalLosses || 0).toFixed(2)]
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(reportData);
@@ -263,7 +263,7 @@ export default function TripDetails() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Trip: {trip.tripId}</h1>
+          <h1 className="text-3xl font-bold text-gray-900">{trip.tripId || 'N/A'}</h1>
           <p className="text-gray-600 mt-1">Manage trip details and operations</p>
         </div>
         <div className="flex gap-2 mt-4 sm:mt-0">
@@ -605,10 +605,10 @@ export default function TripDetails() {
                         <span className="text-sm text-gray-600">GROSS RENT:</span>
                         <span className="font-semibold">₹{trip.totalKm ? (trip.totalKm * (trip.rentPerKm || 22)) : 0}</span>
                       </div>
-                      <div className="flex justify-between">
+                      {/* <div className="flex justify-between">
                         <span className="text-sm text-gray-600">LESS DIESEL AMT:</span>
                         <span className="font-semibold">₹{trip.dieselAmount || 0}</span>
-                      </div>
+                      </div> */}
                       <div className="flex justify-between">
                         <span className="text-sm text-gray-600">NETT RENT:</span>
                         <span className="font-semibold">₹{trip.totalKm ? ((trip.totalKm * (trip.rentPerKm || 22)) - (trip.dieselAmount || 0)) : 0}</span>
@@ -644,27 +644,33 @@ export default function TripDetails() {
                         <tbody>
                           <tr className="border-b">
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">DEATH BIRDS</td>
-                            <td className="px-3 py-2 text-sm text-gray-900 border-r">{trip.deathBirds || 0}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900 border-r">{trip.deathWeight || 0}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900 border-r">{trip.deathAvg || 0}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900 border-r">₹{trip.deathRate || 0}</td>
-                            <td className="px-3 py-2 text-sm font-semibold text-gray-900">₹{trip.deathAmount || 0}</td>
+                            <td className="px-3 py-2 text-sm text-gray-900 border-r">{trip.summary?.totalBirdsLost || 0}</td>
+                            <td className="px-3 py-2 text-sm text-gray-900 border-r">{(trip.summary?.totalWeightLost || 0).toFixed(2)}</td>
+                            <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                              {trip.summary?.totalBirdsLost > 0 ? ((trip.summary?.totalWeightLost / trip.summary?.totalBirdsLost) || 0).toFixed(2) : 0}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-900 border-r">₹{trip.summary?.avgPurchaseRate?.toFixed(2) || 0}</td>
+                            <td className="px-3 py-2 text-sm font-semibold text-gray-900">₹{(trip.summary?.totalLosses || 0).toFixed(2)}</td>
                           </tr>
                           <tr className="border-b">
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">WEIGHT LOSS</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r"></td>
-                            <td className="px-3 py-2 text-sm text-gray-900 border-r">{trip.weightLoss || 0}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900 border-r">{trip.weightLossAvg || 0}</td>
-                            <td className="px-3 py-2 text-sm text-gray-900 border-r">₹{trip.weightLossRate || 0}</td>
-                            <td className="px-3 py-2 text-sm font-semibold text-gray-900">₹{trip.weightLossAmount || 0}</td>
+                            <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                              {trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-900 border-r">0</td>
+                            <td className="px-3 py-2 text-sm text-gray-900 border-r">₹0</td>
+                            <td className="px-3 py-2 text-sm font-semibold text-gray-900">₹0</td>
                           </tr>
                           <tr className="bg-black text-white font-bold">
                             <td className="px-3 py-2 border-r">TOTAL W LOSS</td>
-                            <td className="px-3 py-2 border-r">{trip.deathBirds || 0}</td>
-                            <td className="px-3 py-2 border-r">{((trip.deathWeight || 0) + (trip.weightLoss || 0)).toFixed(2)}</td>
+                            <td className="px-3 py-2 border-r">{trip.summary?.totalBirdsLost || 0}</td>
+                            <td className="px-3 py-2 border-r">
+                              {((trip.summary?.totalWeightLost || 0) + (trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0) : 0)).toFixed(2)}
+                            </td>
                             <td className="px-3 py-2 border-r"></td>
-                            <td className="px-3 py-2 border-r">₹{trip.deathRate || 0}</td>
-                            <td className="px-3 py-2">₹{((trip.deathAmount || 0) + (trip.weightLossAmount || 0))}</td>
+                            <td className="px-3 py-2 border-r">₹{trip.summary?.avgPurchaseRate?.toFixed(2) || 0}</td>
+                            <td className="px-3 py-2">₹{(trip.summary?.totalLosses || 0).toFixed(2)}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -712,7 +718,7 @@ export default function TripDetails() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
-            {['overview', 'purchases', 'sales', 'expenses', 'diesel', 'losses'].map((tab) => (
+            {['overview', 'purchases', 'sales', 'stock', 'expenses', 'diesel', 'losses', 'financials'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -733,66 +739,130 @@ export default function TripDetails() {
           {activeTab === 'overview' && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Trip Summary</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Route Information</h4>
-                  <p className="text-sm text-gray-600">From: {trip.route?.from || 'N/A'}</p>
-                  <p className="text-sm text-gray-600">To: {trip.route?.to || 'N/A'}</p>
-                  <p className="text-sm text-gray-600">Distance: {trip.route?.distance || 0} km</p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Trip Details</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3">
+                      <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-600 truncate">Place: {trip.place}</span>
                 </div>
-                <div className="p-4 bg-gray-50 rounded-lg">
-                  <h4 className="font-medium text-gray-900 mb-2">Team Information</h4>
-                  <p className="text-sm text-gray-600">Supervisor: {trip.supervisor?.name}</p>
-                  <p className="text-sm text-gray-600">Driver: {trip.driver}</p>
-                  <p className="text-sm text-gray-600">Labours: {trip.labours?.join(', ')}</p>
+                    <div className="flex items-center gap-3">
+                      <Truck className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-600 truncate">Vehicle: {trip.vehicle?.vehicleNumber}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-600 truncate">Driver: {trip.driver}</span>
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <Users className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+                      <div className="text-sm text-gray-600">
+                        <span className="block">Labours:</span>
+                        <span className="block mt-1">{trip.labours?.join(', ')}</span>
                 </div>
               </div>
 
-              {/* Weight Loss Tracking */}
-              <div className="mt-6 p-4 bg-red-50 rounded-lg border border-red-200">
-                <h4 className="font-medium text-red-900 mb-3">Weight Loss Analysis</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Purchased Weight:</span>
-                      <span className="font-medium">{(trip.summary?.totalWeightPurchased || 0).toFixed(2)} kg</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Sold Weight:</span>
-                      <span className="font-medium">{(trip.summary?.totalWeightSold || 0).toFixed(2)} kg</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Lost Weight (Death Birds):</span>
-                      <span className="font-medium text-red-600">{(trip.summary?.totalWeightLost || 0).toFixed(2)} kg</span>
-                    </div>
-                  </div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total Birds Purchased:</span>
-                      <span className="font-medium">{trip.summary?.totalBirdsPurchased || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total Birds Sold:</span>
-                      <span className="font-medium">{trip.summary?.totalBirdsSold || 0}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total Birds Lost:</span>
-                      <span className="font-medium text-red-600">{trip.summary?.totalBirdsLost || 0}</span>
-                    </div>
+                    {trip.vehicleReadings?.opening && (
+                      <div className="flex items-center gap-3">
+                        <Truck className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <span className="text-sm text-gray-600 truncate">
+                          Opening Odometer: {trip.vehicleReadings.opening} km
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div className="mt-4 pt-3 border-t border-red-200">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-700 font-medium">Total Weight Loss:</span>
-                    <span className={`text-lg font-bold ${(trip.summary?.birdWeightLoss || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {(trip.summary?.birdWeightLoss || 0).toFixed(2)} kg
-                    </span>
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    Formula: Purchased Weight - Sold Weight - Lost Weight
+
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-gray-900">Financial Summary</h3>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Total Sales:</span>
+                      <span className="font-medium text-right">₹{trip.summary?.totalSalesAmount?.toFixed(2) || '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Sales Profit:</span>
+                      <span className="font-medium text-green-600 text-right">₹{trip.summary?.totalProfitMargin?.toFixed(2) || '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Total Expenses:</span>
+                      <span className="font-medium text-right">₹{trip.summary?.totalExpenses?.toFixed(2) || '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Diesel Cost:</span>
+                      <span className="font-medium text-right">₹{trip.summary?.totalDieselAmount?.toFixed(2) || '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Death Losses:</span>
+                      <span className="font-medium text-red-600 text-right">₹{trip.summary?.totalLosses?.toFixed(2) || '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-t pt-3 mt-3">
+                      <span className="text-sm font-medium text-gray-900">Net Profit:</span>
+                      <span className="text-lg font-semibold text-green-600 text-right">
+                        ₹{trip.status === 'completed' ? (trip.summary?.netProfit?.toFixed(2) || '0.00') : Math.max(0, trip.summary?.netProfit || 0).toFixed(2)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Bird Summary */}
+              <div className="mt-4 pt-4 border-t">
+                <h4 className="font-medium text-gray-900 mb-2">Bird Summary</h4>
+                <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                    <span className="text-gray-600">Birds Purchased:</span>
+                    <span className="font-medium">{trip.summary?.totalBirdsPurchased || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                    <span className="text-gray-600">Birds Sold:</span>
+                    <span className="font-medium">{trip.summary?.totalBirdsSold || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                    <span className="text-gray-600">In Stock:</span>
+                    <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0} birds</span>
+                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Death:</span>
+                    <span className="font-medium">{trip.summary?.mortality || 0}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="text-gray-600 font-medium">Remaining:</span>
+                    <span className="font-medium text-green-600">{trip.summary?.birdsRemaining || 0}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Weight Summary */}
+              <div className="mt-4 pt-4 border-t">
+                <h4 className="font-medium text-gray-900 mb-2">Weight Summary</h4>
+                <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                    <span className="text-gray-600">Purchased Weight:</span>
+                    <span className="font-medium">{(trip.summary?.totalWeightPurchased || 0).toFixed(2)} kg</span>
+                    </div>
+                    <div className="flex justify-between">
+                    <span className="text-gray-600">Sold Weight:</span>
+                    <span className="font-medium">{(trip.summary?.totalWeightSold || 0).toFixed(2)} kg</span>
+                    </div>
+                    <div className="flex justify-between">
+                    <span className="text-gray-600">Total Stock Weight:</span>
+                    <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0).toFixed(2) || '0.00'} kg</span>
+                    </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Death Weight:</span>
+                    <span className="font-medium">{(trip.summary?.totalWeightLost || 0).toFixed(2)} kg</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="text-gray-600 font-medium">Natural Weight Loss:</span>
+                    <span className="font-medium text-orange-600">
+                      {trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'} kg
+                    </span>
+                  </div>
+                  </div>
+                  </div>
+
             </div>
           )}
 
@@ -1014,6 +1084,113 @@ export default function TripDetails() {
             </div>
           )}
 
+          {/* Stock Tab */}
+          {activeTab === 'stock' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Stock Management</h3>
+              
+              {/* Stock Summary */}
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 className="font-medium text-blue-900 mb-3">Total Stock Summary</h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div>
+                    <div className="text-sm text-blue-600">Total Birds in Stock</div>
+                    <div className="font-medium text-blue-800">{trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-blue-600">Total Stock Weight</div>
+                    <div className="font-medium text-blue-800">{trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0).toFixed(2) || '0.00'} kg</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-blue-600">Total Stock Value</div>
+                    <div className="font-medium text-blue-800">₹{trip.stocks?.reduce((sum, stock) => sum + (stock.value || 0), 0).toFixed(2) || '0.00'}</div>
+                  </div>
+                  <div>
+                    <div className="text-sm text-blue-600">Stock Entries</div>
+                    <div className="font-medium text-blue-800">{trip.stocks?.length || 0}</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Stock Entries List */}
+              {trip.stocks && trip.stocks.length > 0 ? (
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-900">Stock Entries</h4>
+                  {trip.stocks.map((stock, index) => (
+                    <div key={index} className="bg-white p-4 rounded-lg border border-gray-200">
+                      <div className="flex justify-between items-start mb-3">
+                        <div>
+                          <h5 className="font-medium text-gray-900">Stock Entry #{index + 1}</h5>
+                          <p className="text-sm text-gray-500">
+                            Added: {new Date(stock.addedAt).toLocaleDateString()}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-600">Birds:</span>
+                          <span className="font-medium ml-2">{stock.birds}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Weight:</span>
+                          <span className="font-medium ml-2">{stock.weight.toFixed(2)} kg</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Rate:</span>
+                          <span className="font-medium ml-2">₹{stock.rate.toFixed(2)}/kg</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-600">Value:</span>
+                          <span className="font-medium ml-2">₹{stock.value.toFixed(2)}</span>
+                        </div>
+                      </div>
+                      
+                      {stock.notes && (
+                        <div className="mt-3 pt-3 border-t border-gray-100">
+                          <span className="text-gray-600 text-sm">Notes:</span>
+                          <p className="text-sm text-gray-800 mt-1">{stock.notes}</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="bg-gray-50 p-6 rounded-lg border border-gray-200 text-center">
+                  <p className="text-gray-500">No stock entries found</p>
+                  <p className="text-sm text-gray-400 mt-1">Stock entries will appear here when added to the trip</p>
+                </div>
+              )}
+
+              {/* Remaining Birds Calculation */}
+              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200">
+                <h4 className="font-medium text-yellow-900 mb-3">Birds Remaining Calculation</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Birds Purchased:</span>
+                    <span className="font-medium">{trip.summary?.totalBirdsPurchased || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Birds Sold:</span>
+                    <span className="font-medium">{trip.summary?.totalBirdsSold || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Birds in Stock:</span>
+                    <span className="font-medium">{trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Death Birds:</span>
+                    <span className="font-medium">{trip.summary?.mortality || 0}</span>
+                  </div>
+                  <div className="flex justify-between border-t pt-2">
+                    <span className="text-gray-600 font-medium">Remaining Birds:</span>
+                    <span className="font-medium text-green-600">{trip.summary?.birdsRemaining || 0}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Losses Tab */}
           {activeTab === 'losses' && (
             <div className="space-y-4">
@@ -1066,6 +1243,101 @@ export default function TripDetails() {
                   <p className="text-sm text-gray-400">Losses will appear here when death birds are added to the trip.</p>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Financials Tab */}
+          {activeTab === 'financials' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Financial Analysis</h3>
+              
+              {/* Financial Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                  <h4 className="font-medium text-green-900 mb-3">Revenue Analysis</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Sales:</span>
+                      <span className="font-medium">₹{(trip.summary?.totalSalesAmount || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Sales Profit:</span>
+                      <span className="font-medium text-green-600">₹{(trip.summary?.totalProfitMargin || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Profit Margin:</span>
+                      <span className="font-medium">
+                        {trip.summary?.totalSalesAmount > 0 
+                          ? ((trip.summary?.totalProfitMargin / trip.summary?.totalSalesAmount) * 100).toFixed(2)
+                          : '0.00'}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+                  <h4 className="font-medium text-red-900 mb-3">Cost Analysis</h4>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Purchases:</span>
+                      <span className="font-medium">₹{(trip.summary?.totalPurchaseAmount || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Expenses:</span>
+                      <span className="font-medium">₹{(trip.summary?.totalExpenses || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Diesel Cost:</span>
+                      <span className="font-medium">₹{(trip.summary?.totalDieselAmount || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Death Losses:</span>
+                      <span className="font-medium">₹{(trip.summary?.totalLosses || 0).toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Net Profit Analysis */}
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 className="font-medium text-blue-900 mb-3">Net Profit Analysis</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">
+                      ₹{trip.status === 'completed' ? (trip.summary?.netProfit || 0).toFixed(2) : '0.00'}
+                    </div>
+                    <div className="text-blue-700">Net Profit</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {trip.summary?.totalWeightSold > 0 
+                        ? (trip.summary?.profitPerKg || 0).toFixed(2)
+                        : '0.00'}
+                    </div>
+                    <div className="text-blue-700">Profit per Kg</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {trip.summary?.totalSalesAmount > 0 
+                        ? ((trip.summary?.netProfit / trip.summary?.totalSalesAmount) * 100).toFixed(2)
+                        : '0.00'}%
+                    </div>
+                    <div className="text-blue-700">Net Profit Margin</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trip Status Impact */}
+              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h4 className="font-medium text-gray-900 mb-3">Trip Status Impact</h4>
+                <div className="text-sm text-gray-600">
+                  {trip.status === 'completed' ? (
+                    <p>✅ <strong>Completed Trip:</strong> All financial calculations are final and include complete data.</p>
+                  ) : (
+                    <p>⚠️ <strong>Ongoing Trip:</strong> Net profit shows 0.00 as the trip is still in progress. Final calculations will be available upon completion.</p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
