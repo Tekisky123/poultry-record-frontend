@@ -268,6 +268,9 @@ const SupervisorCreateTrip = () => {
                 placeholder="0"
                 min="0"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Enter the vehicle's odometer reading at trip start
+              </p>
             </div>
           </div>
         </div>

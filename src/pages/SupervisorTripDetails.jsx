@@ -2132,14 +2132,30 @@ const SupervisorTripDetails = () => {
             <h3 className="text-lg font-semibold mb-4">Complete Trip</h3>
             <form onSubmit={handleCompleteTrip} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Closing Odometer</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Closing Odometer
+                  <span className="text-red-500 ml-1">*</span>
+                </label>
                 <input
                   type="number"
+                  min={trip?.vehicleReadings?.opening || 0}
                   value={completeData.closingOdometer}
                   onChange={(e) => setCompleteData(prev => ({ ...prev, closingOdometer: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder={`Min: ${trip?.vehicleReadings?.opening || 0}`}
                   required
                 />
+                {trip?.vehicleReadings?.opening && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Opening reading: {trip.vehicleReadings.opening}
+                  </p>
+                )}
+                {completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening && 
+                 completeData.closingOdometer < trip.vehicleReadings.opening && (
+                  <p className="text-xs text-red-500 mt-1">
+                    Closing reading must be greater than opening reading ({trip.vehicleReadings.opening})
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Final Remarks</label>
@@ -2174,8 +2190,9 @@ const SupervisorTripDetails = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                  disabled={isSubmitting || (completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening && 
+                           completeData.closingOdometer < trip.vehicleReadings.opening)}
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Complete Trip'}
                 </button>

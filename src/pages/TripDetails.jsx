@@ -14,27 +14,102 @@ import {
   X,
   Plus,
   CheckCircle,
-  FileSpreadsheet
+  FileSpreadsheet,
+  FileText,
+  Save,
+  Edit
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
+import { downloadTripPDF } from '../utils/downloadTripPDF';
 
 export default function TripDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
   const [trip, setTrip] = useState(null);
+  const [vendors, setVendors] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
+  const [showDieselModal, setShowDieselModal] = useState(false);
+  const [showStockModal, setShowStockModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  
+  // Edit states
+  const [editingPurchaseIndex, setEditingPurchaseIndex] = useState(null);
+  const [editingSaleIndex, setEditingSaleIndex] = useState(null);
+  const [editingExpenseIndex, setEditingExpenseIndex] = useState(null);
+  const [editingDieselIndex, setEditingDieselIndex] = useState(null);
+  const [editingStockIndex, setEditingStockIndex] = useState(null);
+  
+  // Form data for editing
+  const [purchaseData, setPurchaseData] = useState({
+    supplier: '',
+    dcNumber: '',
+    birds: 0,
+    weight: 0,
+    avgWeight: 0,
+    rate: 0,
+    amount: 0
+  });
+
+  const [saleData, setSaleData] = useState({
+    client: '',
+    billNumber: '',
+    birds: 0,
+    weight: 0,
+    avgWeight: 0,
+    rate: 0,
+    amount: 0,
+    paymentMode: 'cash',
+    paymentStatus: 'pending',
+    receivedAmount: 0,
+    discount: 0,
+    balance: 0,
+    cashPaid: 0,
+    onlinePaid: 0
+  });
+
+  const [expenseData, setExpenseData] = useState({
+    category: 'meals',
+    description: '',
+    amount: 0,
+    date: new Date().toISOString().split('T')[0]
+  });
+
+  const [dieselData, setDieselData] = useState({
+    stationName: '',
+    volume: 0,
+    rate: 0,
+    amount: 0,
+    date: new Date().toISOString().split('T')[0]
+  });
+
+  const [stockData, setStockData] = useState({
+    birds: 0,
+    weight: 0,
+    avgWeight: 0,
+    rate: 0,
+    value: 0,
+    notes: ''
+  });
+
+  const [completeData, setCompleteData] = useState({
+    closingOdometer: 0,
+    finalRemarks: '',
+    mortality: 0
+  });
 
   useEffect(() => {
     if (id) {
       fetchTrip();
+      fetchVendors();
+      fetchCustomers();
     }
   }, [id]);
 
@@ -47,6 +122,28 @@ export default function TripDetails() {
       console.error('Error fetching trip:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchVendors = async () => {
+    try {
+      const { data } = await api.get('/vendor');
+      if (data.success) {
+        setVendors(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching vendors:', error);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const { data } = await api.get('/customer');
+      if (data.success) {
+        setCustomers(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching customers:', error);
     }
   };
 
@@ -94,6 +191,121 @@ export default function TripDetails() {
       navigate('/supervisor/trips');
     } catch (err) {
       alert(`Error: ${err.message}`);
+    }
+  };
+
+  // Helper functions for calculations
+  const calculateAvgWeight = (birds, weight) => {
+    if (birds > 0 && weight > 0) {
+      return (weight / birds).toFixed(2);
+    }
+    return 0;
+  };
+
+  const calculateAmount = (weight, ratePerKg) => {
+    return weight * ratePerKg;
+  };
+
+  // Edit handlers
+  const handleEditPurchase = async (e) => {
+    e.preventDefault();
+    try {
+      const cleanedPurchaseData = {
+        ...purchaseData,
+        supplier: purchaseData.supplier === '' ? null : purchaseData.supplier
+      };
+
+      const { data } = await api.put(`/trip/${id}/purchase/${editingPurchaseIndex}`, cleanedPurchaseData);
+      if (data.success) {
+        setTrip(data.data);
+        setShowPurchaseModal(false);
+        setPurchaseData({ supplier: '', dcNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0 });
+        setEditingPurchaseIndex(null);
+        alert('Purchase updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating purchase:', error);
+      alert(error.response?.data?.message || 'Failed to update purchase');
+    }
+  };
+
+  const handleEditSale = async (e) => {
+    e.preventDefault();
+    try {
+      const cleanedSaleData = {
+        ...saleData,
+        client: saleData.client === '' ? null : saleData.client
+      };
+
+      const { data } = await api.put(`/trip/${id}/sale/${editingSaleIndex}`, cleanedSaleData);
+      if (data.success) {
+        setTrip(data.data);
+        setShowSaleModal(false);
+        setSaleData({ client: '', billNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+        setEditingSaleIndex(null);
+        alert('Sale updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating sale:', error);
+      alert(error.response?.data?.message || 'Failed to update sale');
+    }
+  };
+
+  const handleEditExpense = async (e) => {
+    e.preventDefault();
+    try {
+      const { data } = await api.put(`/trip/${id}/expenses/${editingExpenseIndex}`, expenseData);
+      if (data.success) {
+        setTrip(data.data);
+        setShowExpenseModal(false);
+        setExpenseData({ category: 'meals', description: '', amount: 0, date: new Date().toISOString().split('T')[0] });
+        setEditingExpenseIndex(null);
+        alert('Expense updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      alert(error.response?.data?.message || 'Failed to update expense');
+    }
+  };
+
+  const handleEditDiesel = async (e) => {
+    e.preventDefault();
+    try {
+      const { data } = await api.put(`/trip/${id}/diesel/${editingDieselIndex}`, dieselData);
+      if (data.success) {
+        setTrip(data.data);
+        setShowDieselModal(false);
+        setEditingDieselIndex(null);
+        setDieselData({ stationName: '', volume: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
+        alert('Diesel record updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating diesel record:', error);
+      alert(error.response?.data?.message || 'Failed to update diesel record');
+    }
+  };
+
+  const handleEditStock = async (e) => {
+    e.preventDefault();
+    try {
+      const cleanedStockData = {
+        birds: Number(stockData.birds),
+        weight: Number(stockData.weight),
+        rate: Number(stockData.rate),
+        notes: stockData.notes
+      };
+
+      const { data } = await api.put(`/trip/${id}/stock/${editingStockIndex}`, cleanedStockData);
+      if (data.success) {
+        setTrip(data.data);
+        setShowStockModal(false);
+        setEditingStockIndex(null);
+        setStockData({ birds: 0, weight: 0, avgWeight: 0, rate: 0, value: 0, notes: '' });
+        alert('Stock updated successfully!');
+      }
+    } catch (error) {
+      console.error('Error updating stock:', error);
+      alert(error.response?.data?.message || 'Failed to update stock');
     }
   };
 
@@ -149,6 +361,39 @@ export default function TripDetails() {
         trip.summary?.totalPurchaseAmount || 0
       ],
       [''],
+
+       // SALES DETAILS Section
+       ['SALES DETAILS'],
+       ['S N', 'DELIVERY DETAILS', 'BILL NO', 'BIRDS', 'WEIGHT', 'AVG', 'RATE', 'TOTAL', 'CASH', 'ONLINE', 'DISC'],
+       ...(trip.sales || []).map((sale, index) => [
+         index + 1,
+         sale.client?.shopName || 'N/A',
+         sale.billNumber || 'N/A',
+         sale.birdsCount || sale.birds || 0,
+         sale.weight || 0,
+         sale.weight && (sale.birdsCount || sale.birds) ? 
+           (sale.weight / (sale.birdsCount || sale.birds)).toFixed(2) : '0.00',
+         sale.ratePerKg || sale.rate || 0,
+         sale.totalAmount || sale.amount || 0,
+         sale.cashPayment || (sale.paymentMode === 'cash' ? sale.amount : 0),
+         sale.onlinePayment || (sale.paymentMode === 'online' ? sale.amount : 0),
+         sale.discount || 0
+       ]),
+       [
+         'TOTAL SALE',
+         '',
+         '',
+         trip.summary?.totalBirdsSold || 0,
+         trip.summary?.totalWeightSold || 0,
+         trip.summary?.totalBirdsSold && trip.summary?.totalWeightSold ? 
+           (trip.summary.totalWeightSold / trip.summary.totalBirdsSold).toFixed(2) : '0.00',
+         trip.summary?.averageRate || 0,
+         trip.summary?.totalSalesAmount || 0,
+         trip.summary?.totalCashPayment || 0,
+         trip.summary?.totalOnlinePayment || 0,
+         trip.summary?.totalDiscount || 0
+       ],
+       [''],
       
       // VEHICLE EXPENSES Section
       ['VEHICLE EXPENSES'],
@@ -166,39 +411,6 @@ export default function TripDetails() {
         (trip.totalKm / trip.dieselVolume).toFixed(2) : '0.00'],
       [''],
       
-      // SALES DETAILS Section
-      ['SALES DETAILS'],
-      ['S N', 'DELIVERY DETAILS', 'BILL NO', 'BIRDS', 'WEIGHT', 'AVG', 'RATE', 'TOTAL', 'CASH', 'ONLINE', 'DISC'],
-      ...(trip.sales || []).map((sale, index) => [
-        index + 1,
-        sale.customer?.name || sale.client?.shopName || 'N/A',
-        sale.billNumber || 'N/A',
-        sale.birdsCount || sale.birds || 0,
-        sale.weight || 0,
-        sale.weight && (sale.birdsCount || sale.birds) ? 
-          (sale.weight / (sale.birdsCount || sale.birds)).toFixed(2) : '0.00',
-        sale.ratePerKg || sale.rate || 0,
-        sale.totalAmount || sale.amount || 0,
-        sale.cashPayment || (sale.paymentMode === 'cash' ? sale.amount : 0),
-        sale.onlinePayment || (sale.paymentMode === 'online' ? sale.amount : 0),
-        sale.discount || 0
-      ]),
-      [
-        'TOTAL SALE',
-        '',
-        '',
-        trip.summary?.totalBirdsSold || 0,
-        trip.summary?.totalWeightSold || 0,
-        trip.summary?.totalBirdsSold && trip.summary?.totalWeightSold ? 
-          (trip.summary.totalWeightSold / trip.summary.totalBirdsSold).toFixed(2) : '0.00',
-        trip.summary?.averageRate || 0,
-        trip.summary?.totalSalesAmount || 0,
-        trip.summary?.totalCashPayment || 0,
-        trip.summary?.totalOnlinePayment || 0,
-        trip.summary?.totalDiscount || 0
-      ],
-      [''],
-      
       // PROFIT & LOSS SUMMARY Section
       ['PROFIT & LOSS SUMMARY'],
       ['FINANCIAL BREAKDOWN'],
@@ -213,9 +425,9 @@ export default function TripDetails() {
       [''],
       ['WEIGHT LOSS TRACKING'],
       ['', 'BIRDS', 'WEIGHT', 'AVG', 'RATE', 'AMOUNT'],
-      ['DEATH BIRDS', trip.summary?.totalBirdsLost || 0, (trip.summary?.totalWeightLost || 0).toFixed(2), trip.summary?.totalBirdsLost > 0 ? ((trip.summary?.totalWeightLost / trip.summary?.totalBirdsLost) || 0).toFixed(2) : 0, trip.summary?.avgPurchaseRate?.toFixed(2) || 0, (trip.summary?.totalLosses || 0).toFixed(2)],
-      ['WEIGHT LOSS', '', trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00', 0, 0, 0],
-      ['TOTAL W LOSS', trip.summary?.totalBirdsLost || 0, ((trip.summary?.totalWeightLost || 0) + (trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0) : 0)).toFixed(2), '', trip.summary?.avgPurchaseRate?.toFixed(2) || 0, (trip.summary?.totalLosses || 0).toFixed(2)]
+      ['DEATH BIRDS', trip.summary?.totalBirdsLost || 0, (trip.summary?.totalWeightLost || 0).toFixed(2), trip.summary?.totalBirdsPurchased > 0 ? ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00', trip.summary?.avgPurchaseRate?.toFixed(2) || 0, (trip.summary?.totalLosses || 0).toFixed(2)],
+      ['NATURAL WEIGHT LOSS', '-', trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00', trip.summary?.totalBirdsPurchased > 0 ? ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00', trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00', trip.status === 'completed' ? ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)).toFixed(2) : '0.00'],
+      ['TOTAL W LOSS', trip.summary?.totalBirdsLost || 0, ((trip.summary?.totalWeightLost || 0) + (trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0) : 0)).toFixed(2), '-', trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00', ((trip.summary?.totalLosses || 0) + (trip.status === 'completed' ? ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)) : 0)).toFixed(2)]
     ];
 
     const ws = XLSX.utils.aoa_to_sheet(reportData);
@@ -224,6 +436,10 @@ export default function TripDetails() {
     // Download file
     const fileName = `Trip_${trip.tripId}_Comprehensive_${new Date().toISOString().split('T')[0]}.xlsx`;
     XLSX.writeFile(wb, fileName);
+  };
+
+  const downloadPDF = () => {
+    downloadTripPDF(trip);
   };
 
   if (isLoading) {
@@ -274,6 +490,15 @@ export default function TripDetails() {
           >
             <FileSpreadsheet size={20} />
             Download Excel
+          </button>
+          
+          {/* PDF Download Button */}
+          <button
+            onClick={downloadPDF}
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <FileText size={20} />
+            Download PDF
           </button>
           
           {/* Supervisor-only buttons */}
@@ -386,7 +611,7 @@ export default function TripDetails() {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">LABOUR</label>
                   <div className="text-lg font-semibold text-gray-900">
-                    {trip.labour || 'N/A'}
+                    {trip.labour || trip.labours?.join(', ') || 'N/A'}
                   </div>
                 </div>
               </div>
@@ -409,8 +634,7 @@ export default function TripDetails() {
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">AVG</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">RATE</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">AMOUNT</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">PART</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">AMOUNT</th>
+                   
                     </tr>
                   </thead>
                   <tbody>
@@ -425,9 +649,8 @@ export default function TripDetails() {
                           {purchase.weight && purchase.birds ? (purchase.weight / purchase.birds).toFixed(2) : '0.00'}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">₹{purchase.rate || 0}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{purchase.amount || 0}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r">PURCHASE</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">₹{purchase.amount || 0}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(purchase.amount).toFixed(2)  || 0}</td>
+                       
                       </tr>
                     ))}
                     {/* Total Row */}
@@ -443,9 +666,71 @@ export default function TripDetails() {
                           : '0.00'}
                       </td>
                       <td className="px-4 py-3 border-r"></td>
-                      <td className="px-4 py-3 border-r">₹{trip.summary?.totalPurchaseAmount || 0}</td>
-                      <td className="px-4 py-3 border-r">TOTAL</td>
-                      <td className="px-4 py-3">₹{trip.summary?.totalPurchaseAmount || 0}</td>
+                      <td className="px-4 py-3 border-r">₹{(trip.summary?.totalPurchaseAmount).toFixed(2) || 0}</td>
+                     
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Customer/Sales Details Section */}
+            <div className="border-t">
+              <div className="bg-gray-100 px-6 py-3 border-b">
+                <h3 className="text-lg font-semibold text-gray-900">SALES DETAILS</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-200">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">S N</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">DELIVERY DETAILS</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">BILL NO</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">BIRDS</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">WEIGHT</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">AVG</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">RATE</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">TOTAL</th>
+                      {/* <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">CASH</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">ONLINE</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">DISC</th> */}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {trip.sales?.map((sale, index) => (
+                      <tr key={sale.id} className="border-b hover:bg-gray-50">
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{index + 1}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{sale.client?.shopName || 'N/A'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{sale.billNumber || 'N/A'}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{sale.birdsCount || sale.birds || 0}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{sale.weight || 0}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">
+                          {sale.weight && (sale.birdsCount || sale.birds) ? (sale.weight / (sale.birdsCount || sale.birds)).toFixed(2) : '0.00'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">₹{sale.ratePerKg || sale.rate || 0}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.totalAmount || sale.amount || 0).toFixed(2)}</td>
+                        {/* <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{sale.cashPayment || 0}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{sale.onlinePayment || 0}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">₹{sale.discount || 0}</td> */}
+                      </tr>
+                    ))}
+                    {/* Total Sales Row */}
+                    <tr className="bg-black text-white font-bold">
+                      <td className="px-4 py-3 border-r">TOTAL SALE</td>
+                      <td className="px-4 py-3 border-r"></td>
+                      <td className="px-4 py-3 border-r"></td>
+                      <td className="px-4 py-3 border-r">{trip.summary?.totalBirdsSold || 0}</td>
+                      <td className="px-4 py-3 border-r">{(trip.summary?.totalWeightSold || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 border-r">
+                        {trip.summary?.totalBirdsSold && trip.summary?.totalWeightSold 
+                          ? (trip.summary.totalWeightSold / trip.summary.totalBirdsSold).toFixed(2) 
+                          : '0.00'}
+                      </td>
+                      <td className="px-4 py-3 border-r">₹{trip.summary?.averageRate || 0}</td>
+                      <td className="px-4 py-3 border-r">₹{(trip.summary?.totalSalesAmount || 0).toFixed(2)}</td>
+                      {/* <td className="px-4 py-3 border-r">₹{trip.summary?.totalCashPayment || 0}</td>
+                      <td className="px-4 py-3 border-r">₹{trip.summary?.totalOnlinePayment || 0}</td>
+                      <td className="px-4 py-3">₹{trip.summary?.totalDiscount || 0}</td> */}
                     </tr>
                   </tbody>
                 </table>
@@ -458,7 +743,7 @@ export default function TripDetails() {
                 <h3 className="text-lg font-semibold text-gray-900">VEHICLE EXPENSES</h3>
               </div>
               <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-3">DIESEL CONSUMPTION</h4>
                     <div className="overflow-x-auto">
@@ -524,68 +809,7 @@ export default function TripDetails() {
               </div>
             </div>
 
-            {/* Customer/Sales Details Section */}
-            <div className="border-t">
-              <div className="bg-gray-100 px-6 py-3 border-b">
-                <h3 className="text-lg font-semibold text-gray-900">SALES DETAILS</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-200">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">S N</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">DELIVERY DETAILS</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">BILL NO</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">BIRDS</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">WEIGHT</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">AVG</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">RATE</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">TOTAL</th>
-                      {/* <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">CASH</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">ONLINE</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">DISC</th> */}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {trip.sales?.map((sale, index) => (
-                      <tr key={sale.id} className="border-b hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{index + 1}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{sale.customer?.name || sale.client?.shopName || 'N/A'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{sale.billNumber || 'N/A'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{sale.birdsCount || sale.birds || 0}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{sale.weight || 0}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r">
-                          {sale.weight && (sale.birdsCount || sale.birds) ? (sale.weight / (sale.birdsCount || sale.birds)).toFixed(2) : '0.00'}
-                        </td>
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r">₹{sale.ratePerKg || sale.rate || 0}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.totalAmount || sale.amount || 0).toFixed(2)}</td>
-                        {/* <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{sale.cashPayment || 0}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{sale.onlinePayment || 0}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">₹{sale.discount || 0}</td> */}
-                      </tr>
-                    ))}
-                    {/* Total Sales Row */}
-                    <tr className="bg-black text-white font-bold">
-                      <td className="px-4 py-3 border-r">TOTAL SALE</td>
-                      <td className="px-4 py-3 border-r"></td>
-                      <td className="px-4 py-3 border-r"></td>
-                      <td className="px-4 py-3 border-r">{trip.summary?.totalBirdsSold || 0}</td>
-                      <td className="px-4 py-3 border-r">{(trip.summary?.totalWeightSold || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3 border-r">
-                        {trip.summary?.totalBirdsSold && trip.summary?.totalWeightSold 
-                          ? (trip.summary.totalWeightSold / trip.summary.totalBirdsSold).toFixed(2) 
-                          : '0.00'}
-                      </td>
-                      <td className="px-4 py-3 border-r">₹{trip.summary?.averageRate || 0}</td>
-                      <td className="px-4 py-3 border-r">₹{(trip.summary?.totalSalesAmount || 0).toFixed(2)}</td>
-                      {/* <td className="px-4 py-3 border-r">₹{trip.summary?.totalCashPayment || 0}</td>
-                      <td className="px-4 py-3 border-r">₹{trip.summary?.totalOnlinePayment || 0}</td>
-                      <td className="px-4 py-3">₹{trip.summary?.totalDiscount || 0}</td> */}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            
 
             {/* Profit & Loss Summary */}
             <div className="border-t">
@@ -618,11 +842,11 @@ export default function TripDetails() {
                         <span className="font-semibold">₹{trip.summary?.birdsProfit || 0}</span>
                       </div>
                       <div className="flex justify-between bg-gray-800 text-white px-3 py-2 rounded">
-                        <span className="text-sm font-bold">TOTAL PROFIT:</span>
+                        <span className="text-sm font-bold">NET PROFIT:</span>
                         <span className="font-bold">₹{(trip.summary?.netProfit || 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between bg-gray-200 px-3 py-2 rounded">
-                        <span className="text-sm font-bold">PROFIT PER KG:</span>
+                        <span className="text-sm font-bold">MARGIN:</span>
                         <span className="font-bold">₹{(trip.summary?.totalWeightSold) ? (trip.summary.netProfit / trip.summary.totalWeightSold).toFixed(2) : '0.00'}</span>
                       </div>
                     </div>
@@ -647,20 +871,27 @@ export default function TripDetails() {
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">{trip.summary?.totalBirdsLost || 0}</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">{(trip.summary?.totalWeightLost || 0).toFixed(2)}</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">
-                              {trip.summary?.totalBirdsLost > 0 ? ((trip.summary?.totalWeightLost / trip.summary?.totalBirdsLost) || 0).toFixed(2) : 0}
+                              {trip.summary?.totalBirdsPurchased > 0 ? ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00'}
                             </td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">₹{trip.summary?.avgPurchaseRate?.toFixed(2) || 0}</td>
                             <td className="px-3 py-2 text-sm font-semibold text-gray-900">₹{(trip.summary?.totalLosses || 0).toFixed(2)}</td>
                           </tr>
                           <tr className="border-b">
-                            <td className="px-3 py-2 text-sm text-gray-900 border-r">WEIGHT LOSS</td>
-                            <td className="px-3 py-2 text-sm text-gray-900 border-r"></td>
+                            <td className="px-3 py-2 text-sm text-gray-900 border-r">NATURAL WEIGHT LOSS</td>
+                            <td className="px-3 py-2 text-sm text-gray-900 border-r">-</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">
                               {trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'}
                             </td>
-                            <td className="px-3 py-2 text-sm text-gray-900 border-r">0</td>
-                            <td className="px-3 py-2 text-sm text-gray-900 border-r">₹0</td>
-                            <td className="px-3 py-2 text-sm font-semibold text-gray-900">₹0</td>
+                            <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                              {trip.summary?.totalBirdsPurchased > 0 ? ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00'}
+                            </td>
+                            <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                              ₹{trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00'}
+                            </td>
+                            <td className="px-3 py-2 text-sm font-semibold text-gray-900">
+                              ₹{trip.status === 'completed' ? 
+                                ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)).toFixed(2) : '0.00'}
+                            </td>
                           </tr>
                           <tr className="bg-black text-white font-bold">
                             <td className="px-3 py-2 border-r">TOTAL W LOSS</td>
@@ -668,9 +899,14 @@ export default function TripDetails() {
                             <td className="px-3 py-2 border-r">
                               {((trip.summary?.totalWeightLost || 0) + (trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0) : 0)).toFixed(2)}
                             </td>
-                            <td className="px-3 py-2 border-r"></td>
-                            <td className="px-3 py-2 border-r">₹{trip.summary?.avgPurchaseRate?.toFixed(2) || 0}</td>
-                            <td className="px-3 py-2">₹{(trip.summary?.totalLosses || 0).toFixed(2)}</td>
+                            <td className="px-3 py-2 border-r">
+                              -
+                            </td>
+                            <td className="px-3 py-2 border-r">₹{trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00'}</td>
+                            <td className="px-3 py-2">
+                              ₹{((trip.summary?.totalLosses || 0) + (trip.status === 'completed' ? 
+                                ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)) : 0)).toFixed(2)}
+                            </td>
                           </tr>
                         </tbody>
                       </table>
@@ -682,36 +918,6 @@ export default function TripDetails() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-sm text-gray-500">Birds Purchased</div>
-            <div className="text-lg font-bold text-blue-600">
-              {trip.summary?.totalBirdsPurchased || 0}
-            </div>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-sm text-gray-500">Birds Sold</div>
-            <div className="text-lg font-bold text-green-600">
-              {trip.summary?.totalBirdsSold || 0}
-            </div>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-sm text-gray-500">Total Weight</div>
-            <div className="text-lg font-bold text-indigo-600">
-              {(trip.summary?.totalWeightSold || 0).toFixed(2)} kg
-            </div>
-          </div>
-          <div className="text-center p-3 bg-gray-50 rounded-lg">
-            <div className="text-sm text-gray-500">Status</div>
-            <div className={`text-lg font-bold ${
-              trip.status === 'completed' ? 'text-green-600' :
-              trip.status === 'ongoing' ? 'text-blue-600' :
-              'text-yellow-600'
-            }`}>
-              {trip.status}
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Tabs */}
@@ -780,6 +986,10 @@ export default function TripDetails() {
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Total Sales:</span>
                       <span className="font-medium text-right">₹{trip.summary?.totalSalesAmount?.toFixed(2) || '0.00'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Total Purchase:</span>
+                      <span className="font-medium text-right">₹{trip.summary?.totalPurchaseAmount?.toFixed(2) || '0.00'}</span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-gray-600">Sales Profit:</span>
@@ -896,6 +1106,36 @@ export default function TripDetails() {
                         <div className="text-right">
                           <p className="text-lg font-bold text-green-600">₹{purchase.amount?.toLocaleString()}</p>
                           <p className="text-sm text-gray-500">{purchase.paymentMode}</p>
+                          {/* Edit button for completed trips - Admin/Superadmin only */}
+                          {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                            <button
+                              onClick={() => {
+                                // Extract supplier ID properly - handle both populated and non-populated supplier fields
+                                let supplierId = '';
+                                if (typeof purchase.supplier === 'string') {
+                                  supplierId = purchase.supplier;
+                                } else if (purchase.supplier && (purchase.supplier._id || purchase.supplier.id)) {
+                                  supplierId = purchase.supplier._id || purchase.supplier.id;
+                                }
+                                
+                                setPurchaseData({
+                                  supplier: supplierId,
+                                  dcNumber: purchase.dcNumber || '',
+                                  birds: purchase.birds || 0,
+                                  weight: purchase.weight || 0,
+                                  avgWeight: purchase.avgWeight || 0,
+                                  rate: purchase.rate || 0,
+                                  amount: purchase.amount || 0
+                                });
+                                setEditingPurchaseIndex(index);
+                                setShowPurchaseModal(true);
+                              }}
+                              className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                            >
+                              <Edit size={12} />
+                              Edit
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -942,6 +1182,10 @@ export default function TripDetails() {
                           <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Cash</th>
                           <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Online</th>
                           <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Disc</th>
+                          {/* Edit column for completed trips - Admin/Superadmin only */}
+                          {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                            <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Actions</th>
+                          )}
                         </tr>
                       </thead>
                       <tbody>
@@ -964,10 +1208,49 @@ export default function TripDetails() {
                               {sale.paymentMode === 'online' ? `₹${sale.amount?.toLocaleString() || '0'}` : '₹0'}
                             </td>
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹0</td>
+                            {/* Edit button for completed trips - Admin/Superadmin only */}
+                            {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                              <td className="border border-gray-300 px-4 py-2 text-center">
+                                <button
+                                  onClick={() => {
+                                    // Extract client ID properly - handle both populated and non-populated client fields
+                                    let clientId = '';
+                                    if (typeof sale.client === 'string') {
+                                      clientId = sale.client;
+                                    } else if (sale.client && (sale.client._id || sale.client.id)) {
+                                      clientId = sale.client._id || sale.client.id;
+                                    }
+                                    
+                                    setSaleData({
+                                      client: clientId,
+                                      billNumber: sale.billNumber || '',
+                                      birds: sale.birds || 0,
+                                      weight: sale.weight || 0,
+                                      avgWeight: sale.avgWeight || 0,
+                                      rate: sale.rate || 0,
+                                      amount: sale.amount || 0,
+                                      paymentMode: sale.paymentMode || 'cash',
+                                      paymentStatus: sale.paymentStatus || 'pending',
+                                      receivedAmount: sale.receivedAmount || 0,
+                                      discount: sale.discount || 0,
+                                      balance: sale.balance || 0,
+                                      cashPaid: sale.cashPaid || 0,
+                                      onlinePaid: sale.onlinePaid || 0
+                                    });
+                                    setEditingSaleIndex(index);
+                                    setShowSaleModal(true);
+                                  }}
+                                  className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                                >
+                                  <Edit size={10} />
+                                  Edit
+                                </button>
+                              </td>
+                            )}
                           </tr>
                         ))}
                         <tr className="bg-gray-100 font-semibold">
-                          <td className="border border-gray-300 px-4 py-2 text-sm text-gray-900" colSpan="3">TOTAL</td>
+                          <td className="border border-gray-300 px-4 py-2 text-sm text-gray-900" colSpan={trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') ? "4" : "3"}>TOTAL</td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">{trip.summary?.totalBirdsSold || 0}</td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">{trip.summary?.totalWeightSold || 0}</td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
@@ -1038,6 +1321,25 @@ export default function TripDetails() {
                         <div className="text-right">
                           <p className="text-lg font-bold text-red-600">₹{expense.amount?.toLocaleString()}</p>
                           <p className="text-sm text-gray-500">{expense.receipt}</p>
+                          {/* Edit button for completed trips - Admin/Superadmin only */}
+                          {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                            <button
+                              onClick={() => {
+                                setExpenseData({
+                                  category: expense.category || 'meals',
+                                  description: expense.description || '',
+                                  amount: expense.amount || 0,
+                                  date: expense.date || new Date().toISOString().split('T')[0]
+                                });
+                                setEditingExpenseIndex(index);
+                                setShowExpenseModal(true);
+                              }}
+                              className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                            >
+                              <Edit size={12} />
+                              Edit
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1065,6 +1367,26 @@ export default function TripDetails() {
                         <div className="text-right">
                           <p className="text-lg font-bold text-orange-600">₹{station.amount?.toLocaleString()}</p>
                           <p className="text-sm text-gray-500">{station.volume}L @ ₹{station.rate}</p>
+                          {/* Edit button for completed trips - Admin/Superadmin only */}
+                          {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                            <button
+                              onClick={() => {
+                                setDieselData({
+                                  stationName: station.name || '',
+                                  volume: station.volume || 0,
+                                  rate: station.rate || 0,
+                                  amount: station.amount || 0,
+                                  date: station.timestamp ? new Date(station.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+                                });
+                                setEditingDieselIndex(index);
+                                setShowDieselModal(true);
+                              }}
+                              className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                            >
+                              <Edit size={12} />
+                              Edit
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1125,6 +1447,27 @@ export default function TripDetails() {
                             Added: {new Date(stock.addedAt).toLocaleDateString()}
                           </p>
                         </div>
+                        {/* Edit button for completed trips - Admin/Superadmin only */}
+                        {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                          <button
+                            onClick={() => {
+                              setStockData({
+                                birds: stock.birds || 0,
+                                weight: stock.weight || 0,
+                                avgWeight: stock.avgWeight || 0,
+                                rate: stock.rate || 0,
+                                value: stock.value || 0,
+                                notes: stock.notes || ''
+                              });
+                              setEditingStockIndex(index);
+                              setShowStockModal(true);
+                            }}
+                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                          >
+                            <Edit size={12} />
+                            Edit
+                          </button>
+                        )}
                       </div>
                       
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -1261,6 +1604,10 @@ export default function TripDetails() {
                       <span className="font-medium">₹{(trip.summary?.totalSalesAmount || 0).toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-gray-600">Total Purchase:</span>
+                      <span className="font-medium">₹{(trip.summary?.totalPurchaseAmount || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-gray-600">Sales Profit:</span>
                       <span className="font-medium text-green-600">₹{(trip.summary?.totalProfitMargin || 0).toFixed(2)}</span>
                     </div>
@@ -1343,7 +1690,648 @@ export default function TripDetails() {
         </div>
       </div>
 
-      {/* Modals would go here - simplified for brevity */}
+      {/* Edit Purchase Modal */}
+      {showPurchaseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingPurchaseIndex !== null ? 'Edit Purchase' : 'Add Purchase'}
+            </h3>
+            <form onSubmit={editingPurchaseIndex !== null ? handleEditPurchase : addPurchase} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+                <select
+                  value={purchaseData.supplier}
+                  onChange={(e) => setPurchaseData(prev => ({ ...prev, supplier: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select a supplier</option>
+                  {vendors.map((vendor) => (
+                    <option key={vendor._id || vendor.id} value={vendor._id || vendor.id}>
+                      {vendor.vendorName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">DC Number</label>
+                <input
+                  type="text"
+                  value={purchaseData.dcNumber}
+                  onChange={(e) => setPurchaseData(prev => ({ ...prev, dcNumber: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="DC number"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Birds</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={purchaseData.birds}
+                    onChange={(e) => {
+                      const birds = Number(e.target.value);
+                      const avgWeight = birds > 0 && purchaseData.weight > 0 ? purchaseData.weight / birds : 0;
+                      const amount = purchaseData.weight * purchaseData.rate;
+                      setPurchaseData(prev => ({ 
+                        ...prev, 
+                        birds, 
+                        avgWeight: Number(avgWeight.toFixed(2)),
+                        amount: Number(amount.toFixed(2))
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Number of birds"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={purchaseData.weight}
+                    onChange={(e) => {
+                      const weight = Number(e.target.value);
+                      const avgWeight = purchaseData.birds > 0 && weight > 0 ? weight / purchaseData.birds : 0;
+                      const amount = weight * purchaseData.rate;
+                      setPurchaseData(prev => ({ 
+                        ...prev, 
+                        weight, 
+                        avgWeight: Number(avgWeight.toFixed(2)),
+                        amount: Number(amount.toFixed(2))
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Weight in kg"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rate per kg</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={purchaseData.rate}
+                    onChange={(e) => {
+                      const rate = Number(e.target.value);
+                      const amount = purchaseData.weight * rate;
+                      setPurchaseData(prev => ({ 
+                        ...prev, 
+                        rate, 
+                        amount: Number(amount.toFixed(2))
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Rate per kg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={purchaseData.amount}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
+                    placeholder="Auto-calculated"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Average Weight per Bird</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={purchaseData.avgWeight}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
+                  placeholder="Auto-calculated"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowPurchaseModal(false);
+                    setEditingPurchaseIndex(null);
+                    setPurchaseData({ supplier: '', dcNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0 });
+                  }}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                >
+                  {editingPurchaseIndex !== null ? 'Update Purchase' : 'Add Purchase'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Sale Modal */}
+      {showSaleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingSaleIndex !== null ? 'Edit Sale' : 'Add Sale'}
+            </h3>
+            <form onSubmit={editingSaleIndex !== null ? handleEditSale : addSale} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                <select
+                  value={saleData.client}
+                  onChange={(e) => setSaleData(prev => ({ ...prev, client: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select a client</option>
+                  {customers.map((customer) => (
+                    <option key={customer._id || customer.id} value={customer._id || customer.id}>
+                      {customer.shopName} - {customer.ownerName || 'N/A'}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Bill Number</label>
+                <input
+                  type="text"
+                  value={saleData.billNumber}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
+                  placeholder="System generated"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Birds</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={saleData.birds}
+                    onChange={(e) => {
+                      const birds = Number(e.target.value);
+                      const avgWeight = birds > 0 && saleData.weight > 0 ? saleData.weight / birds : 0;
+                      const amount = saleData.weight * saleData.rate;
+                      setSaleData(prev => ({ 
+                        ...prev, 
+                        birds, 
+                        avgWeight: Number(avgWeight.toFixed(2)),
+                        amount: Number(amount.toFixed(2))
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Number of birds"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={saleData.weight}
+                    onChange={(e) => {
+                      const weight = Number(e.target.value);
+                      const avgWeight = saleData.birds > 0 && weight > 0 ? weight / saleData.birds : 0;
+                      const amount = weight * saleData.rate;
+                      setSaleData(prev => ({ 
+                        ...prev, 
+                        weight, 
+                        avgWeight: Number(avgWeight.toFixed(2)),
+                        amount: Number(amount.toFixed(2))
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Weight in kg"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rate per kg</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={saleData.rate}
+                    onChange={(e) => {
+                      const rate = Number(e.target.value);
+                      const amount = saleData.weight * rate;
+                      setSaleData(prev => ({ 
+                        ...prev, 
+                        rate, 
+                        amount: Number(amount.toFixed(2))
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Rate per kg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={saleData.amount}
+                    readOnly
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
+                    placeholder="Auto-calculated"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Average Weight per Bird</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={saleData.avgWeight}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
+                  placeholder="Auto-calculated"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSaleModal(false);
+                    setEditingSaleIndex(null);
+                    setSaleData({ client: '', billNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+                  }}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  {editingSaleIndex !== null ? 'Update Sale' : 'Add Sale'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Expense Modal */}
+      {showExpenseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingExpenseIndex !== null ? 'Edit Expense' : 'Add Expense'}
+            </h3>
+            <form onSubmit={editingExpenseIndex !== null ? handleEditExpense : addExpense} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                <select
+                  value={expenseData.category}
+                  onChange={(e) => setExpenseData(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="meals">Meals</option>
+                  <option value="parking">Parking</option>
+                  <option value="toll">Toll</option>
+                  <option value="maintenance">Maintenance</option>
+                  <option value="tea">Tea</option>
+                  <option value="lunch">Lunch</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <input
+                  type="text"
+                  value={expenseData.description}
+                  onChange={(e) => setExpenseData(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Expense description"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={expenseData.amount}
+                  onChange={(e) => setExpenseData(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Amount"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={expenseData.date}
+                  onChange={(e) => setExpenseData(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowExpenseModal(false);
+                    setEditingExpenseIndex(null);
+                    setExpenseData({ category: 'meals', description: '', amount: 0, date: new Date().toISOString().split('T')[0] });
+                  }}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+                >
+                  {editingExpenseIndex !== null ? 'Update Expense' : 'Add Expense'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Diesel Modal */}
+      {showDieselModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingDieselIndex !== null ? 'Edit Diesel Record' : 'Add Diesel Record'}
+            </h3>
+            <form onSubmit={editingDieselIndex !== null ? handleEditDiesel : (e) => {
+              e.preventDefault();
+              addExpense(dieselData);
+            }} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Station Name</label>
+                <input
+                  type="text"
+                  value={dieselData.stationName}
+                  onChange={(e) => setDieselData(prev => ({ ...prev, stationName: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Fuel station name"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Volume (L)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={dieselData.volume}
+                    onChange={(e) => {
+                      const volume = Number(e.target.value);
+                      const amount = volume * dieselData.rate;
+                      setDieselData(prev => ({ 
+                        ...prev, 
+                        volume, 
+                        amount: Number(amount.toFixed(2))
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Volume in liters"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Rate per L</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={dieselData.rate}
+                    onChange={(e) => {
+                      const rate = Number(e.target.value);
+                      const amount = dieselData.volume * rate;
+                      setDieselData(prev => ({ 
+                        ...prev, 
+                        rate, 
+                        amount: Number(amount.toFixed(2))
+                      }));
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Rate per liter"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={dieselData.amount}
+                  readOnly
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
+                  placeholder="Auto-calculated"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <input
+                  type="date"
+                  value={dieselData.date}
+                  onChange={(e) => setDieselData(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowDieselModal(false);
+                    setEditingDieselIndex(null);
+                    setDieselData({ stationName: '', volume: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
+                  }}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                >
+                  {editingDieselIndex !== null ? 'Update Diesel Record' : 'Add Diesel Record'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Stock Modal */}
+      {showStockModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">
+              {editingStockIndex !== null ? 'Edit Stock' : 'Add Stock'}
+            </h3>
+            <form onSubmit={editingStockIndex !== null ? handleEditStock : (e) => {
+              e.preventDefault();
+              // Add stock functionality would go here
+            }} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Birds</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={stockData.birds}
+                    onChange={(e) => setStockData(prev => ({ ...prev, birds: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Number of birds"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={stockData.weight}
+                    onChange={(e) => setStockData(prev => ({ ...prev, weight: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Weight in kg"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Rate per kg</label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={stockData.rate}
+                  onChange={(e) => setStockData(prev => ({ ...prev, rate: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Rate per kg"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={stockData.notes}
+                  onChange={(e) => setStockData(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Stock notes"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowStockModal(false);
+                    setEditingStockIndex(null);
+                    setStockData({ birds: 0, weight: 0, avgWeight: 0, rate: 0, value: 0, notes: '' });
+                  }}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 transition-colors"
+                >
+                  {editingStockIndex !== null ? 'Update Stock' : 'Add Stock'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Trip Modal */}
+      {showCompleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Complete Trip</h3>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              completeTrip(completeData);
+            }} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Closing Odometer
+                  <span className="text-red-500 ml-1">*</span>
+                </label>
+                <input
+                  type="number"
+                  min={trip?.vehicleReadings?.opening || 0}
+                  value={completeData.closingOdometer}
+                  onChange={(e) => setCompleteData(prev => ({ ...prev, closingOdometer: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder={`Min: ${trip?.vehicleReadings?.opening || 0}`}
+                  required
+                />
+                {trip?.vehicleReadings?.opening && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Opening reading: {trip.vehicleReadings.opening}
+                  </p>
+                )}
+                {completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening && 
+                 completeData.closingOdometer < trip.vehicleReadings.opening && (
+                  <p className="text-xs text-red-500 mt-1">
+                    Closing reading must be greater than opening reading ({trip.vehicleReadings.opening})
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Final Remarks</label>
+                <textarea
+                  value={completeData.finalRemarks}
+                  onChange={(e) => setCompleteData(prev => ({ ...prev, finalRemarks: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  rows={3}
+                  placeholder="Any final notes about the trip..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mortality (Death Birds)</label>
+                <input
+                  type="number"
+                  min="0"
+                  value={completeData.mortality}
+                  onChange={(e) => setCompleteData(prev => ({ ...prev, mortality: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Number of birds that died"
+                />
+              </div>
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCompleteModal(false)}
+                  className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening && 
+                           completeData.closingOdometer < trip.vehicleReadings.opening}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                >
+                  Complete Trip
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
