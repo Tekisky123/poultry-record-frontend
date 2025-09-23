@@ -1,5 +1,5 @@
 // src/components/RecentTrips.jsx
-import { Truck, MapPin, Calendar, DollarSign, Car, Package } from 'lucide-react';
+import { Truck, MapPin, Calendar, DollarSign, Package } from 'lucide-react';
 
 const mockTrips = [
   {
@@ -70,7 +70,7 @@ export default function RecentTrips() {
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center gap-2">
               <Truck className="w-5 h-5 text-blue-600" />
-              <span className="font-medium text-gray-900">{trip.tripId}</span>
+              <span className="font-medium text-gray-900">{trip.vehicle}</span>
             </div>
             <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trip.status)}`}>
               {getStatusText(trip.status)}
@@ -78,11 +78,6 @@ export default function RecentTrips() {
           </div>
           
           <div className="space-y-2">
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Car className="w-4 h-4" />
-              <span>{trip.vehicle}</span>
-            </div>
-            
             <div className="flex items-center gap-2 text-sm text-gray-600">
               <MapPin className="w-4 h-4" />
               <span>{trip.route.from} → {trip.route.to}</span>

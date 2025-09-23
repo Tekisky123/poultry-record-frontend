@@ -191,8 +191,8 @@ export default function SupervisorTrips() {
                     <Truck className="w-6 h-6 text-blue-600" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-900">{trip.tripId}</h3>
-                    <p className="text-sm text-gray-500">{trip.vehicle?.vehicleNumber}</p>
+                    <h3 className="text-lg font-semibold text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</h3>
+                    <p className="text-sm text-gray-500">{trip.tripId}</p>
                   </div>
                 </div>
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${

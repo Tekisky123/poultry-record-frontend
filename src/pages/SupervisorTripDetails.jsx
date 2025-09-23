@@ -637,8 +637,9 @@ const SupervisorTripDetails = () => {
             <X size={20} />
           </button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Trip: {trip.tripId}</h1>
-            <p className="text-gray-600">Manage trip details and operations</p>
+            <h1 className="text-2xl font-bold text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</h1>
+            <p className="text-gray-600">{trip.tripId || 'N/A'}</p>
+            <p className="text-gray-500 text-sm">Manage trip details and operations</p>
           </div>
         </div>
 

@@ -481,8 +481,8 @@ export default function Trips() {
                           <Truck className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{trip.tripId}</div>
-                          <div className="text-sm text-gray-500">{trip.vehicle?.vehicleNumber || 'N/A'}</div>
+                          <div className="text-sm font-medium text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</div>
+                          <div className="text-sm text-gray-500">{trip.tripId}</div>
                           <div className="text-sm text-gray-400">
                             {new Date(trip.date).toLocaleDateString()}
                           </div>

@@ -479,8 +479,9 @@ export default function TripDetails() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{trip.tripId || 'N/A'}</h1>
-          <p className="text-gray-600 mt-1">Manage trip details and operations</p>
+          <h1 className="text-3xl font-bold text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</h1>
+          <p className="text-gray-600 mt-1">{trip.tripId || 'N/A'}</p>
+          <p className="text-gray-500 text-sm mt-1">Manage trip details and operations</p>
         </div>
         <div className="flex gap-2 mt-4 sm:mt-0">
           {/* Excel Download Button - Available for all users */}

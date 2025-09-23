@@ -177,10 +177,10 @@ const SupervisorDashboard = () => {
                     </span>
                   </div>
                   <p className="text-sm font-medium text-gray-900">
-                    {trip.place || 'Round Trip'}
+                    {trip.vehicle?.vehicleNumber || 'N/A'}
                   </p>
                   <p className="text-xs text-gray-500">
-                    Vehicle: {trip.vehicle?.vehicleNumber || 'N/A'}
+                    {trip.place || 'Round Trip'}
                   </p>
                 </div>
                 <Link

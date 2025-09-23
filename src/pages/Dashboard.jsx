@@ -123,7 +123,7 @@ export default function Dashboard() {
                       <Truck className="w-5 h-5 text-blue-600" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-gray-900">{trip.tripId}</h3>
+                      <h3 className="font-medium text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</h3>
                       <div className="flex items-center gap-4 text-sm text-gray-500">
                         <span className="flex items-center gap-1">
                           <Calendar className="w-4 h-4" />
