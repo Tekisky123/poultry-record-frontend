@@ -626,24 +626,25 @@ const SupervisorTripDetails = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={() => navigate('/supervisor/trips')}
-            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <X size={20} />
-          </button>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</h1>
-            <p className="text-gray-600">{trip.tripId || 'N/A'}</p>
-            <p className="text-gray-500 text-sm">Manage trip details and operations</p>
-          </div>
+      <div className="flex items-center space-x-3">
+        <button
+          onClick={() => navigate('/supervisor/trips')}
+          className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+        >
+          <X size={20} />
+        </button>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</h1>
+          <p className="text-gray-600">{trip.tripId || 'N/A'}</p>
+          <p className="text-gray-500 text-sm">Manage trip details and operations</p>
         </div>
+      </div>
 
-        <div className="flex space-x-2">
+      {/* Action Buttons */}
+      <div className="mt-4 py-3">
+        <div className="flex overflow-x-auto scrollbar-thin gap-2 pb-2">
           {trip.status !== 'completed' ? (
             <>
               <button
@@ -652,7 +653,7 @@ const SupervisorTripDetails = () => {
                   setEditingPurchaseIndex(null);
                   setShowPurchaseModal(true);
                 }}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
+                className="flex-shrink-0 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 whitespace-nowrap"
               >
                 <Plus size={16} />
                 Add Purchase
@@ -666,14 +667,14 @@ const SupervisorTripDetails = () => {
                   setEditingSaleIndex(null);
                   setShowSaleModal(true);
                 }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                className="flex-shrink-0 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 whitespace-nowrap"
               >
                 <Plus size={16} />
                 Add Sale
               </button>
               <button
                 onClick={() => setShowExpenseModal(true)}
-                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
+                className="flex-shrink-0 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 whitespace-nowrap"
               >
                 <Plus size={16} />
                 Add Expense
@@ -684,7 +685,7 @@ const SupervisorTripDetails = () => {
                   setDieselData({ stationName: '', volume: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
                   setShowDieselModal(true);
                 }}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                className="flex-shrink-0 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 whitespace-nowrap"
               >
                 <Fuel size={16} />
                 Add Diesel
@@ -702,7 +703,7 @@ const SupervisorTripDetails = () => {
                   });
                   setShowStockModal(true);
                 }}
-                className="px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 flex items-center gap-2"
+                className="flex-shrink-0 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 flex items-center gap-2 whitespace-nowrap"
               >
                 <Plus size={16} />
                 Add to Stock
@@ -722,7 +723,7 @@ const SupervisorTripDetails = () => {
                 setCompleteData(prev => ({ ...prev, mortality: remainingBirds }));
                 setShowCompleteModal(true);
               }}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2"
+              className="flex-shrink-0 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 whitespace-nowrap"
             >
               <CheckCircle size={16} />
               Complete Trip
@@ -757,12 +758,12 @@ const SupervisorTripDetails = () => {
       {/* Tabs */}
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="border-b border-gray-200">
-          <nav className="flex space-x-8 px-6">
+          <nav className="flex overflow-x-auto scrollbar-hide px-6">
             {['overview', 'purchases', 'sales', 'stock', 'expenses', 'diesel', 'losses', 'financials'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm capitalize ${activeTab === tab
+                className={`py-4 px-3 border-b-2 font-medium text-sm capitalize whitespace-nowrap flex-shrink-0 ${activeTab === tab
                     ? 'border-blue-500 text-blue-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
@@ -819,7 +820,7 @@ const SupervisorTripDetails = () => {
                     <span className="font-medium">₹{trip.summary?.totalPurchaseAmount?.toFixed(2) || '0.00'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Sales Profit:</span>
+                    <span className="text-sm text-gray-600">Gross Profit:</span>
                     <span className="font-medium text-green-600">₹{trip.summary?.totalProfitMargin?.toFixed(2) || '0.00'}</span>
                   </div>
                   <div className="flex justify-between">
@@ -831,7 +832,7 @@ const SupervisorTripDetails = () => {
                     <span className="font-medium">₹{trip.summary?.totalDieselAmount?.toFixed(2) || '0.00'}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Death Losses:</span>
+                    <span className="text-sm text-gray-600">Mortality & Weight Loss:</span>
                     <span className="font-medium text-red-600">₹{trip.summary?.totalLosses?.toFixed(2) || '0.00'}</span>
                   </div>
                   <div className="flex justify-between border-t pt-2">
@@ -840,52 +841,72 @@ const SupervisorTripDetails = () => {
                   </div>
                 </div>
 
+                {/* Financial Breakdown */}
+                <div className="mt-4 pt-4 border-t">
+                  <h4 className="font-semibold text-gray-900 mb-3">FINANCIAL BREAKDOWN</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">RENT AMT PER KM:</span>
+                      <span className="font-semibold">₹{trip.rentPerKm || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">GROSS RENT:</span>
+                      <span className="font-semibold">₹{trip.totalKm ? (trip.totalKm * (trip.rentPerKm || 0)) : 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">LESS DIESEL AMT:</span>
+                      <span className="font-semibold">₹{trip.dieselAmount || 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">NETT RENT:</span>
+                      <span className="font-semibold">₹{trip.totalKm ? ((trip.totalKm * (trip.rentPerKm || 0)) - (trip.dieselAmount || 0)) : 0}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">BIRDS PROFIT:</span>
+                      <span className="font-semibold">₹{trip.summary?.birdsProfit || 0}</span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Bird Summary */}
                 <div className="mt-4 pt-4 border-t">
                   <h4 className="font-medium text-gray-900 mb-2">Bird Summary</h4>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Purchased:</span>
+                      <span className="text-gray-600">Birds Purchased:</span>
                       <span className="font-medium">{trip.summary?.totalBirdsPurchased || 0} birds</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Sold:</span>
-                      <span className="font-medium">{trip.summary?.totalBirdsSold || 0} birds</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">In Stock:</span>
-                      <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0} birds</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Death:</span>
-                      <span className="font-medium text-red-600">{trip.summary?.mortality || 0} birds</span>
-                    </div>
-                    <div className="flex justify-between border-t pt-1">
-                      <span className="text-gray-600 font-medium">Remaining:</span>
-                      <span className="font-bold text-blue-600">{trip.summary?.birdsRemaining || 0} birds</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Weight Summary */}
-                <div className="mt-4 pt-4 border-t">
-                  <h4 className="font-medium text-gray-900 mb-2">Weight Summary</h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
                       <span className="text-gray-600">Purchased Weight:</span>
                       <span className="font-medium">{(trip.summary?.totalWeightPurchased || 0).toFixed(2)} kg</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Birds Sold:</span>
+                      <span className="font-medium">{trip.summary?.totalBirdsSold || 0} birds</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Sold Weight:</span>
                       <span className="font-medium">{(trip.summary?.totalWeightSold || 0).toFixed(2)} kg</span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-gray-600">In Stock:</span>
+                      <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0} birds</span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-gray-600">Total Stock Weight:</span>
                       <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0).toFixed(2) || '0.00'} kg</span>
                     </div>
                     <div className="flex justify-between">
+                      <span className="text-gray-600">Death:</span>
+                      <span className="font-medium text-red-600">{trip.summary?.mortality || 0} birds</span>
+                    </div>
+                    <div className="flex justify-between">
                       <span className="text-gray-600">Death Weight:</span>
                       <span className="font-medium text-red-600">{(trip.summary?.totalWeightLost || 0).toFixed(2)} kg</span>
+                    </div>
+                    <div className="flex justify-between border-t pt-1">
+                      <span className="text-gray-600 font-medium">Remaining:</span>
+                      <span className="font-bold text-blue-600">{trip.summary?.birdsRemaining || 0} birds</span>
                     </div>
                     <div className="flex justify-between border-t pt-1">
                       <span className="text-gray-600 font-medium">Natural Weight Loss:</span>
@@ -1553,15 +1574,15 @@ const SupervisorTripDetails = () => {
 
       {/* Purchase Modal */}
       {showPurchaseModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg p-4 w-full max-w-xs">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">
               {editingPurchaseIndex !== null ? 'Edit Purchase' : 'Add Purchase'}
             </h3>
 
             {/* Summary Section */}
             {purchaseData.birds > 0 && purchaseData.weight > 0 && (
-              <div className="bg-blue-50 p-3 rounded-lg mb-4">
+              <div className="bg-blue-50 p-2 rounded-lg mb-2">
                 <div className="text-sm text-blue-800">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -1587,13 +1608,13 @@ const SupervisorTripDetails = () => {
               </div>
             )}
 
-            <form onSubmit={handlePurchaseSubmit} className="space-y-4">
+            <form onSubmit={handlePurchaseSubmit} className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Supplier *</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Supplier *</label>
                 <select
                   value={purchaseData.supplier}
                   onChange={(e) => handlePurchaseDataChange('supplier', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                   required
                 >
                   <option value="">Select Vendor</option>
@@ -1605,60 +1626,60 @@ const SupervisorTripDetails = () => {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">DC NO *</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">DC NO *</label>
                 <input
                   type="text"
                   value={purchaseData.dcNumber}
                   onChange={(e) => handlePurchaseDataChange('dcNumber', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                   placeholder="Delivery Challan Number"
                   required
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">BIRDS *</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">BIRDS *</label>
                   <input
                     type="number"
                     value={purchaseData.birds}
                     onChange={(e) => handlePurchaseDataChange('birds', Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                     placeholder="Number of birds"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">WEIGHT (kg) *</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">WEIGHT (kg) *</label>
                   <input
                     type="number"
                     value={purchaseData.weight}
                     onChange={(e) => handlePurchaseDataChange('weight', Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Total weight of all birds"
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                    placeholder="Total weight"
                     required
                     step="0.01"
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">AVG (kg/bird)</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">AVG (kg/bird)</label>
                   <input
                     type="number"
                     value={purchaseData.avgWeight}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                    className="w-full px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-xs"
                     placeholder="Auto-calculated"
                     readOnly
                     step="0.01"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">RATE (₹/kg) *</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">RATE (₹/kg) *</label>
                   <input
                     type="number"
                     value={purchaseData.rate}
                     onChange={(e) => handlePurchaseDataChange('rate', Number(e.target.value))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                     placeholder="Rate per kg"
                     required
                     step="0.01"
@@ -1666,43 +1687,45 @@ const SupervisorTripDetails = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">AMOUNT (₹)</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">AMOUNT (₹)</label>
                 <input
                   type="number"
                   value={purchaseData.amount}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                  className="w-full px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-xs"
                   placeholder="Auto-calculated"
                   readOnly
                   step="0.01"
                 />
               </div>
-              <div className="flex space-x-3">
+              <div className="flex space-x-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowPurchaseModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+                  className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || !purchaseData.supplier || !purchaseData.dcNumber || purchaseData.birds <= 0 || purchaseData.weight <= 0 || purchaseData.rate <= 0}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                  className="flex-1 px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 text-xs font-medium"
                 >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingPurchaseIndex !== null ? 'Update Purchase' : 'Add Purchase')}
+                  {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : (editingPurchaseIndex !== null ? 'Update' : 'Add')}
                 </button>
               </div>
             </form>
 
-            {/* Help Text */}
-            <div className="mt-4 text-xs text-gray-500">
-              <p>• <strong>SUPPLIER:</strong> Select the vendor from the dropdown</p>
-              <p>• <strong>DC NO:</strong> Enter the delivery challan number</p>
-              <p>• <strong>BIRDS:</strong> Enter the total number of birds purchased</p>
-              <p>• <strong>WEIGHT:</strong> Enter the total weight of all birds in kg</p>
-              <p>• <strong>AVG:</strong> Automatically calculated as Weight ÷ Birds</p>
-              <p>• <strong>RATE:</strong> Enter the price per kg</p>
-              <p>• <strong>AMOUNT:</strong> Automatically calculated as Weight × Rate</p>
+            {/* Help Text - Ultra Compact */}
+            <div className="mt-1 p-1.5 bg-gray-50 rounded text-xs text-gray-600">
+              <div className="grid grid-cols-2 gap-0.5">
+                <div>• SUPPLIER: Select vendor</div>
+                <div>• DC NO: Enter challan</div>
+                <div>• BIRDS: Total count</div>
+                <div>• WEIGHT: Total kg</div>
+                <div>• AVG: Auto-calc</div>
+                <div>• RATE: Price/kg</div>
+                <div>• AMOUNT: Auto-calc</div>
+              </div>
             </div>
           </div>
         </div>
@@ -2313,15 +2336,15 @@ const SupervisorTripDetails = () => {
 
       {/* Stock Modal */}
       {showStockModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg p-4 w-full max-w-xs">
+            <h3 className="text-base font-semibold text-gray-900 mb-2">
               {editingStockIndex !== null ? 'Edit Stock Entry' : 'Add to Stock'}
             </h3>
 
             {/* Summary Section */}
             {stockData.birds > 0 && stockData.weight > 0 && stockData.rate > 0 && (
-              <div className="bg-cyan-50 p-3 rounded-lg mb-4">
+              <div className="bg-cyan-50 p-2 rounded-lg mb-2">
                 <div className="text-sm text-cyan-800">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
@@ -2344,27 +2367,27 @@ const SupervisorTripDetails = () => {
               </div>
             )}
 
-            <form onSubmit={handleStockSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+            <form onSubmit={handleStockSubmit} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Birds in Stock *</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Birds in Stock *</label>
                   <input
                     type="number"
                     value={stockData.birds}
                     onChange={(e) => setStockData(prev => ({ ...prev, birds: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                     required
                     min="0"
                     step="1"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Weight (kg) *</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Total Weight (kg) *</label>
                   <input
                     type="number"
                     value={stockData.weight}
                     onChange={(e) => setStockData(prev => ({ ...prev, weight: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                     required
                     min="0"
                     step="0.1"
@@ -2372,12 +2395,12 @@ const SupervisorTripDetails = () => {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rate per kg (₹) *</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Rate per kg (₹) *</label>
                 <input
                   type="number"
                   value={stockData.rate}
                   onChange={(e) => setStockData(prev => ({ ...prev, rate: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                   required
                   min="0"
                   step="0.01"
@@ -2385,64 +2408,62 @@ const SupervisorTripDetails = () => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Notes (Optional)</label>
                 <textarea
                   value={stockData.notes}
                   onChange={(e) => setStockData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                   rows="2"
                   placeholder="Add any notes about this stock entry..."
                 />
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Avg Weight (Auto-calculated)</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Avg Weight (Auto-calc)</label>
                   <input
                     type="number"
                     value={stockData.avgWeight.toFixed(2)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                    className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-xs"
                     readOnly
                     step="0.01"
                     placeholder="Weight ÷ Birds"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Stock Value (Auto-calculated)</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Stock Value (Auto-calc)</label>
                   <input
                     type="number"
                     value={stockData.value.toFixed(2)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                    className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-xs"
                     readOnly
                     step="0.01"
                     placeholder="Weight × Rate"
                   />
                 </div>
               </div>
-              <div className="bg-yellow-50 p-3 rounded-lg">
-                <div className="text-sm text-yellow-800">
-                  <div className="font-medium mb-1">Note:</div>
-                  <ul className="text-xs space-y-1">
-                    <li>• Stock represents birds kept for future sales</li>
-                    <li>• Stock value is calculated at purchase rate</li>
-                    <li>• Stock is not included in current profit calculations</li>
-                    <li>• Death birds are calculated automatically from remaining birds</li>
-                  </ul>
+              <div className="bg-yellow-50 p-1.5 rounded text-xs text-yellow-800">
+                <div className="font-medium mb-1">Note:</div>
+                <div className="grid grid-cols-1 gap-0.5">
+                  <div>• Stock represents birds kept for future sales</div>
+                  <div>• Stock value is calculated at purchase rate</div>
+                  <div>• Stock is not included in current profit calculations</div>
+                  <div>• Death birds are calculated automatically</div>
                 </div>
               </div>
-              <div className="flex space-x-3">
+              <div className="flex space-x-2 pt-1">
                 <button
                   type="button"
                   onClick={() => setShowStockModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+                  className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isSubmitting || stockData.birds <= 0 || stockData.weight <= 0 || stockData.rate <= 0}
-                  className="flex-1 px-4 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700 disabled:opacity-50"
+                  className="flex-1 px-2 py-1 bg-cyan-600 text-white rounded hover:bg-cyan-700 disabled:opacity-50 text-xs font-medium"
                 >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingStockIndex !== null ? 'Update Stock' : 'Add to Stock')}
+                  {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : (editingStockIndex !== null ? 'Update' : 'Add')}
                 </button>
               </div>
             </form>

@@ -17,12 +17,15 @@ const vehicleSchema = z.object({
   type: z.enum(["pickup", "mini-truck", "truck", "tempo", "container", "trailer"], {
     required_error: "Type is required",
   }),
-  capacityKg: z.number().min(100, "Capacity should be at least 100kg"),
   fuelType: z.enum(["diesel", "petrol", "cng", "electric"], {
     required_error: "Fuel type is required",
   }),
-  fuelEfficiency: z.number().default(6),
-  dcSections: z.number().int().min(1, 'DC sections must be at least 1'),
+  insuranceEndDate: z.string().min(1, "Insurance end date is required"),
+  pucEndDate: z.string().min(1, "PUC end date is required"),
+  roadTaxEndDate: z.string().min(1, "Road tax end date is required"),
+  fitnessEndDate: z.string().min(1, "Fitness end date is required"),
+  nationalPermitEndDate: z.string().min(1, "National permit end date is required"),
+  rentPerKm: z.number().min(0, "Rent per KM cannot be negative"),
   currentStatus: z.enum(["idle", "in-transit", "maintenance"], {
     required_error: "Status is required",
   }).default("idle"),
@@ -135,16 +138,35 @@ export default function Vehicles() {
 
   const fetchVehicleById = async (id) => {
     const { data } = await api.get(`/vehicle/${id}`);
-    return data.data;
+    const vehicle = data.data;
+    
+    // Format dates for HTML date inputs (YYYY-MM-DD format)
+    const formatDateForInput = (dateString) => {
+      if (!dateString) return '';
+      const date = new Date(dateString);
+      return date.toISOString().split('T')[0];
+    };
+    
+    return {
+      ...vehicle,
+      insuranceEndDate: formatDateForInput(vehicle.insuranceEndDate),
+      pucEndDate: formatDateForInput(vehicle.pucEndDate),
+      roadTaxEndDate: formatDateForInput(vehicle.roadTaxEndDate),
+      fitnessEndDate: formatDateForInput(vehicle.fitnessEndDate),
+      nationalPermitEndDate: formatDateForInput(vehicle.nationalPermitEndDate),
+    };
   };
 
   const defaultFormValues = {
     vehicleNumber: '',
     type: 'truck',
-    capacityKg: 100,
     fuelType: 'diesel',
-    fuelEfficiency: 6,
-    dcSections: 1,
+    insuranceEndDate: '',
+    pucEndDate: '',
+    roadTaxEndDate: '',
+    fitnessEndDate: '',
+    nationalPermitEndDate: '',
+    rentPerKm: 0,
     currentStatus: 'idle',
     location: { type: 'Point', coordinates: [0, 0] },
   };
@@ -171,10 +193,20 @@ export default function Vehicles() {
 
   // Handle form submission
   const onSubmit = (data) => {
+    // Convert date strings to proper Date objects for backend
+    const formattedData = {
+      ...data,
+      insuranceEndDate: data.insuranceEndDate ? new Date(data.insuranceEndDate) : null,
+      pucEndDate: data.pucEndDate ? new Date(data.pucEndDate) : null,
+      roadTaxEndDate: data.roadTaxEndDate ? new Date(data.roadTaxEndDate) : null,
+      fitnessEndDate: data.fitnessEndDate ? new Date(data.fitnessEndDate) : null,
+      nationalPermitEndDate: data.nationalPermitEndDate ? new Date(data.nationalPermitEndDate) : null,
+    };
+    
     if (editingVehicle) {
-      updateVehicle({ id: editingVehicle.id, ...data });
+      updateVehicle({ id: editingVehicle.id, ...formattedData });
     } else {
-      addVehicle(data);
+      addVehicle(formattedData);
     }
   };
 
@@ -261,8 +293,9 @@ export default function Vehicles() {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vehicle Number</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Capacity</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fuel</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rent/KM</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Insurance</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
@@ -276,10 +309,21 @@ export default function Vehicles() {
                     {vehicle.type.replace('-', ' ')}
                   </span>
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{vehicle.capacityKg.toLocaleString()} kg</td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getFuelTypeColor(vehicle.fuelType)}`}>
                     {vehicle.fuelType}
+                  </span>
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₹{vehicle.rentPerKm?.toFixed(2) || '0.00'}</td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    vehicle.insuranceEndDate && new Date(vehicle.insuranceEndDate) < new Date() 
+                      ? 'bg-red-100 text-red-800' 
+                      : vehicle.insuranceEndDate && new Date(vehicle.insuranceEndDate) < new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-green-100 text-green-800'
+                  }`}>
+                    {vehicle.insuranceEndDate ? new Date(vehicle.insuranceEndDate).toLocaleDateString() : 'N/A'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -348,15 +392,6 @@ export default function Vehicles() {
                   {errors.type && <p className="mt-1 text-sm text-red-600">{errors.type.message}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Capacity (kg)</label>
-                  <input
-                    type="number"
-                    {...register('capacityKg', { valueAsNumber: true })}
-                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  {errors.capacityKg && <p className="mt-1 text-sm text-red-600">{errors.capacityKg.message}</p>}
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700">Fuel Type</label>
                   <select
                     {...register('fuelType')}
@@ -370,24 +405,6 @@ export default function Vehicles() {
                   {errors.fuelType && <p className="mt-1 text-sm text-red-600">{errors.fuelType.message}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Fuel Efficiency (km/l)</label>
-                  <input
-                    type="number"
-                    {...register('fuelEfficiency', { valueAsNumber: true })}
-                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  {errors.fuelEfficiency && <p className="mt-1 text-sm text-red-600">{errors.fuelEfficiency.message}</p>}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">DC Sections</label>
-                  <input
-                    type="number"
-                    {...register('dcSections', { valueAsNumber: true })}
-                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                  {errors.dcSections && <p className="mt-1 text-sm text-red-600">{errors.dcSections.message}</p>}
-                </div>
-                <div>
                   <label className="block text-sm font-medium text-gray-700">Status</label>
                   <select
                     {...register('currentStatus')}
@@ -398,6 +415,61 @@ export default function Vehicles() {
                     <option value="maintenance">Maintenance</option>
                   </select>
                   {errors.currentStatus && <p className="mt-1 text-sm text-red-600">{errors.currentStatus.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Insurance End Date</label>
+                  <input
+                    type="date"
+                    {...register('insuranceEndDate')}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  {errors.insuranceEndDate && <p className="mt-1 text-sm text-red-600">{errors.insuranceEndDate.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">PUC End Date</label>
+                  <input
+                    type="date"
+                    {...register('pucEndDate')}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  {errors.pucEndDate && <p className="mt-1 text-sm text-red-600">{errors.pucEndDate.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Road Tax End Date</label>
+                  <input
+                    type="date"
+                    {...register('roadTaxEndDate')}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  {errors.roadTaxEndDate && <p className="mt-1 text-sm text-red-600">{errors.roadTaxEndDate.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Fitness End Date</label>
+                  <input
+                    type="date"
+                    {...register('fitnessEndDate')}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  {errors.fitnessEndDate && <p className="mt-1 text-sm text-red-600">{errors.fitnessEndDate.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">National Permit End Date</label>
+                  <input
+                    type="date"
+                    {...register('nationalPermitEndDate')}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  {errors.nationalPermitEndDate && <p className="mt-1 text-sm text-red-600">{errors.nationalPermitEndDate.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Rent Per KM (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register('rentPerKm', { valueAsNumber: true })}
+                    className="mt-1 block w-full border border-gray-300 rounded-lg shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                  {errors.rentPerKm && <p className="mt-1 text-sm text-red-600">{errors.rentPerKm.message}</p>}
                 </div>
               </div>
               <div className="flex justify-end gap-2 mt-6">
