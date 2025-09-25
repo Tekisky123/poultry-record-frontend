@@ -87,8 +87,8 @@ const SupervisorTripDetails = () => {
     avgWeight: 0,
     rate: 0,
     amount: 0,
-    paymentMode: 'cash',
-    paymentStatus: 'pending',
+    // paymentMode: 'cash',
+    // paymentStatus: 'pending',
     receivedAmount: 0,
     discount: 0,
     balance: 0,
@@ -423,7 +423,7 @@ const SupervisorTripDetails = () => {
         if (data.data.success) {
           setTrip(data.data.data);
           setShowSaleModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -436,7 +436,7 @@ const SupervisorTripDetails = () => {
         if (data.data.success) {
           setTrip(data.data.data);
           setShowSaleModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -660,7 +660,7 @@ const SupervisorTripDetails = () => {
               </button>
               <button
                 onClick={() => {
-                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
                   setSelectedCustomer(null);
                   setCustomerSearchTerm('');
                   setShowCustomerDropdown(false);
@@ -950,8 +950,16 @@ const SupervisorTripDetails = () => {
                             {trip.status !== 'completed' && (
                               <button
                                 onClick={() => {
+                                  // Handle supplier field - it could be populated (object) or just ID (string)
+                                  let supplierId = '';
+                                  if (typeof purchase.supplier === 'string') {
+                                    supplierId = purchase.supplier;
+                                  } else if (purchase.supplier && purchase.supplier._id) {
+                                    supplierId = purchase.supplier._id;
+                                  }
+                                  
                                   setPurchaseData({
-                                    supplier: purchase.supplier?._id || '',
+                                    supplier: supplierId,
                                     dcNumber: purchase.dcNumber || '',
                                     birds: purchase.birds || 0,
                                     weight: purchase.weight || 0,
@@ -1044,8 +1052,8 @@ const SupervisorTripDetails = () => {
                                     {sale.avgWeight && ` (Avg: ${sale.avgWeight} kg/bird)`}
                                   </div>
                                   <div className="text-xs text-gray-500 mt-1">
-                                    {sale.paymentMode}: ₹{sale.receivedAmount?.toLocaleString() || '0'} |
-                                    Status: {sale.paymentStatus} |
+                                    {/* {sale.paymentMode}: ₹{sale.receivedAmount?.toLocaleString() || '0'} | */}
+                                    {/* Status: {sale.paymentStatus} | */}
                                     Balance: ₹{sale.balance?.toFixed(2) || '0.00'}
                                   </div>
                                 </div>
@@ -1069,8 +1077,8 @@ const SupervisorTripDetails = () => {
                                             avgWeight: sale.avgWeight || 0,
                                             rate: sale.rate || 0,
                                             amount: sale.amount || 0,
-                                            paymentMode: sale.paymentMode || 'cash',
-                                            paymentStatus: sale.paymentStatus || 'pending',
+                                            // paymentMode: sale.paymentMode || 'cash',
+                                            // paymentStatus: sale.paymentStatus || 'pending',
                                             receivedAmount: sale.receivedAmount || 0,
                                             discount: sale.discount || 0,
                                             balance: sale.balance || 0,
@@ -1765,12 +1773,12 @@ const SupervisorTripDetails = () => {
                       <div>
                         <span className="font-medium">Total Amount:</span> ₹{saleData.amount?.toFixed(2) || '0.00'}
                       </div>
-                      <div>
+                      {/* <div>
                         <span className="font-medium">Payment Mode:</span> {saleData.paymentMode}
                       </div>
                       <div>
                         <span className="font-medium">Payment Status:</span> {saleData.paymentStatus}
-                      </div>
+                      </div> */}
                       <div>
                         <span className="font-medium">Cash Paid:</span> ₹{saleData.cashPaid?.toLocaleString() || '0'}
                       </div>
@@ -1956,7 +1964,7 @@ const SupervisorTripDetails = () => {
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
+                  {/* <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Payment Mode</label>
                     <select
                       value={saleData.paymentMode}
@@ -1979,7 +1987,7 @@ const SupervisorTripDetails = () => {
                       <option value="pending">Pending</option>
                       <option value="partial">Partial</option>
                     </select>
-                  </div>
+                  </div> */}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>

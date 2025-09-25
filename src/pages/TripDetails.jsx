@@ -23,6 +23,8 @@ import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 import { downloadTripPDF } from '../utils/downloadTripPDF';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 
 export default function TripDetails() {
   const { id } = useParams();
@@ -66,8 +68,8 @@ export default function TripDetails() {
     avgWeight: 0,
     rate: 0,
     amount: 0,
-    paymentMode: 'cash',
-    paymentStatus: 'pending',
+    // paymentMode: 'cash',
+    // paymentStatus: 'pending',
     receivedAmount: 0,
     discount: 0,
     balance: 0,
@@ -241,7 +243,7 @@ export default function TripDetails() {
       if (data.success) {
         setTrip(data.data);
         setShowSaleModal(false);
-        setSaleData({ client: '', billNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+        setSaleData({ client: '', billNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
         setEditingSaleIndex(null);
         alert('Sale updated successfully!');
       }
@@ -309,134 +311,720 @@ export default function TripDetails() {
     }
   };
 
+  function extract_excel_data(trip) {
+    const data = trip;
+
+    // Extract basic information
+    const basic_info = {
+        'DATE': data.date,
+        'VEHICLE NO': data.vehicle.vehicleNumber,
+        'PLACE': data.place,
+        'SUPERVISOR': data.supervisor.name,
+        'DRIVER': data.driver,
+        'LABOUR': data.labours.join(', '),
+    };
+
+    // Extract expenses
+    const expenses = {};
+    data.expenses.forEach(expense => {
+        expenses[expense.category.toUpperCase()] = expense.amount;
+    });
+
+    // Extract diesel information
+    const diesel_info = {
+        'DIESEL': {
+            'VOL': data.diesel.totalVolume,
+            'RATE': data.diesel.stations[0].rate,
+            'AMT': data.diesel.totalAmount
+        }
+    };
+
+    // Extract purchases
+    const purchases = data.purchases.map(purchase => ({
+        'DRIVER NAME': data.driver,
+        'SUP': purchase.supplier.vendorName,
+        'PARTICULOUR': 'PURCHASE',
+        'DC NO': purchase.dcNumber,
+        'BIRDS': purchase.birds,
+        'WEIGHT': purchase.weight,
+        'AVG': purchase.avgWeight,
+        'RATE': purchase.rate,
+        'AMOUNT': purchase.amount,
+        'LESS TDS': 0, // Assuming no TDS for simplicity
+        'BALANCE': purchase.amount,
+        'REMARKS': ''
+    }));
+
+    // Extract sales
+    const sales = data.sales.map(sale => ({
+        'DRIVER NAME': data.driver,
+        'SUP': sale.client.shopName,
+        'PARTICULOUR': 'SALE',
+        'DC NO': sale.billNumber,
+        'BIRDS': sale.birds,
+        'WEIGHT': sale.weight,
+        'AVG': sale.avgWeight,
+        'RATE': sale.rate,
+        'AMOUNT': sale.amount,
+        'LESS TDS': 0, // Assuming no TDS for simplicity
+        'BALANCE': sale.receivedAmount,
+        'REMARKS': ''
+    }));
+
+    return { basic_info, expenses, diesel_info, purchases, sales };
+}
+
+
+
   const downloadExcel = () => {
     if (!trip) return;
 
-    // Create workbook
-    const wb = XLSX.utils.book_new();
+    // Create a new workbook
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Trip Report', {
+        views: [{ showGridLines: false }]
+    });
 
-    // Comprehensive Trip Report Sheet
-    const reportData = [
-      // PARTICULARS Section
-      ['PARTICULARS'],
-      [''],
-      ['DATE', 'VEHICLE NO', 'PLACE', 'SUPERVISOR', 'DRIVER', 'LABOUR'],
-      [
-        new Date(trip.date || trip.createdAt).toLocaleDateString(),
-        trip.vehicle?.vehicleNumber || 'N/A',
-        trip.place || 'N/A',
-        trip.supervisor?.name || 'N/A',
-        trip.driver || 'N/A',
-        trip.labour || trip.labours?.join(', ') || 'N/A'
-      ],
-      [''],
-      
-      // PURCHASE DETAILS Section
-      ['PURCHASE DETAILS'],
-      ['S N', 'SUPPLIERS', 'DC NO', 'BIRDS', 'WEIGHT', 'AVG', 'RATE', 'AMOUNT', 'PART', 'AMOUNT'],
-      ...(trip.purchases || []).map((purchase, index) => [
-        index + 1,
-        purchase.supplier?.vendorName || purchase.supplier?.vendorName || 'N/A',
-        purchase.dcNumber || 'N/A',
-        purchase.birds || purchase.birds || 0,
-        purchase.weight || 0,
-        purchase.weight && (purchase.birds || purchase.birds) ? 
-          (purchase.weight / (purchase.birds || purchase.birds)).toFixed(2) : '0.00',
-        purchase.rate || 0,
-        purchase.amount || purchase.amount || 0,
-        'PURCHASE',
-        purchase.amount || purchase.amount || 0
-      ]),
-      [
-        'TOTAL',
-        '',
-        '',
-        trip.summary?.totalBirdsPurchased || 0,
-        trip.summary?.totalWeightPurchased || 0,
-        trip.summary?.totalBirdsPurchased && trip.summary?.totalWeightPurchased ? 
-          (trip.summary.totalWeightPurchased / trip.summary.totalBirdsPurchased).toFixed(2) : '0.00',
-        '',
-        trip.summary?.totalPurchaseAmount || 0,
-        'TOTAL',
-        trip.summary?.totalPurchaseAmount || 0
-      ],
-      [''],
-
-       // SALES DETAILS Section
-       ['SALES DETAILS'],
-       ['S N', 'DELIVERY DETAILS', 'BILL NO', 'BIRDS', 'WEIGHT', 'AVG', 'RATE', 'TOTAL', 'CASH', 'ONLINE', 'DISC'],
-       ...(trip.sales || []).map((sale, index) => [
-         index + 1,
-         sale.client?.shopName || 'N/A',
-         sale.billNumber || 'N/A',
-         sale.birdsCount || sale.birds || 0,
-         sale.weight || 0,
-         sale.weight && (sale.birdsCount || sale.birds) ? 
-           (sale.weight / (sale.birdsCount || sale.birds)).toFixed(2) : '0.00',
-         sale.ratePerKg || sale.rate || 0,
-         sale.totalAmount || sale.amount || 0,
-         sale.cashPayment || (sale.paymentMode === 'cash' ? sale.amount : 0),
-         sale.onlinePayment || (sale.paymentMode === 'online' ? sale.amount : 0),
-         sale.discount || 0
-       ]),
-       [
-         'TOTAL SALE',
-         '',
-         '',
-         trip.summary?.totalBirdsSold || 0,
-         trip.summary?.totalWeightSold || 0,
-         trip.summary?.totalBirdsSold && trip.summary?.totalWeightSold ? 
-           (trip.summary.totalWeightSold / trip.summary.totalBirdsSold).toFixed(2) : '0.00',
-         trip.summary?.averageRate || 0,
-         trip.summary?.totalSalesAmount || 0,
-         trip.summary?.totalCashPayment || 0,
-         trip.summary?.totalOnlinePayment || 0,
-         trip.summary?.totalDiscount || 0
-       ],
-       [''],
-      
-      // VEHICLE EXPENSES Section
-      ['VEHICLE EXPENSES'],
-      ['DIESEL CONSUMPTION'],
-      ['DIESEL', 'VOL', 'RATE', 'AMT'],
-      ['MANE', trip.dieselVolume || 0, trip.dieselRate || 0, trip.dieselAmount || 0],
-      ['TOTAL', trip.dieselVolume || 0, trip.dieselRate || 0, trip.dieselAmount || 0],
-      [''],
-      ['TRIP METRICS'],
-      ['OP READING', trip.openingReading || 0],
-      ['CL READING', trip.closingReading || 0],
-      ['TOTAL RUNNING KM', trip.totalKm || 0],
-      ['TOTAL DIESEL VOL', trip.dieselVolume || 0],
-      ['VEHICLE AVERAGE', trip.totalKm && trip.dieselVolume ? 
-        (trip.totalKm / trip.dieselVolume).toFixed(2) : '0.00'],
-      [''],
-      
-      // PROFIT & LOSS SUMMARY Section
-      ['PROFIT & LOSS SUMMARY'],
-      ['FINANCIAL BREAKDOWN'],
-      ['RENT AMT PER KM', trip.rentPerKm || 0],
-      ['GROSS RENT', trip.totalKm ? (trip.totalKm * (trip.rentPerKm || 0)) : 0],
-      ['LESS DIESEL AMT', trip.dieselAmount || 0],
-      ['NETT RENT', trip.totalKm ? ((trip.totalKm * (trip.rentPerKm || 0)) - (trip.dieselAmount || 0)) : 0],
-      ['BIRDS PROFIT', trip.summary?.birdsProfit || 0],
-      ['TOTAL PROFIT', trip.summary?.netProfit || 0],
-      ['PROFIT PER KG', trip.summary?.totalWeightSold ? 
-        (trip.summary.netProfit / trip.summary.totalWeightSold).toFixed(2) : '0.00'],
-      [''],
-      ['WEIGHT LOSS TRACKING'],
-      ['', 'BIRDS', 'WEIGHT', 'AVG', 'RATE', 'AMOUNT'],
-      ['DEATH BIRDS', trip.summary?.totalBirdsLost || 0, (trip.summary?.totalWeightLost || 0).toFixed(2), trip.summary?.totalBirdsPurchased > 0 ? ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00', trip.summary?.avgPurchaseRate?.toFixed(2) || 0, (trip.summary?.totalLosses || 0).toFixed(2)],
-      ['NATURAL WEIGHT LOSS', '-', trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00', trip.summary?.totalBirdsPurchased > 0 ? ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00', trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00', trip.status === 'completed' ? ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)).toFixed(2) : '0.00'],
-      ['TOTAL W LOSS', trip.summary?.totalBirdsLost || 0, ((trip.summary?.totalWeightLost || 0) + (trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0) : 0)).toFixed(2), '-', trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00', ((trip.summary?.totalLosses || 0) + (trip.status === 'completed' ? ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)) : 0)).toFixed(2)]
+    // Set column widths to match reference
+    worksheet.columns = [
+        { width: 9 },    // A
+        { width: 4.27 },   // B
+        { width: 4.91 },   // C
+        { width: 6 },   // D
+        { width: 2.91 },   // E
+        { width: 15.18 },   // F
+        { width: 6.55 },   // G
+        { width: 5.73 },   // H
+        { width: 6.91 },   // I
+        { width: 6.45 },   // J
+        { width: 6 },   // K
+        { width: 7.82},   // L
+        { width: 6.91 },   // M
+        { width: 7.81 },   // N
+        { width: 4.91 },   // O
+        { width: 10 },   // P
+        { width: 10 }    // Q
     ];
 
-    const ws = XLSX.utils.aoa_to_sheet(reportData);
-    XLSX.utils.book_append_sheet(wb, ws, 'Comprehensive Trip Report');
+    // Styles
+    const headerStyle = {
+        font: { bold: true, size: 12 },
+        alignment: { vertical: 'middle', horizontal: 'center' },
+        border: { top: { style: 'thin' }, left: { style: 'thin' },
+        bottom: { style: 'thin' }, right: { style: 'thin' } }
+    };
 
-    // Download file
-    const fileName = `Trip_${trip.tripId}_Comprehensive_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(wb, fileName);
-  };
+    const subHeaderStyle = {
+        font: { bold: true, size: 11 },
+        alignment: { vertical: 'middle', horizontal: 'center' },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'D3D3D3' } }
+    };
+
+    const totalStyle = {
+        font: { bold: true, size: 11 },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: '000000' } },
+        color: { argb: 'FFFFFF' }
+    };
+
+    const yellowHighlight = {
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF00' } }
+    };
+
+    // PARTICULARS Section (Top section)
+    worksheet.mergeCells('B1:D1');
+    const particularsCell = worksheet.getCell('B1');
+    particularsCell.value = 'PARTICULARS';
+    particularsCell.style = { font: { bold: true, size: 14 } };
+
+    // Date and vehicle details
+    worksheet.mergeCells('A2:B2');
+    worksheet.getCell('A2').value = 'DATE';
+    worksheet.getCell('A2').style = subHeaderStyle;
+
+    worksheet.mergeCells('C2:D2');
+    worksheet.getCell('C2').value = new Date(trip.date || trip.createdAt).toLocaleDateString();
+    worksheet.getCell('C2').style = { alignment: { horizontal: 'left' } };
+
+    worksheet.mergeCells('E2:F2');
+    worksheet.getCell('E2').value = 'VEHICLE NO';
+    worksheet.getCell('E2').style = subHeaderStyle;
+
+    worksheet.mergeCells('G2:H2');
+    worksheet.getCell('G2').value = trip.vehicle?.vehicleNumber || 'N/A';
+    worksheet.getCell('G2').style = { alignment: { horizontal: 'left' } };
+
+    worksheet.mergeCells('I2:J2');
+    worksheet.getCell('I2').value = 'PLACE';
+    worksheet.getCell('I2').style = subHeaderStyle;
+
+    worksheet.mergeCells('K2:L2');
+    worksheet.getCell('K2').value = trip.place || 'N/A';
+    worksheet.getCell('K2').style = { alignment: { horizontal: 'left' } };
+
+    worksheet.mergeCells('M2:N2');
+    worksheet.getCell('M2').value = 'SUPERVISOR';
+    worksheet.getCell('M2').style = subHeaderStyle;
+
+    worksheet.mergeCells('O2:P2');
+    worksheet.getCell('O2').value = trip.supervisor?.name || 'N/A';
+    worksheet.getCell('O2').style = { alignment: { horizontal: 'left' } };
+
+    // Column headers for purchases
+    const headers = [
+        { col: 'A', value: 'S N', width: 5 },
+        { col: 'B', value: 'SUPPLIERS', width: 15 },
+        { col: 'D', value: 'DC NO', width: 10 },
+        { col: 'F', value: 'BIRDS', width: 10 },
+        { col: 'H', value: 'WEIGHT', width: 10 },
+        { col: 'J', value: 'AVG', width: 10 },
+        { col: 'K', value: 'RATE', width: 10 },
+        { col: 'L', value: 'AMOUNT', width: 12 },
+        { col: 'N', value: 'PART', width: 12 },
+        { col: 'O', value: 'AMOUNT', width: 10 }
+    ];
+
+    headers.forEach(h => {
+        worksheet.getCell(`${h.col}4`).value = h.value;
+        worksheet.getCell(`${h.col}4`).style = subHeaderStyle;
+        worksheet.getColumn(h.col).width = h.width;
+    });
+
+    // Merge cells for multi-column headers
+    worksheet.mergeCells('B4:C4');
+    worksheet.mergeCells('D4:E4');
+    worksheet.mergeCells('F4:G4');
+    worksheet.mergeCells('H4:I4');
+    worksheet.mergeCells('M4:N4');
+
+    // Add purchase data
+    let currentRow = 5;
+    (trip.purchases || []).forEach((purchase, index) => {
+        worksheet.getCell(`A${currentRow}`).value = index + 1;
+        worksheet.getCell(`A${currentRow}`).style = { alignment: { horizontal: 'center' } };
+
+        worksheet.mergeCells(`B${currentRow}:C${currentRow}`);
+        worksheet.getCell(`B${currentRow}`).value = purchase.supplier?.vendorName || 'N/A';
+
+        worksheet.mergeCells(`D${currentRow}:E${currentRow}`);
+        worksheet.getCell(`D${currentRow}`).value = purchase.dcNumber || 'N/A';
+        worksheet.getCell(`D${currentRow}`).style = { alignment: { horizontal: 'center' } };
+
+        worksheet.mergeCells(`F${currentRow}:G${currentRow}`);
+        worksheet.getCell(`F${currentRow}`).value = purchase.birds || 0;
+        worksheet.getCell(`F${currentRow}`).style = { alignment: { horizontal: 'center' } };
+
+        worksheet.mergeCells(`H${currentRow}:I${currentRow}`);
+        worksheet.getCell(`H${currentRow}`).value = purchase.weight || 0;
+        worksheet.getCell(`H${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+        worksheet.getCell(`J${currentRow}`).value = purchase.weight && purchase.birds ?
+            (purchase.weight / purchase.birds).toFixed(2) : '0.00';
+        worksheet.getCell(`J${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+        worksheet.getCell(`K${currentRow}`).value = purchase.rate || 0;
+        worksheet.getCell(`K${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+        worksheet.getCell(`L${currentRow}`).value = purchase.amount || 0;
+        worksheet.getCell(`L${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+        worksheet.mergeCells(`M${currentRow}:N${currentRow}`);
+        worksheet.getCell(`M${currentRow}`).value = 'SUSP';
+        worksheet.getCell(`M${currentRow}`).style = { alignment: { horizontal: 'center' } };
+
+        worksheet.getCell(`O${currentRow}`).value = purchase.amount || 0;
+        worksheet.getCell(`O${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+        currentRow++;
+    });
+
+    // Total row for purchases
+    worksheet.mergeCells(`A${currentRow}:C${currentRow}`);
+    worksheet.getCell(`A${currentRow}`).value = 'TOTAL';
+    worksheet.getCell(`A${currentRow}`).style = totalStyle;
+
+    worksheet.mergeCells(`D${currentRow}:E${currentRow}`);
+    worksheet.getCell(`D${currentRow}`).style = totalStyle;
+
+    worksheet.mergeCells(`F${currentRow}:G${currentRow}`);
+    worksheet.getCell(`F${currentRow}`).value = trip.summary?.totalBirdsPurchased || 0;
+    worksheet.getCell(`F${currentRow}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
+
+    worksheet.mergeCells(`H${currentRow}:I${currentRow}`);
+    worksheet.getCell(`H${currentRow}`).value = trip.summary?.totalWeightPurchased || 0;
+    worksheet.getCell(`H${currentRow}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`J${currentRow}`).value = trip.summary?.totalBirdsPurchased && trip.summary?.totalWeightPurchased ?
+        (trip.summary.totalWeightPurchased / trip.summary.totalBirdsPurchased).toFixed(2) : '0.00';
+    worksheet.getCell(`J${currentRow}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`K${currentRow}`).style = totalStyle;
+    worksheet.getCell(`L${currentRow}`).style = totalStyle;
+
+    worksheet.mergeCells(`M${currentRow}:N${currentRow}`);
+    worksheet.getCell(`M${currentRow}`).value = 'TOTAL';
+    worksheet.getCell(`M${currentRow}`).style = totalStyle;
+
+    worksheet.getCell(`O${currentRow}`).value = trip.summary?.totalPurchaseAmount || 0;
+    worksheet.getCell(`O${currentRow}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
+
+    currentRow += 2;
+
+    // VEHICLE EXP Section
+    worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
+    const vehicleExpCell = worksheet.getCell(`A${currentRow}`);
+    vehicleExpCell.value = 'VEHICLE EXP';
+    vehicleExpCell.style = {
+        font: { bold: true, size: 12, color: { argb: 'FFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0000' } },
+        alignment: { horizontal: 'left' }
+    };
+    currentRow++;
+
+    // Vehicle exp headers
+    worksheet.getCell(`A${currentRow}`).value = 'S N';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.mergeCells(`B${currentRow}:C${currentRow}`);
+    worksheet.getCell(`B${currentRow}`).value = 'NCRBIRDS DETAILBILL';
+    worksheet.getCell(`B${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`D${currentRow}`).value = 'WEIGHT';
+    worksheet.getCell(`D${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`E${currentRow}`).value = 'AVG';
+    worksheet.getCell(`E${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`F${currentRow}`).value = 'RATE';
+    worksheet.getCell(`F${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`G${currentRow}`).value = 'TOTAL';
+    worksheet.getCell(`G${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`H${currentRow}`).value = 'CASH';
+    worksheet.getCell(`H${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`I${currentRow}`).value = 'ONLINE';
+    worksheet.getCell(`I${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`J${currentRow}`).value = 'DISC';
+    worksheet.getCell(`J${currentRow}`).style = subHeaderStyle;
+
+    currentRow++;
+
+    // Add sales data
+    (trip.sales || []).forEach((sale, index) => {
+        worksheet.getCell(`A${currentRow}`).value = index + 1;
+        worksheet.getCell(`A${currentRow}`).style = { alignment: { horizontal: 'center' } };
+
+        worksheet.mergeCells(`B${currentRow}:C${currentRow}`);
+        worksheet.getCell(`B${currentRow}`).value = sale.client?.shopName || 'N/A';
+
+        worksheet.getCell(`D${currentRow}`).value = sale.weight || 0;
+        worksheet.getCell(`D${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+        worksheet.getCell(`E${currentRow}`).value = sale.weight && (sale.birdsCount || sale.birds) ?
+            (sale.weight / (sale.birdsCount || sale.birds)).toFixed(2) : '0.00';
+        worksheet.getCell(`E${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+        worksheet.getCell(`F${currentRow}`).value = sale.ratePerKg || sale.rate || 0;
+        worksheet.getCell(`F${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+        worksheet.getCell(`G${currentRow}`).value = sale.totalAmount || sale.amount || 0;
+        worksheet.getCell(`G${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+        worksheet.getCell(`H${currentRow}`).value = sale.cashPayment || 0; // || (sale.paymentMode === 'cash' ? sale.amount : 0) || 0;
+        worksheet.getCell(`H${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+        worksheet.getCell(`I${currentRow}`).value = sale.onlinePayment || 0; // || (sale.paymentMode === 'online' ? sale.amount : 0) || 0;
+        worksheet.getCell(`I${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+        worksheet.getCell(`J${currentRow}`).value = sale.discount || 0;
+        worksheet.getCell(`J${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+        currentRow++;
+    });
+
+    // Total sales row
+    worksheet.getCell(`A${currentRow}`).value = 'TOTAL';
+    worksheet.getCell(`A${currentRow}`).style = { font: { bold: true } };
+
+    worksheet.mergeCells(`B${currentRow}:C${currentRow}`);
+    worksheet.getCell(`B${currentRow}`).style = { font: { bold: true } };
+
+    worksheet.getCell(`D${currentRow}`).value = trip.summary?.totalWeightSold || 0;
+    worksheet.getCell(`D${currentRow}`).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`E${currentRow}`).value = trip.summary?.totalBirdsSold && trip.summary?.totalWeightSold ?
+        (trip.summary.totalWeightSold / trip.summary.totalBirdsSold).toFixed(2) : '0.00';
+    worksheet.getCell(`E${currentRow}`).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`F${currentRow}`).value = trip.summary?.averageRate || 0;
+    worksheet.getCell(`F${currentRow}`).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`G${currentRow}`).value = trip.summary?.totalSalesAmount || 0;
+    worksheet.getCell(`G${currentRow}`).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`H${currentRow}`).value = trip.summary?.totalCashPayment || 0;
+    worksheet.getCell(`H${currentRow}`).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`I${currentRow}`).value = trip.summary?.totalOnlinePayment || 0;
+    worksheet.getCell(`I${currentRow}`).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`J${currentRow}`).value = trip.summary?.totalDiscount || 0;
+    worksheet.getCell(`J${currentRow}`).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+
+    currentRow += 2;
+
+    // DIESEL Section
+    worksheet.getCell(`A${currentRow}`).value = 'DIESEL';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = 'VOL';
+    worksheet.getCell(`B${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`C${currentRow}`).value = 'RATE';
+    worksheet.getCell(`C${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`D${currentRow}`).value = 'AMT';
+    worksheet.getCell(`D${currentRow}`).style = subHeaderStyle;
+
+    currentRow++;
+
+    // Add diesel data
+    if (trip.diesel?.stations) {
+        trip.diesel.stations.forEach(station => {
+            worksheet.getCell(`A${currentRow}`).value = station.name || '';
+            worksheet.getCell(`A${currentRow}`).style = { alignment: { horizontal: 'left' } };
+
+            worksheet.getCell(`B${currentRow}`).value = station.volume || 0;
+            worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+            worksheet.getCell(`C${currentRow}`).value = station.rate || 0;
+            worksheet.getCell(`C${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+            worksheet.getCell(`D${currentRow}`).value = station.amount || 0;
+            worksheet.getCell(`D${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+            currentRow++;
+        });
+    }
+
+    // Total diesel row
+    worksheet.getCell(`A${currentRow}`).value = 'TOTAL';
+    worksheet.getCell(`A${currentRow}`).style = { font: { bold: true } };
+
+    worksheet.getCell(`B${currentRow}`).value = trip.diesel?.totalVolume || 0;
+    worksheet.getCell(`B${currentRow}`).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`C${currentRow}`).value = '';
+    worksheet.getCell(`C${currentRow}`).style = { font: { bold: true } };
+
+    worksheet.getCell(`D${currentRow}`).value = trip.diesel?.totalAmount || 0;
+    worksheet.getCell(`D${currentRow}`).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+
+    currentRow += 2;
+
+    // OP READING and other metrics
+    worksheet.getCell(`A${currentRow}`).value = 'OP READING';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.vehicleReadings?.opening || 0;
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow++;
+
+    worksheet.getCell(`A${currentRow}`).value = 'CL READING';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.vehicleReadings?.closing || 0;
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow++;
+
+    worksheet.getCell(`A${currentRow}`).value = 'TOTAL RUNNING KM';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.vehicleReadings?.totalDistance || 0;
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow++;
+
+    worksheet.getCell(`A${currentRow}`).value = 'TOTAL DIESEL VOL';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.diesel?.totalVolume || 0;
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow++;
+
+    worksheet.getCell(`A${currentRow}`).value = 'VEHICLE AVERAGE';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.vehicleReadings?.totalDistance && trip.diesel?.totalVolume ?
+        (trip.vehicleReadings.totalDistance / trip.diesel.totalVolume).toFixed(2) : '0.00';
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow += 2;
+
+    // PROFIT & LOSS SUMMARY
+    worksheet.mergeCells(`A${currentRow}:D${currentRow}`);
+    const profitLossCell = worksheet.getCell(`A${currentRow}`);
+    profitLossCell.value = 'PROFIT & LOSS SUMMARY';
+    profitLossCell.style = {
+        font: { bold: true, size: 12, color: { argb: 'FFFFFF' } },
+        fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0000' } },
+        alignment: { horizontal: 'left' }
+    };
+    currentRow++;
+
+    // Financial breakdown
+    worksheet.getCell(`A${currentRow}`).value = 'RENT AMT PER KM';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.rentPerKm || 0;
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow++;
+
+    worksheet.getCell(`A${currentRow}`).value = 'GROSS RENT';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.totalKm ? (trip.totalKm * (trip.rentPerKm || 0)) : 0;
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow++;
+
+    worksheet.getCell(`A${currentRow}`).value = 'LESS DIESEL AMT';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.dieselAmount || 0;
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow++;
+
+    worksheet.getCell(`A${currentRow}`).value = 'NETT RENT';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.totalKm ?
+        ((trip.totalKm * (trip.rentPerKm || 0)) - (trip.dieselAmount || 0)) : 0;
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow++;
+
+    worksheet.getCell(`A${currentRow}`).value = 'BIRDS PROFIT';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.summary?.birdsProfit || 0;
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow++;
+
+    worksheet.getCell(`A${currentRow}`).value = 'TOTAL PROFIT';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.summary?.netProfit || 0;
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow++;
+
+    worksheet.getCell(`A${currentRow}`).value = 'PROFIT PER KG';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.summary?.totalWeightSold ?
+        (trip.summary.netProfit / trip.summary.totalWeightSold).toFixed(2) : '0.00';
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow += 2;
+
+    // WEIGHT LOSS TRACKING
+    worksheet.getCell(`A${currentRow}`).value = '';
+    worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = 'BIRDS';
+    worksheet.getCell(`B${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`C${currentRow}`).value = 'WEIGHT';
+    worksheet.getCell(`C${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`D${currentRow}`).value = 'AVG';
+    worksheet.getCell(`D${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`E${currentRow}`).value = 'RATE';
+    worksheet.getCell(`E${currentRow}`).style = subHeaderStyle;
+
+    worksheet.getCell(`F${currentRow}`).value = 'AMOUNT';
+    worksheet.getCell(`F${currentRow}`).style = subHeaderStyle;
+
+    currentRow++;
+
+    // Death birds row
+    worksheet.getCell(`A${currentRow}`).value = 'DEATH BIRDS';
+    worksheet.getCell(`A${currentRow}`).style = { alignment: { horizontal: 'left' } };
+
+    worksheet.getCell(`B${currentRow}`).value = trip.summary?.totalBirdsLost || 0;
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`C${currentRow}`).value = (trip.summary?.totalWeightLost || 0).toFixed(2);
+    worksheet.getCell(`C${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`D${currentRow}`).value = trip.summary?.totalBirdsPurchased > 0 ?
+        ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00';
+    worksheet.getCell(`D${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`E${currentRow}`).value = trip.summary?.avgPurchaseRate?.toFixed(2) || 0;
+    worksheet.getCell(`E${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`F${currentRow}`).value = (trip.summary?.totalLosses || 0).toFixed(2);
+    worksheet.getCell(`F${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow++;
+
+    // Natural weight loss row
+    worksheet.getCell(`A${currentRow}`).value = 'NATURAL WEIGHT LOSS';
+    worksheet.getCell(`A${currentRow}`).style = { alignment: { horizontal: 'left' } };
+
+    worksheet.getCell(`B${currentRow}`).value = '-';
+    worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`C${currentRow}`).value = trip.status === 'completed' ?
+        (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00';
+    worksheet.getCell(`C${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`D${currentRow}`).value = trip.summary?.totalBirdsPurchased > 0 ?
+        ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00';
+    worksheet.getCell(`D${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`E${currentRow}`).value = trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00';
+    worksheet.getCell(`E${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`F${currentRow}`).value = trip.status === 'completed' ?
+        ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)).toFixed(2) : '0.00';
+    worksheet.getCell(`F${currentRow}`).style = { alignment: { horizontal: 'right' } };
+
+    currentRow++;
+
+    // Total weight loss row
+    worksheet.getCell(`A${currentRow}`).value = 'TOTAL W LOSS';
+    worksheet.getCell(`A${currentRow}`).style = totalStyle;
+
+    worksheet.getCell(`B${currentRow}`).value = trip.summary?.totalBirdsLost || 0;
+    worksheet.getCell(`B${currentRow}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`C${currentRow}`).value = ((trip.summary?.totalWeightLost || 0) +
+        (trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0) : 0)).toFixed(2);
+    worksheet.getCell(`C${currentRow}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`D${currentRow}`).value = '-';
+    worksheet.getCell(`D${currentRow}`).style = totalStyle;
+
+    worksheet.getCell(`E${currentRow}`).value = trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00';
+    worksheet.getCell(`E${currentRow}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
+
+    worksheet.getCell(`F${currentRow}`).value = ((trip.summary?.totalLosses || 0) +
+        (trip.status === 'completed' ? ((trip.summary?.birdWeightLoss || 0) *
+        (trip.summary?.avgPurchaseRate || 0)) : 0)).toFixed(2);
+    worksheet.getCell(`F${currentRow}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
+
+    // Add borders to all cells
+    worksheet.eachRow({ includeEmpty: true }, (row) => {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+            cell.border = {
+                top: { style: 'thin' },
+                left: { style: 'thin' },
+                bottom: { style: 'thin' },
+                right: { style: 'thin' }
+            };
+        });
+    });
+
+    // Generate Excel file
+    workbook.xlsx.writeBuffer().then((buffer) => {
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const fileName = `Trip_${trip.tripId}_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
+        saveAs(blob, fileName);
+    });
+};
+
+const downloadExcel2 = () => {
+  
+    const generateExcel = () => {
+      const { basic_info, expenses, diesel_info, purchases, sales } = extract_excel_data(trip);
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('SALES BOOK');
+  
+      // Add basic information
+      worksheet.mergeCells('A1:D1');
+      worksheet.getCell('A1').value = 'PERTICULARS';
+
+      Object.keys(basic_info).forEach((info, index) => {
+        worksheet.mergeCells(`A${index + 2}:B${index + 2}`);
+        worksheet.mergeCells(`C${index + 2}:D${index + 2}`);
+        worksheet.getCell(`A${index + 2}`).value = info;
+        worksheet.getCell(`C${index + 2}`).value = basic_info[info];
+      });
+  
+      // Add expenses
+      worksheet.mergeCells(`A8:D8`);
+      worksheet.getCell(`A8`).value = 'VEHICLE EXPENSES';
+      worksheet.getCell(`D8`).value = 'AMT';
+      let rowIndex = 9;
+      Object.entries(expenses).forEach(([category, amount]) => {
+        worksheet.mergeCells(`A${rowIndex}:C${rowIndex}`);
+        worksheet.getCell(`A${rowIndex}`).value = category;
+        worksheet.getCell(`D${rowIndex}`).value = amount;
+        rowIndex++;
+      });
+  
+      // Add diesel information
+      const diesel = diesel_info['DIESEL'];
+      worksheet.getCell(`A${rowIndex}`).value = 'DIESEL';
+      worksheet.getCell(`B${rowIndex}`).value = 'VOL';
+      worksheet.getCell(`C${rowIndex}`).value = diesel['VOL'];
+      worksheet.getCell(`D${rowIndex}`).value = 'RATE';
+      worksheet.getCell(`E${rowIndex}`).value = diesel['RATE'];
+      worksheet.getCell(`F${rowIndex}`).value = 'AMT';
+      worksheet.getCell(`G${rowIndex}`).value = diesel['AMT'];
+      rowIndex += 2;
+  
+      // Add purchases
+      const purchaseHeaders = [
+        'S N', 'SUPPLIERS', 'DC NO',
+        'BIRDS', 'WEIGHT', 'AVG', 'RATE', 'AMOUNT', 'BALANCE',
+      ];
+  
+      let purchaseCells = ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O'];
+      purchaseHeaders.forEach((header, index) => {
+        worksheet.getCell(`${purchaseCells[index]}:1`).value = header || '';
+      });
+  
+      console.log(purchases);
+      // rowIndex++;
+      purchases.forEach(purchase => {
+        Object.keys(purchase).forEach((value, index) => {
+          console.log(`${purchaseCells[index]}:2`)
+          worksheet.getCell(`${purchaseCells[index]}:2`).value = purchase[value];
+        });
+        // rowIndex++;
+      });
+  
+      // Add sales
+      sales.forEach(sale => {
+        Object.values(sale).forEach((value, index) => {
+          worksheet.getCell(`${String.fromCharCode(65 + index)}${rowIndex}`).value = value;
+        });
+        rowIndex++;
+      });
+  
+      // Generate Excel file
+      workbook.xlsx.writeBuffer().then(buffer => {
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        saveAs(blob, 'SalesBook.xlsx');
+      });
+    
+      
+}
+  generateExcel()
+}
 
   const downloadPDF = () => {
     downloadTripPDF(trip);
@@ -486,7 +1074,7 @@ export default function TripDetails() {
         <div className="flex gap-2 mt-4 sm:mt-0">
           {/* Excel Download Button - Available for all users */}
           <button
-            onClick={downloadExcel}
+            onClick={downloadExcel2}
             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             <FileSpreadsheet size={20} />
@@ -1099,7 +1687,7 @@ export default function TripDetails() {
                         </div>
                         <div className="text-right">
                           <p className="text-lg font-bold text-green-600">₹{purchase.amount?.toLocaleString()}</p>
-                          <p className="text-sm text-gray-500">{purchase.paymentMode}</p>
+                          {/* <p className="text-sm text-gray-500">{purchase.paymentMode}</p> */}
                           {/* Edit button for completed trips - Admin/Superadmin only */}
                           {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
                             <button
@@ -1196,10 +1784,12 @@ export default function TripDetails() {
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{sale.rate || 0}</td>
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{sale.amount?.toLocaleString() || '0'}</td>
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
-                              {sale.paymentMode === 'cash' ? `₹${sale.amount?.toLocaleString() || '0'}` : '₹0'}
+                              {/* {sale.paymentMode === 'cash' ? `₹${sale.amount?.toLocaleString() || '0'}` : '₹0'} */}
+                              ₹0
                             </td>
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
-                              {sale.paymentMode === 'online' ? `₹${sale.amount?.toLocaleString() || '0'}` : '₹0'}
+                              {/* {sale.paymentMode === 'online' ? `₹${sale.amount?.toLocaleString() || '0'}` : '₹0'} */}
+                              ₹0
                             </td>
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹0</td>
                             {/* Edit button for completed trips - Admin/Superadmin only */}
@@ -1223,8 +1813,8 @@ export default function TripDetails() {
                                       avgWeight: sale.avgWeight || 0,
                                       rate: sale.rate || 0,
                                       amount: sale.amount || 0,
-                                      paymentMode: sale.paymentMode || 'cash',
-                                      paymentStatus: sale.paymentStatus || 'pending',
+                                      // paymentMode: sale.paymentMode || 'cash',
+                                      // paymentStatus: sale.paymentStatus || 'pending',
                                       receivedAmount: sale.receivedAmount || 0,
                                       discount: sale.discount || 0,
                                       balance: sale.balance || 0,
@@ -1962,7 +2552,7 @@ export default function TripDetails() {
                   onClick={() => {
                     setShowSaleModal(false);
                     setEditingSaleIndex(null);
-                    setSaleData({ client: '', billNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, paymentMode: 'cash', paymentStatus: 'pending', receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+                    setSaleData({ client: '', billNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
                   }}
                   className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
