@@ -12,7 +12,7 @@ import api from '../lib/axios';
 const vehicleSchema = z.object({
   vehicleNumber: z.string()
     .min(2, 'Vehicle number too short')
-    .max(20, 'Vehicle number too long')
+    .max(50, 'Vehicle number too long')
     .regex(/^[A-Z0-9-\s]+$/, 'Invalid vehicle number format'),
   type: z.enum(["pickup", "mini-truck", "truck", "tempo", "container", "trailer"], {
     required_error: "Type is required",
