@@ -227,8 +227,8 @@ const SupervisorCreateTrip = () => {
                     value={vehicle.id}
                     className={vehicle.currentStatus !== 'idle' ? 'text-gray-500' : ''}
                   >
-                    {vehicle.vehicleNumber} - {vehicle.type} 
-                    {vehicle.currentStatus !== 'idle' && ` (${vehicle.currentStatus})`}
+                    {vehicle.vehicleNumber}
+                    {vehicle.currentStatus !== 'idle' && `- (${vehicle.currentStatus})`}
                   </option>
                 ))}
               </select>
