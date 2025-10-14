@@ -29,9 +29,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 // Zod Schema for Trip validation - will be updated dynamically based on user role
 const createTripSchema = (userRole) => z.object({
-  place: z.string()
-    .min(2, 'Place must be at least 2 characters')
-    .max(50, 'Place cannot exceed 50 characters'),
+  place: z.string().optional(), // Now optional - general reference
   vehicle: z.string().min(1, 'Vehicle is required'),
   supervisor: userRole === 'admin' || userRole === 'superadmin' 
     ? z.string().min(1, 'Supervisor is required')
@@ -39,13 +37,12 @@ const createTripSchema = (userRole) => z.object({
   driver: z.string()
     .min(2, 'Driver name must be at least 2 characters')
     .max(50, 'Driver name cannot exceed 50 characters'),
-  labours: z.array(z.string())
-    .min(1, 'At least one labour is required'),
+  labour: z.string().optional(),
   route: z.object({
-    from: z.string().optional(),
-    to: z.string().optional(),
+    from: z.string().min(2, 'Start location is required'),
+    to: z.string().min(2, 'End location is required'),
     distance: z.number().optional()
-  }).optional(),
+  }),
   vehicleReadings: z.object({
     opening: z.number().min(0, 'Opening reading must be positive')
   })
@@ -105,7 +102,7 @@ export default function Trips() {
       vehicle: '',
       supervisor: user?.role === 'supervisor' ? user?.id : '',
       driver: '',
-      labours: [''],
+      labour: '',
       route: {
         from: '',
         to: '',
@@ -116,9 +113,6 @@ export default function Trips() {
       }
     }
   });
-
-  // Watch labours array for dynamic form
-  const labours = watch('labours');
 
   // Fetch trips
   const fetchTrips = async () => {
@@ -171,7 +165,7 @@ export default function Trips() {
         vehicle: '',
         supervisor: user?.role === 'supervisor' ? user?.id : '',
         driver: '',
-        labours: [''],
+        labour: '',
         route: { from: '', to: '', distance: 0 },
         vehicleReadings: { opening: 0 }
       });
@@ -241,7 +235,7 @@ export default function Trips() {
     setValue('vehicle', trip.vehicle?.id || trip.vehicle || '');
     setValue('supervisor', trip.supervisor?.id || trip.supervisor || '');
     setValue('driver', trip.driver || '');
-    setValue('labours', trip.labours || ['']);
+    setValue('labour', trip.labour || '');
     setValue('route.from', trip.route?.from || '');
     setValue('route.to', trip.route?.to || '');
     setValue('route.distance', trip.route?.distance || 0);
@@ -267,6 +261,9 @@ export default function Trips() {
     if (user?.role === 'supervisor') {
       data.supervisor = user.id;
     }
+
+    // Ensure labour is a string (optional)
+    data.labour = data.labour || '';
     
     console.log('Final form data after processing:', data);
     
@@ -284,7 +281,7 @@ export default function Trips() {
       vehicle: '',
       supervisor: user?.role === 'supervisor' ? user?.id : '',
       driver: '',
-      labours: [''],
+      labour: '',
       route: { from: '', to: '', distance: 0 },
       vehicleReadings: { opening: 0 }
     };
@@ -298,17 +295,6 @@ export default function Trips() {
     setEditingTrip(null);
     reset();
     setError('');
-  };
-
-  const addLabourField = () => {
-    setValue('labours', [...labours, '']);
-  };
-
-  const removeLabourField = (index) => {
-    if (labours.length > 1) {
-      const newLabours = labours.filter((_, i) => i !== index);
-      setValue('labours', newLabours);
-    }
   };
 
   const filteredTrips = trips.filter(trip => {
@@ -481,11 +467,11 @@ export default function Trips() {
                           <Truck className="w-5 h-5 text-blue-600" />
                         </div>
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</div>
-                          <div className="text-sm text-gray-500">{trip.tripId}</div>
-                          <div className="text-sm text-gray-400">
+                          <div className="text-sm font-semibold text-blue-600">
                             {new Date(trip.date).toLocaleDateString()}
                           </div>
+                          <div className="text-sm font-medium text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</div>
+                          <div className="text-sm text-gray-500">{trip.tripId}</div>
                         </div>
                       </div>
                     </td>
@@ -493,9 +479,11 @@ export default function Trips() {
                       <div className="flex items-center gap-2">
                         <MapPin className="w-4 h-4 text-gray-400" />
                         <div className="text-sm">
-                          <div className="text-gray-900">{trip.place}</div>
-                          {trip.route?.from && trip.route?.to && (
-                            <div className="text-gray-500">{trip.route.from} → {trip.route.to}</div>
+                          <div className="text-gray-900 font-medium">
+                            {trip.route?.from || trip.place || 'N/A'} → {trip.route?.to || trip.place || 'N/A'}
+                          </div>
+                          {trip.place && (
+                            <div className="text-gray-500 text-xs">{trip.place}</div>
                           )}
                         </div>
                       </div>
@@ -508,11 +496,8 @@ export default function Trips() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm">
-                        <div className="text-gray-900 font-medium">
+                        <div className="text-gray-900 font-semibold text-base">
                           ₹{trip.summary?.netProfit?.toLocaleString() || '0'}
-                        </div>
-                        <div className="text-gray-500">
-                          {trip.summary?.totalBirdsSold || 0} birds sold
                         </div>
                       </div>
                     </td>
@@ -604,12 +589,38 @@ export default function Trips() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Place *
+                    Start Location *
+                  </label>
+                  <input
+                    type="text"
+                    {...register('route.from')}
+                    placeholder="e.g., SNK, Hyderabad, Main Office"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.route?.from && <p className="text-red-500 text-xs mt-1">{errors.route.from.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    End Location *
+                  </label>
+                  <input
+                    type="text"
+                    {...register('route.to')}
+                    placeholder="e.g., SNK, Hyderabad, Main Office"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.route?.to && <p className="text-red-500 text-xs mt-1">{errors.route.to.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Area/Region (Optional)
                   </label>
                   <input
                     type="text"
                     {...register('place')}
-                    placeholder="e.g., SNK"
+                    placeholder="e.g., SNK Area, North Zone"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   {errors.place && <p className="text-red-500 text-xs mt-1">{errors.place.message}</p>}
@@ -689,69 +700,25 @@ export default function Trips() {
                 </div>
               </div>
 
-              {/* Labours Section */}
+              {/* Labour Section */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Labours *
+                  Labour Worker (Optional)
                 </label>
-                <div className="space-y-2">
-                  {labours.map((_, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input
-                        type="text"
-                        {...register(`labours.${index}`)}
-                        placeholder={`Labour ${index + 1} name`}
-                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                      {labours.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() => removeLabourField(index)}
-                          className="px-3 py-2 text-red-600 hover:text-red-800"
-                        >
-                          <X size={16} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={addLabourField}
-                    className="text-blue-600 hover:text-blue-800 text-sm"
-                  >
-                    + Add Labour
-                  </button>
-                </div>
-                {errors.labours && <p className="text-red-500 text-xs mt-1">{errors.labours.message}</p>}
+                <input
+                  type="text"
+                  {...register('labour')}
+                  placeholder="Enter labour worker name (optional)"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {errors.labour && <p className="text-red-500 text-xs mt-1">{errors.labour.message}</p>}
               </div>
 
-              {/* Route Section */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Distance (Optional) */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    From
-                  </label>
-                  <input
-                    type="text"
-                    {...register('route.from')}
-                    placeholder="Starting point"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    To
-                  </label>
-                  <input
-                    type="text"
-                    {...register('route.to')}
-                    placeholder="Destination"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Distance (km)
+                    Estimated Distance (km) - Optional
                   </label>
                   <input
                     type="number"
@@ -759,6 +726,7 @@ export default function Trips() {
                     placeholder="0"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Estimated trip distance if known</p>
                 </div>
               </div>
 

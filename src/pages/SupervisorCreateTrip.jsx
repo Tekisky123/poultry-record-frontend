@@ -20,11 +20,16 @@ const SupervisorCreateTrip = () => {
   
   const [formData, setFormData] = useState({
     place: '',
+    route: {
+      from: '',
+      to: '',
+      distance: ''
+    },
     vehicle: '',
     driver: '',
-    labours: [''],
+    labour: '',
     vehicleReadings: {
-      opening: 0
+      opening: ''
     },
     notes: ''
   });
@@ -47,7 +52,6 @@ const SupervisorCreateTrip = () => {
       setVehicles(data.data || []);
     } catch (error) {
       console.error('Failed to fetch vehicles:', error);
-      setError('Failed to fetch vehicles');
     } finally {
       setLoading(false);
     }
@@ -77,7 +81,7 @@ const SupervisorCreateTrip = () => {
         ...prev,
         [parent]: {
           ...prev[parent],
-          [child]: name.includes('opening') ? Number(value) : value
+          [child]: name.includes('opening') || name.includes('distance') ? Number(value) : value
         }
       }));
     } else {
@@ -88,29 +92,6 @@ const SupervisorCreateTrip = () => {
     }
   };
 
-  const addLabourField = () => {
-    setFormData(prev => ({
-      ...prev,
-      labours: [...prev.labours, '']
-    }));
-  };
-
-  const removeLabourField = (index) => {
-    if (formData.labours.length > 1) {
-      setFormData(prev => ({
-        ...prev,
-        labours: prev.labours.filter((_, i) => i !== index)
-      }));
-    }
-  };
-
-  const handleLabourChange = (index, value) => {
-    setFormData(prev => ({
-      ...prev,
-      labours: prev.labours.map((labour, i) => i === index ? value : labour)
-    }));
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -118,24 +99,24 @@ const SupervisorCreateTrip = () => {
 
     try {
       // Validate required fields
-      if (!formData.place || !formData.vehicle || !formData.driver || formData.labours.length === 0) {
-        setError('Please fill in all required fields');
-        return;
-      }
-
-      // Filter out empty labour fields
-      const validLabours = formData.labours.filter(labour => labour.trim() !== '');
-      if (validLabours.length === 0) {
-        setError('At least one labour worker is required');
+      if (!formData.route.from || !formData.route.to || !formData.vehicle || !formData.driver) {
+        setError('Please fill in all required fields (Start Location, End Location, Vehicle, and Driver)');
         return;
       }
 
       const tripData = {
         place: formData.place,
+        route: {
+          from: formData.route.from,
+          to: formData.route.to,
+          distance: Number(formData.route.distance) || 0
+        },
         vehicle: formData.vehicle,
         driver: formData.driver,
-        labours: validLabours,
-        vehicleReadings: formData.vehicleReadings,
+        labour: formData.labour || '',
+        vehicleReadings: {
+          opening: Number(formData.vehicleReadings.opening) || 0
+        },
         notes: formData.notes,
         supervisor: user.id, // Automatically set the supervisor
         createdBy: user.id,
@@ -168,6 +149,8 @@ const SupervisorCreateTrip = () => {
     );
   }
 
+  
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -179,9 +162,9 @@ const SupervisorCreateTrip = () => {
           <ArrowLeft size={20} />
         </button>
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Create New Round Trip</h1>
+          <h1 className="text-xl font-bold text-gray-900">Create New Trip</h1>
           <p className="text-sm text-gray-500">
-            Create a new poultry round trip: start from base → purchase from vendors → sell to customers → return to base
+            Create a new poultry trip with start and end locations. For round trips, set the same location for both start and end points.
           </p>
         </div>
       </div>
@@ -193,19 +176,53 @@ const SupervisorCreateTrip = () => {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Trip Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
+              <label htmlFor="routeFrom" className="block text-sm font-medium text-gray-700 mb-1">
+                Start Location ( Route ) *
+              </label>
+              <input
+                type="text"
+                id="routeFrom"
+                name="route.from"
+                required
+                value={formData.route.from}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., SNK, Hyderabad, Main Office"
+              />
+              <p className="text-xs text-gray-500 mt-1">Where the trip starts</p>
+            </div>
+
+            <div>
+              <label htmlFor="routeTo" className="block text-sm font-medium text-gray-700 mb-1">
+                End Location ( Route ) *
+              </label>
+              <input
+                type="text"
+                id="routeTo"
+                name="route.to"
+                required
+                value={formData.route.to}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., SNK, Hyderabad, Main Office"
+              />
+              <p className="text-xs text-gray-500 mt-1">Where the trip ends (can be same as start for round trips)</p>
+            </div>
+
+            <div>
               <label htmlFor="place" className="block text-sm font-medium text-gray-700 mb-1">
-                Base Location (Start & End Point) *
+                Area/Region Reference (Optional)
               </label>
               <input
                 type="text"
                 id="place"
                 name="place"
-                required
                 value={formData.place}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., SNK (Starting and ending point)"
+                placeholder="e.g., SNK Area, North Zone"
               />
+              <p className="text-xs text-gray-500 mt-1">General area reference (optional)</p>
             </div>
 
             <div>
@@ -275,38 +292,23 @@ const SupervisorCreateTrip = () => {
           </div>
         </div>
 
-        {/* Labours Section */}
+        {/* Labour Section */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Labour Workers</h3>
-          <div className="space-y-3">
-            {formData.labours.map((labour, index) => (
-              <div key={index} className="flex gap-2">
-                <input
-                  type="text"
-                  value={labour}
-                  onChange={(e) => handleLabourChange(index, e.target.value)}
-                  placeholder={`Labour ${index + 1} name`}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {formData.labours.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeLabourField(index)}
-                    className="px-3 py-2 text-red-600 hover:text-red-800"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
-              </div>
-            ))}
-            <button
-              type="button"
-              onClick={addLabourField}
-              className="text-blue-600 hover:text-blue-800 text-sm flex items-center gap-1"
-            >
-              <Plus size={16} />
-              Add Labour
-            </button>
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Labour Worker (Optional)</h3>
+          <div>
+            <label htmlFor="labour" className="block text-sm font-medium text-gray-700 mb-1">
+              Labour Worker Name
+            </label>
+            <input
+              type="text"
+              id="labour"
+              name="labour"
+              value={formData.labour}
+              onChange={handleChange}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="Enter labour worker name (optional)"
+            />
+            <p className="text-xs text-gray-500 mt-1">You can add a labour worker if needed</p>
           </div>
         </div>
 
@@ -346,7 +348,7 @@ const SupervisorCreateTrip = () => {
           </button>
           <button
             type="submit"
-            disabled={isSubmitting || formData.labours.filter(l => l.trim() !== '').length === 0}
+            disabled={isSubmitting}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center space-x-2"
           >
             {isSubmitting ? (

@@ -63,6 +63,7 @@ const SupervisorTripDetails = () => {
   const [showStockModal, setShowStockModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showCompleteTripDetailsModal, setShowCompleteTripDetailsModal] = useState(false);
 
   // Edit states
   const [editingPurchaseIndex, setEditingPurchaseIndex] = useState(null);
@@ -77,50 +78,48 @@ const SupervisorTripDetails = () => {
   const [purchaseData, setPurchaseData] = useState({
     supplier: '',
     dcNumber: '',
-    birds: 0,
-    weight: 0,
+    birds: '',
+    weight: '',
     avgWeight: 0,
-    rate: 0,
+    rate: '',
     amount: 0
   });
 
   const [saleData, setSaleData] = useState({
     client: '',
     billNumber: generateBillNumber(),
-    birds: 0,
-    weight: 0,
+    birds: '',
+    weight: '',
     avgWeight: 0,
-    rate: 0,
+    rate: '',
     amount: 0,
     // paymentMode: 'cash',
     // paymentStatus: 'pending',
-    receivedAmount: 0,
-    discount: 0,
+    receivedAmount: '',
+    discount: '',
     balance: 0,
-    cashPaid: 0,
-    onlinePaid: 0
+    cashPaid: '',
+    onlinePaid: ''
   });
 
   const [expenseData, setExpenseData] = useState({
     category: 'meals',
     description: '',
-    amount: 0,
-    date: new Date().toISOString().split('T')[0]
+    amount: ''
   });
 
   const [dieselData, setDieselData] = useState({
     stationName: '',
-    volume: 0,
-    rate: 0,
-    amount: 0,
-    date: new Date().toISOString().split('T')[0]
+    volume: '',
+    rate: '',
+    amount: 0
   });
 
   const [stockData, setStockData] = useState({
-    birds: 0,
-    weight: 0,
+    birds: '',
+    weight: '',
     avgWeight: 0,
-    rate: 0,
+    rate: '',
     value: 0,
     notes: ''
   });
@@ -132,22 +131,55 @@ const SupervisorTripDetails = () => {
     mortality: 0
   });
 
+  const [completeTripDetailsData, setCompleteTripDetailsData] = useState({
+    driver: '',
+    labour: '',
+    route: {
+      from: '',
+      to: ''
+    },
+    place: '',
+    vehicleReadings: {
+      opening: ''
+    }
+  });
+
   useEffect(() => {
     fetchTrip();
     fetchVendorsAndCustomers();
   }, [id]);
 
+  // Check if trip has incomplete details (TBD values) and show modal
+  useEffect(() => {
+    if (trip && trip.type === 'transferred') {
+      const hasIncompleteDetails = 
+        trip.driver?.includes('TBD') || 
+        trip.labour?.includes('TBD') ||
+        trip.route?.from === 'TBD' || 
+        trip.route?.to === 'TBD' ||
+        trip.vehicleReadings?.opening === 0;
+      
+      if (hasIncompleteDetails) {
+        setShowCompleteTripDetailsModal(true);
+      }
+    }
+  }, [trip]);
+
   // Auto-calculate avgWeight and amount when purchaseData changes
   useEffect(() => {
-    if (purchaseData.birds > 0 && purchaseData.weight > 0) {
-      const avgWeight = calculateAvgWeight(purchaseData.birds, purchaseData.weight);
+    const birds = Number(purchaseData.birds) || 0;
+    const weight = Number(purchaseData.weight) || 0;
+    const rate = Number(purchaseData.rate) || 0;
+
+    if (birds > 0 && weight > 0) {
+      const avgWeight = calculateAvgWeight(birds, weight);
       if (avgWeight !== purchaseData.avgWeight) {
         setPurchaseData(prev => ({ ...prev, avgWeight }));
       }
     }
 
-    if (purchaseData.weight > 0 && purchaseData.rate > 0) {
-      const amount = calculateAmount(purchaseData.weight, purchaseData.rate);
+    if (weight > 0 && rate > 0) {
+      const amount = calculateAmount(weight, rate);
       if (amount !== purchaseData.amount) {
         setPurchaseData(prev => ({ ...prev, amount }));
       }
@@ -156,23 +188,30 @@ const SupervisorTripDetails = () => {
 
   // Auto-calculate avgWeight, amount, and balance when saleData changes
   useEffect(() => {
-    if (saleData.birds > 0 && saleData.weight > 0) {
-      const avgWeight = calculateAvgWeight(saleData.birds, saleData.weight);
+    const birds = Number(saleData.birds) || 0;
+    const weight = Number(saleData.weight) || 0;
+    const rate = Number(saleData.rate) || 0;
+    const cashPaid = Number(saleData.cashPaid) || 0;
+    const onlinePaid = Number(saleData.onlinePaid) || 0;
+    const discount = Number(saleData.discount) || 0;
+
+    if (birds > 0 && weight > 0) {
+      const avgWeight = calculateAvgWeight(birds, weight);
       if (avgWeight !== saleData.avgWeight) {
         setSaleData(prev => ({ ...prev, avgWeight }));
       }
     }
 
-    if (saleData.weight > 0 && saleData.rate > 0) {
-      const amount = calculateAmount(saleData.weight, saleData.rate);
+    if (weight > 0 && rate > 0) {
+      const amount = calculateAmount(weight, rate);
       if (amount !== saleData.amount) {
         setSaleData(prev => ({ ...prev, amount }));
       }
     }
 
     if (saleData.amount > 0) {
-      const receivedAmount = saleData.cashPaid + saleData.onlinePaid;
-      const balance = saleData.amount - receivedAmount - saleData.discount;
+      const receivedAmount = cashPaid + onlinePaid;
+      const balance = saleData.amount - receivedAmount - discount;
       if (receivedAmount !== saleData.receivedAmount || balance !== saleData.balance) {
         setSaleData(prev => ({ 
           ...prev, 
@@ -185,28 +224,35 @@ const SupervisorTripDetails = () => {
 
   // Auto-calculate amount when diesel volume or rate changes
   useEffect(() => {
-    if (dieselData.volume > 0 && dieselData.rate > 0) {
-      const amount = Number((dieselData.volume * dieselData.rate).toFixed(2));
+    const volume = Number(dieselData.volume) || 0;
+    const rate = Number(dieselData.rate) || 0;
+
+    if (volume > 0 && rate > 0) {
+      const amount = Number((volume * rate).toFixed(2));
       if (amount !== dieselData.amount) {
         setDieselData(prev => ({ ...prev, amount }));
       }
-    } else if (dieselData.volume === 0 || dieselData.rate === 0) {
+    } else {
       setDieselData(prev => ({ ...prev, amount: 0 }));
     }
   }, [dieselData.volume, dieselData.rate]);
 
   // Auto-calculate stock values when birds, weight, or rate changes
   useEffect(() => {
-    if (stockData.birds > 0 && stockData.weight > 0) {
-      const avgWeight = Number((stockData.weight / stockData.birds).toFixed(2));
-      const value = Number((stockData.weight * stockData.rate).toFixed(2));
+    const birds = Number(stockData.birds) || 0;
+    const weight = Number(stockData.weight) || 0;
+    const rate = Number(stockData.rate) || 0;
+
+    if (birds > 0 && weight > 0) {
+      const avgWeight = Number((weight / birds).toFixed(2));
+      const value = Number((weight * rate).toFixed(2));
       
       setStockData(prev => ({
         ...prev,
         avgWeight,
         value
       }));
-    } else if (stockData.birds === 0 || stockData.weight === 0) {
+    } else {
       setStockData(prev => ({
         ...prev,
         avgWeight: 0,
@@ -418,7 +464,7 @@ const SupervisorTripDetails = () => {
         if (data.data.success) {
           setTrip(data.data.data);
           setShowPurchaseModal(false);
-          setPurchaseData({ supplier: '', dcNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0 });
+          setPurchaseData({ supplier: '', dcNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0 });
           setEditingPurchaseIndex(null);
           alert('Purchase updated successfully!');
         }
@@ -428,7 +474,7 @@ const SupervisorTripDetails = () => {
         if (data.data.success) {
           setTrip(data.data.data);
           setShowPurchaseModal(false);
-          setPurchaseData({ supplier: '', dcNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0 });
+          setPurchaseData({ supplier: '', dcNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0 });
           alert('Purchase added successfully!');
           // Update status to 'ongoing' when first management activity starts
           await updateTripStatusToOngoing();
@@ -496,7 +542,7 @@ const SupervisorTripDetails = () => {
         if (data.data.success) {
           setTrip(data.data.data);
           setShowSaleModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '' });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -509,7 +555,7 @@ const SupervisorTripDetails = () => {
         if (data.data.success) {
           setTrip(data.data.data);
           setShowSaleModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '' });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -541,18 +587,11 @@ const SupervisorTripDetails = () => {
         return;
       }
 
-      // Validate date is not before trip start date
-      if (!validateDateNotBeforeTripStart(expenseData.date)) {
-        const tripStartDate = new Date(trip.createdAt).toLocaleDateString();
-        alert(`Expense date cannot be before trip start date (${tripStartDate}). Please select a valid date.`);
-        setIsSubmitting(false);
-        return;
-      }
       const { data } = await api.put(`/trip/${id}/expenses`, { expenses: [...(trip.expenses || []), expenseData] });
       if (data.success) {
         setTrip(data.data);
         setShowExpenseModal(false);
-        setExpenseData({ category: 'meals', description: '', amount: 0, date: new Date().toISOString().split('T')[0] });
+        setExpenseData({ category: 'meals', description: '', amount: '' });
         alert('Expense added successfully!');
         // Update status to 'ongoing' when first management activity starts
         await updateTripStatusToOngoing();
@@ -580,13 +619,6 @@ const SupervisorTripDetails = () => {
         return;
       }
 
-      // Validate date is not before trip start date
-      if (!validateDateNotBeforeTripStart(dieselData.date)) {
-        const tripStartDate = new Date(trip.createdAt).toLocaleDateString();
-        alert(`Diesel date cannot be before trip start date (${tripStartDate}). Please select a valid date.`);
-        setIsSubmitting(false);
-        return;
-      }
       let data;
       if (editingDieselIndex !== null) {
         // Edit existing diesel record
@@ -595,7 +627,7 @@ const SupervisorTripDetails = () => {
           setTrip(data.data.data);
           setShowDieselModal(false);
           setEditingDieselIndex(null);
-          setDieselData({ stationName: '', volume: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
+          setDieselData({ stationName: '', volume: '', rate: '', amount: 0 });
           alert('Diesel record updated successfully!');
         }
       } else {
@@ -606,7 +638,7 @@ const SupervisorTripDetails = () => {
         if (data.data.success) {
           setTrip(data.data.data);
           setShowDieselModal(false);
-          setDieselData({ stationName: '', volume: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
+          setDieselData({ stationName: '', volume: '', rate: '', amount: 0 });
           alert('Diesel record added successfully!');
           // Update status to 'ongoing' when first management activity starts
           await updateTripStatusToOngoing();
@@ -672,7 +704,7 @@ const SupervisorTripDetails = () => {
         setTrip(response.data.data);
         setShowStockModal(false);
         setEditingStockIndex(null);
-        setStockData({ birds: 0, weight: 0, avgWeight: 0, rate: 0, value: 0, notes: '' });
+        setStockData({ birds: '', weight: '', avgWeight: 0, rate: '', value: 0, notes: '' });
         alert(editingStockIndex !== null ? 'Stock updated successfully!' : 'Stock added successfully!');
         // Update status to 'ongoing' when first management activity starts (only for new stock)
         if (editingStockIndex === null) {
@@ -769,34 +801,6 @@ const SupervisorTripDetails = () => {
     return errors;
   };
 
-  // Validation function to check if date is not before trip start date
-  const validateDateNotBeforeTripStart = (dateString) => {
-    // If no date provided, it's invalid
-    if (!dateString) return false;
-    
-    // Use trip createdAt as the trip start date (since trips don't have a separate startDate field)
-    const tripStartDate = trip.createdAt ? new Date(trip.createdAt) : null;
-    if (!tripStartDate) return false; // If no trip start date, validation fails
-    
-    const inputDate = new Date(dateString);
-    
-    // Check if input date is valid
-    if (isNaN(inputDate.getTime())) return false;
-    
-    // Set time to start of day for accurate comparison
-    inputDate.setHours(0, 0, 0, 0);
-    tripStartDate.setHours(0, 0, 0, 0);
-    
-    // Debug logging
-    console.log('Date validation:', {
-      inputDate: inputDate.toISOString(),
-      tripStartDate: tripStartDate.toISOString(),
-      isValid: inputDate >= tripStartDate
-    });
-    
-    return inputDate >= tripStartDate;
-  };
-
   const handleCompleteTrip = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -812,6 +816,59 @@ const SupervisorTripDetails = () => {
     } catch (error) {
       console.error('Error completing trip:', error);
       alert(error.response?.data?.message || 'Failed to complete trip');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCompleteTripDetails = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      // Validate required fields
+      if (!completeTripDetailsData.route.from || !completeTripDetailsData.route.to) {
+        alert('Start and End locations are required');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!completeTripDetailsData.driver.trim()) {
+        alert('Driver name is required');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!completeTripDetailsData.vehicleReadings.opening || Number(completeTripDetailsData.vehicleReadings.opening) <= 0) {
+        alert('Valid opening odometer reading is required');
+        setIsSubmitting(false);
+        return;
+      }
+
+      const updateData = {
+        driver: completeTripDetailsData.driver,
+        labour: completeTripDetailsData.labour || '',
+        route: {
+          from: completeTripDetailsData.route.from,
+          to: completeTripDetailsData.route.to
+        },
+        place: completeTripDetailsData.place || '',
+        vehicleReadings: {
+          opening: Number(completeTripDetailsData.vehicleReadings.opening)
+        }
+      };
+
+      const { data } = await api.put(`/trip/${id}/complete-details`, updateData);
+      if (data.success) {
+        setTrip(data.data);
+        setShowCompleteTripDetailsModal(false);
+        alert('Trip details completed successfully! You can now manage this trip.');
+        // Refresh to get updated data
+        await fetchTrip();
+      }
+    } catch (error) {
+      console.error('Error completing trip details:', error);
+      alert(error.response?.data?.message || 'Failed to complete trip details');
     } finally {
       setIsSubmitting(false);
     }
@@ -917,7 +974,7 @@ const SupervisorTripDetails = () => {
               {trip.type !== 'transferred' && (
                 <button
                   onClick={() => {
-                    setPurchaseData({ supplier: '', dcNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0 });
+                    setPurchaseData({ supplier: '', dcNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0 });
                     setEditingPurchaseIndex(null);
                     setShowPurchaseModal(true);
                   }}
@@ -929,7 +986,7 @@ const SupervisorTripDetails = () => {
               )}
               <button
                 onClick={() => {
-                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: 0, discount: 0, balance: 0, cashPaid: 0, onlinePaid: 0 });
+                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '' });
                   setSelectedCustomer(null);
                   setCustomerSearchTerm('');
                   setShowCustomerDropdown(false);
@@ -951,7 +1008,7 @@ const SupervisorTripDetails = () => {
               <button
                 onClick={() => {
                   setEditingDieselIndex(null);
-                  setDieselData({ stationName: '', volume: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
+                  setDieselData({ stationName: '', volume: '', rate: '', amount: 0 });
                   setShowDieselModal(true);
                 }}
                 className="flex-shrink-0 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 whitespace-nowrap"
@@ -963,12 +1020,12 @@ const SupervisorTripDetails = () => {
                 onClick={() => {
                   setEditingStockIndex(null);
                   setStockData({ 
-                    birds: 0, 
-                    weight: 0, 
+                    birds: '', 
+                    weight: '', 
                     avgWeight: 0, 
-                    rate: trip.summary?.avgPurchaseRate || 0, 
-                    value: 0,
-                    notes: ''
+                    rate: trip.summary?.avgPurchaseRate || '', 
+                    value: 0, 
+                    notes: '' 
                   });
                   setShowStockModal(true);
                 }}
@@ -1079,9 +1136,12 @@ const SupervisorTripDetails = () => {
                     <Users className="w-4 h-4 text-gray-400" />
                     <span className="text-sm text-gray-600">Driver: {trip.driver}</span>
                   </div>
-                  <div className="text-sm text-gray-600">
-                    Labours: {trip.labours?.join(', ')}
-                  </div>
+                  {trip.labour && (
+                    <div className="flex items-center gap-2">
+                      <Users className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600">Labour: {trip.labour}</span>
+                    </div>
+                  )}
 
                   {trip.vehicleReadings?.opening && (
                     <div className="flex items-center gap-2">
@@ -1095,108 +1155,33 @@ const SupervisorTripDetails = () => {
               </div>
 
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Financial Summary</h3>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Total Sales:</span>
-                    <span className="font-medium">₹{trip.summary?.totalSalesAmount?.toFixed(2) || '0.00'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Total Purchase Amount:</span>
-                    <span className="font-medium">₹{trip.summary?.totalPurchaseAmount?.toFixed(2) || '0.00'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Gross Profit:</span>
-                    <span className="font-medium text-green-600">₹{trip.summary?.totalProfitMargin?.toFixed(2) || '0.00'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Total Expenses:</span>
-                    <span className="font-medium">₹{trip.summary?.totalExpenses?.toFixed(2) || '0.00'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Diesel Cost:</span>
-                    <span className="font-medium">₹{trip.summary?.totalDieselAmount?.toFixed(2) || '0.00'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Mortality & Weight Loss:</span>
-                    <span className="font-medium text-red-600">₹{trip.summary?.totalLosses?.toFixed(2) || '0.00'}</span>
-                  </div>
-                  <div className="flex justify-between border-t pt-2">
-                    <span className="text-sm font-medium text-gray-900">Net Profit:</span>
-                    <span className="font-bold text-green-600">₹{trip.status === 'completed' ? (trip.summary?.netProfit?.toFixed(2) || '0.00') : Math.max(0, trip.summary?.netProfit || 0).toFixed(2)}</span>
-                  </div>
-                </div>
-
-                {/* Financial Breakdown */}
-                <div className="mt-4 pt-4 border-t">
-                  <h4 className="font-semibold text-gray-900 mb-3">FINANCIAL BREAKDOWN</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">RENT AMT PER KM:</span>
-                      <span className="font-semibold">₹{(trip.rentPerKm || 0).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">GROSS RENT:</span>
-                      <span className="font-semibold">₹{(trip.totalKm ? (trip.totalKm * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
-                    </div>
-                    {/* <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">LESS DIESEL AMT:</span>
-                      <span className="font-semibold">₹{(trip.dieselAmount || 0).toFixed(2)}</span>
-                    </div> */}
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">NETT RENT:</span>
-                      <span className="font-semibold">₹{(trip.totalKm ? ((trip.totalKm * (trip.rentPerKm || 0)) - (trip.dieselAmount || 0)) : 0).toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">BIRDS PROFIT:</span>
-                      <span className="font-semibold">₹{(trip.summary?.birdsProfit || 0).toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Bird Summary */}
-                <div className="mt-4 pt-4 border-t">
-                  <h4 className="font-medium text-gray-900 mb-2">Bird Summary</h4>
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">Bird Summary</h4>
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Birds Purchased:</span>
-                      <span className="font-medium">{trip.summary?.totalBirdsPurchased || 0} birds</span>
+                      <span className="text-gray-600">Purchased:</span>
+                      <span className="font-medium">{trip.summary?.totalBirdsPurchased || 0} birds/{(trip.summary?.totalWeightPurchased || 0).toFixed(2)} kg</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Purchased Weight:</span>
-                      <span className="font-medium">{(trip.summary?.totalWeightPurchased || 0).toFixed(2)} kg</span>
+                      <span className="text-gray-600">Sold:</span>
+                      <span className="font-medium">{trip.summary?.totalBirdsSold || 0} birds/{(trip.summary?.totalWeightSold || 0).toFixed(2)} kg</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Birds Sold:</span>
-                      <span className="font-medium">{trip.summary?.totalBirdsSold || 0} birds</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Sold Weight:</span>
-                      <span className="font-medium">{(trip.summary?.totalWeightSold || 0).toFixed(2)} kg</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">In Stock:</span>
-                      <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0} birds</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total Stock Weight:</span>
-                      <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0).toFixed(2) || '0.00'} kg</span>
+                      <span className="text-gray-600">Stock:</span>
+                      <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0} birds/{(trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0).toFixed(2)} kg</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Death:</span>
-                      <span className="font-medium text-red-600">{trip.summary?.mortality || 0} birds</span>
+                      <span className="font-medium text-red-600">{trip.summary?.mortality || 0} birds/{(trip.summary?.totalWeightLost || 0).toFixed(2)} kg</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Death Weight:</span>
-                      <span className="font-medium text-red-600">{(trip.summary?.totalWeightLost || 0).toFixed(2)} kg</span>
+                      <span className="text-gray-600">Remaining:</span>
+                      <span className="font-medium text-green-600">{trip.summary?.birdsRemaining || 0} birds</span>
                     </div>
-                    <div className="flex justify-between border-t pt-1">
-                      <span className="text-gray-600 font-medium">Remaining:</span>
-                      <span className="font-bold text-blue-600">{trip.summary?.birdsRemaining || 0} birds</span>
-                    </div>
-                    <div className="flex justify-between border-t pt-1">
-                      <span className="text-gray-600 font-medium">Natural Weight Loss:</span>
-                      <span className="font-bold text-orange-600">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Natural Weight Loss:</span>
+                      <span className="font-medium text-orange-600">
                         {trip.status === 'completed' ? Math.abs(trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'} kg
                       </span>
                     </div>
@@ -1435,14 +1420,14 @@ const SupervisorTripDetails = () => {
                   <button
                     onClick={() => {
                       setEditingStockIndex(null);
-                      setStockData({ 
-                        birds: 0, 
-                        weight: 0, 
-                        avgWeight: 0, 
-                        rate: trip.summary?.avgPurchaseRate || 0, 
-                        value: 0,
-                        notes: ''
-                      });
+                  setStockData({ 
+                    birds: '', 
+                    weight: '', 
+                    avgWeight: 0, 
+                    rate: trip.summary?.avgPurchaseRate || '', 
+                    value: 0, 
+                    notes: '' 
+                  });
                       setShowStockModal(true);
                     }}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
@@ -1602,8 +1587,9 @@ const SupervisorTripDetails = () => {
                                   expense.category === 'tea' ? 'bg-yellow-100 text-yellow-800' :
                                     expense.category === 'toll' ? 'bg-purple-100 text-purple-800' :
                                       expense.category === 'parking' ? 'bg-indigo-100 text-indigo-800' :
-                                        expense.category === 'maintenance' ? 'bg-red-100 text-red-800' :
-                                          'bg-gray-100 text-gray-800'
+                                        expense.category === 'loading/unloading' ? 'bg-orange-100 text-orange-800' :
+                                          expense.category === 'maintenance' ? 'bg-red-100 text-red-800' :
+                                            'bg-gray-100 text-gray-800'
                               }`}>
                               {expense.category}
                             </span>
@@ -1723,7 +1709,7 @@ const SupervisorTripDetails = () => {
                   <button
                     onClick={() => {
                       setEditingDieselIndex(null);
-                      setDieselData({ stationName: '', volume: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
+                      setDieselData({ stationName: '', volume: '', rate: '', amount: 0 });
                       setShowDieselModal(true);
                     }}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -2776,6 +2762,7 @@ const SupervisorTripDetails = () => {
                   <option value="tea">Tea/Snacks</option>
                   <option value="toll">Toll Tax</option>
                   <option value="parking">Parking</option>
+                  <option value="loading/unloading">Loading/Unloading Charges</option>
                   <option value="maintenance">Vehicle Maintenance</option>
                   <option value="other">Other</option>
                 </select>
@@ -2802,34 +2789,6 @@ const SupervisorTripDetails = () => {
                     required
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                  {(() => {
-                    const isValidDate = validateDateNotBeforeTripStart(expenseData.date);
-                    const tripStartDate = trip.createdAt ? new Date(trip.createdAt).toISOString().split('T')[0] : '';
-                    
-                    return (
-                      <>
-                        <input
-                          type="date"
-                          value={expenseData.date}
-                          onChange={(e) => setExpenseData(prev => ({ ...prev, date: e.target.value }))}
-                          className={`w-full px-3 py-2 border rounded-lg ${
-                            !isValidDate
-                              ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' 
-                              : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                          }`}
-                          min={tripStartDate}
-                        />
-                        {!isValidDate && (
-                          <p className="text-xs text-red-600 mt-1">
-                            ⚠️ Date cannot be before trip start date ({tripStartDate ? new Date(tripStartDate).toLocaleDateString() : 'N/A'})
-                          </p>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
               </div>
               <div className="flex space-x-3">
                 <button
@@ -2841,7 +2800,7 @@ const SupervisorTripDetails = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !validateDateNotBeforeTripStart(expenseData.date)}
+                  disabled={isSubmitting}
                   className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Add Expense'}
@@ -3006,34 +2965,6 @@ const SupervisorTripDetails = () => {
                     placeholder="Volume × Rate"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
-                  {(() => {
-                    const isValidDate = validateDateNotBeforeTripStart(dieselData.date);
-                    const tripStartDate = trip.createdAt ? new Date(trip.createdAt).toISOString().split('T')[0] : '';
-                    
-                    return (
-                      <>
-                        <input
-                          type="date"
-                          value={dieselData.date}
-                          onChange={(e) => setDieselData(prev => ({ ...prev, date: e.target.value }))}
-                          className={`w-full px-3 py-2 border rounded-lg ${
-                            !isValidDate
-                              ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' 
-                              : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                          }`}
-                          min={tripStartDate}
-                        />
-                        {!isValidDate && (
-                          <p className="text-xs text-red-600 mt-1">
-                            ⚠️ Date cannot be before trip start date ({tripStartDate ? new Date(tripStartDate).toLocaleDateString() : 'N/A'})
-                          </p>
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
               </div>
               <div className="flex space-x-3">
                 <button
@@ -3045,7 +2976,7 @@ const SupervisorTripDetails = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || !dieselData.stationName || dieselData.volume <= 0 || dieselData.rate <= 0 || !validateDateNotBeforeTripStart(dieselData.date)}
+                  disabled={isSubmitting || !dieselData.stationName || dieselData.volume <= 0 || dieselData.rate <= 0}
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingDieselIndex !== null ? 'Update Diesel Record' : 'Add Diesel Record')}
@@ -3329,6 +3260,214 @@ const SupervisorTripDetails = () => {
             alert(`Trip transferred successfully to ${data.newTrip?.supervisor?.name || 'selected supervisor'}!`);
           }}
         />
+      )}
+
+      {/* Complete Trip Details Modal - For Transferred Trips */}
+      {showCompleteTripDetailsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b bg-blue-50">
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Complete Trip Details</h2>
+                <p className="text-sm text-blue-600 mt-1">
+                  This is a transferred trip. Please complete the missing details to start managing it.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowCompleteTripDetailsModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                disabled={isSubmitting}
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <form onSubmit={handleCompleteTripDetails} className="p-6">
+              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="ml-3">
+                    <p className="text-sm text-yellow-700">
+                      <strong>Transferred Trip:</strong> This trip was transferred to you. Please provide the following details for your new trip with the assigned vehicle.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                {/* Route Information */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-gray-900 mb-3">Route Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Start Location ( Route ) *
+                      </label>
+                      <input
+                        type="text"
+                        value={completeTripDetailsData.route.from}
+                        onChange={(e) => setCompleteTripDetailsData(prev => ({
+                          ...prev,
+                          route: { ...prev.route, from: e.target.value }
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., SNK, Hyderabad"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        End Location ( Route ) *
+                      </label>
+                      <input
+                        type="text"
+                        value={completeTripDetailsData.route.to}
+                        onChange={(e) => setCompleteTripDetailsData(prev => ({
+                          ...prev,
+                          route: { ...prev.route, to: e.target.value }
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., SNK, Hyderabad"
+                        required
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Area/Region Reference (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={completeTripDetailsData.place}
+                        onChange={(e) => setCompleteTripDetailsData(prev => ({
+                          ...prev,
+                          place: e.target.value
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="e.g., SNK Area, North Zone"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Team Information */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-semibold text-gray-900 mb-3">Team & Vehicle Information</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Driver Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={completeTripDetailsData.driver}
+                        onChange={(e) => setCompleteTripDetailsData(prev => ({
+                          ...prev,
+                          driver: e.target.value
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter driver name"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Opening Odometer Reading *
+                      </label>
+                      <input
+                        type="number"
+                        value={completeTripDetailsData.vehicleReadings.opening}
+                        onChange={(e) => setCompleteTripDetailsData(prev => ({
+                          ...prev,
+                          vehicleReadings: { opening: e.target.value }
+                        }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter opening odometer reading"
+                        required
+                        min="0"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Enter the odometer reading of the assigned vehicle: <strong>{trip?.vehicle?.vehicleNumber}</strong>
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Labour Worker (Optional)
+                      </label>
+                      <input
+                        type="text"
+                        value={completeTripDetailsData.labour}
+                        onChange={(e) => setCompleteTripDetailsData(prev => ({
+                          ...prev,
+                          labour: e.target.value
+                        }))}
+                        placeholder="Enter labour worker name (optional)"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">You can add a labour worker if needed</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Trip Summary Info */}
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h4 className="font-medium text-green-900 mb-2">Transferred Stock Details</h4>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-green-700">Birds:</span>
+                      <div className="font-semibold text-green-900">{trip?.summary?.totalBirdsPurchased || 0} birds</div>
+                    </div>
+                    <div>
+                      <span className="text-green-700">Weight:</span>
+                      <div className="font-semibold text-green-900">{trip?.summary?.totalWeightPurchased?.toFixed(2) || '0.00'} kg</div>
+                    </div>
+                    <div>
+                      <span className="text-green-700">Assigned Vehicle:</span>
+                      <div className="font-semibold text-green-900">{trip?.vehicle?.vehicleNumber}</div>
+                    </div>
+                    <div>
+                      <span className="text-green-700">Transferred From:</span>
+                      <div className="font-semibold text-green-900">{trip?.transferredFrom?.tripId || 'N/A'}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm('Are you sure? You need to complete these details to manage this trip.')) {
+                      setShowCompleteTripDetailsModal(false);
+                    }
+                  }}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isSubmitting && <Loader2 size={16} className="animate-spin" />}
+                  {isSubmitting ? 'Saving...' : 'Complete Trip Details'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
     </div>

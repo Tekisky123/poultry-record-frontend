@@ -321,7 +321,9 @@ export default function TripDetails() {
         'PLACE': data.place,
         'SUPERVISOR': data.supervisor.name,
         'DRIVER': data.driver,
-        'LABOUR': data.labours.join(', '),
+        'LABOUR': data.labour || 'N/A',
+        'START LOCATION (ROUTE)': data.route?.from || 'N/A',
+        'END LOCATION (ROUTE)': data.route?.to || 'N/A',
     };
 
     // Extract expenses
@@ -471,7 +473,40 @@ export default function TripDetails() {
     worksheet.getCell('O2').value = trip.supervisor?.name || 'N/A';
     worksheet.getCell('O2').style = { alignment: { horizontal: 'left' } };
 
-    // Column headers for purchases
+    // Row 3: Driver, Labour, Start Location, End Location
+    worksheet.mergeCells('A3:B3');
+    worksheet.getCell('A3').value = 'DRIVER';
+    worksheet.getCell('A3').style = subHeaderStyle;
+
+    worksheet.mergeCells('C3:D3');
+    worksheet.getCell('C3').value = trip.driver || 'N/A';
+    worksheet.getCell('C3').style = { alignment: { horizontal: 'left' } };
+
+    worksheet.mergeCells('E3:F3');
+    worksheet.getCell('E3').value = 'LABOUR';
+    worksheet.getCell('E3').style = subHeaderStyle;
+
+    worksheet.mergeCells('G3:H3');
+    worksheet.getCell('G3').value = trip.labour || 'N/A';
+    worksheet.getCell('G3').style = { alignment: { horizontal: 'left' } };
+
+    worksheet.mergeCells('I3:J3');
+    worksheet.getCell('I3').value = 'START LOCATION (ROUTE)';
+    worksheet.getCell('I3').style = subHeaderStyle;
+
+    worksheet.mergeCells('K3:L3');
+    worksheet.getCell('K3').value = trip.route?.from || 'N/A';
+    worksheet.getCell('K3').style = { alignment: { horizontal: 'left' } };
+
+    worksheet.mergeCells('M3:N3');
+    worksheet.getCell('M3').value = 'END LOCATION (ROUTE)';
+    worksheet.getCell('M3').style = subHeaderStyle;
+
+    worksheet.mergeCells('O3:P3');
+    worksheet.getCell('O3').value = trip.route?.to || 'N/A';
+    worksheet.getCell('O3').style = { alignment: { horizontal: 'left' } };
+
+    // Column headers for purchases (now at row 5 since we added row 3)
     const headers = [
         { col: 'A', value: 'S N', width: 5 },
         { col: 'B', value: 'SUPPLIERS', width: 15 },
@@ -486,20 +521,20 @@ export default function TripDetails() {
     ];
 
     headers.forEach(h => {
-        worksheet.getCell(`${h.col}4`).value = h.value;
-        worksheet.getCell(`${h.col}4`).style = subHeaderStyle;
+        worksheet.getCell(`${h.col}5`).value = h.value;
+        worksheet.getCell(`${h.col}5`).style = subHeaderStyle;
         worksheet.getColumn(h.col).width = h.width;
     });
 
     // Merge cells for multi-column headers
-    worksheet.mergeCells('B4:C4');
-    worksheet.mergeCells('D4:E4');
-    worksheet.mergeCells('F4:G4');
-    worksheet.mergeCells('H4:I4');
-    worksheet.mergeCells('M4:N4');
+    worksheet.mergeCells('B5:C5');
+    worksheet.mergeCells('D5:E5');
+    worksheet.mergeCells('F5:G5');
+    worksheet.mergeCells('H5:I5');
+    worksheet.mergeCells('M5:N5');
 
     // Add purchase data
-    let currentRow = 5;
+    let currentRow = 6;
     (trip.purchases || []).forEach((purchase, index) => {
         worksheet.getCell(`A${currentRow}`).value = index + 1;
         worksheet.getCell(`A${currentRow}`).style = { alignment: { horizontal: 'center' } };
@@ -1213,7 +1248,19 @@ const downloadExcel2 = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">LABOUR</label>
                   <div className="text-lg font-semibold text-gray-900">
-                    {trip.labour || trip.labours?.join(', ') || 'N/A'}
+                    {trip.labour || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">START LOCATION ( ROUTE )</label>
+                  <div className="text-lg font-semibold text-gray-900">
+                    {trip.route?.from || 'N/A'}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">END LOCATION ( ROUTE )</label>
+                  <div className="text-lg font-semibold text-gray-900">
+                    {trip.route?.to || 'N/A'}
                   </div>
                 </div>
               </div>
@@ -1304,8 +1351,9 @@ const downloadExcel2 = () => {
                     </tr>
                   </thead>
                   <tbody>
+                    {/* Sales Entries */}
                     {trip.sales?.map((sale, index) => (
-                      <tr key={sale.id} className="border-b hover:bg-gray-50">
+                      <tr key={`sale-${sale.id}`} className="border-b hover:bg-gray-50">
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">{index + 1}</td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">{sale.client?.shopName || 'N/A'}</td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">{sale.billNumber || 'N/A'}</td>
@@ -1316,9 +1364,49 @@ const downloadExcel2 = () => {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">₹{(sale.ratePerKg || sale.rate || 0).toFixed(2)}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.totalAmount || sale.amount || 0).toFixed(2)}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.cashPaid || sale.cashPayment || 0).toFixed(2)}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.onlinePaid || sale.onlinePayment || 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.cashPaid || 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.onlinePaid || 0).toFixed(2)}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900">₹{(sale.discount || 0).toFixed(2)}</td>
+                      </tr>
+                    ))}
+                    
+                    {/* Stocks Entries */}
+                    {trip.stocks?.map((stock, index) => (
+                      <tr key={`stock-${index}`} className="border-b hover:bg-gray-50 bg-blue-50">
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{(trip.sales?.length || 0) + index + 1}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">Stock Entry #{index + 1}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{stock.billNumber || ''}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{stock.birds || 0}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{(stock.weight || 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">
+                          {stock.weight && stock.birds ? (stock.weight / stock.birds).toFixed(2) : '0.00'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">₹{(stock.rate || 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(stock.value || 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-500 border-r">-</td>
+                        <td className="px-4 py-3 text-sm text-gray-500 border-r">-</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">-</td>
+                      </tr>
+                    ))}
+
+                    {/* Transfer Entries */}
+                    {trip.transfers?.map((transfer, index) => (
+                      <tr key={`transfer-${index}`} className="border-b hover:bg-gray-50 bg-orange-50">
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{(trip.sales?.length || 0) + (trip.stocks?.length || 0) + index + 1}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">Transferred to Trip #{transfer.transferredTo}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{new Date(transfer.transferredAt).toLocaleDateString()}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{transfer.transferredStock?.birds || 0}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">{(transfer.transferredStock?.weight || 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">
+                          {transfer.transferredStock?.avgWeight || '0.00'}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">₹{(transfer.transferredStock?.rate || 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">
+                          ₹{((transfer.transferredStock?.birds || 0) * (transfer.transferredStock?.rate || 0)).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-500 border-r">-</td>
+                        <td className="px-4 py-3 text-sm text-gray-500 border-r">-</td>
+                        <td className="px-4 py-3 text-sm text-gray-500">-</td>
                       </tr>
                     ))}
                     {/* Total Sales Row */}
@@ -1333,80 +1421,57 @@ const downloadExcel2 = () => {
                           ? (trip.summary.totalWeightSold / trip.summary.totalBirdsSold).toFixed(2) 
                           : '0.00'}
                       </td>
-                      <td className="px-4 py-3 border-r">₹{(trip.summary?.averageRate || (trip.sales.length > 0 ? trip.sales.reduce((acc, sale) => acc + sale.rate, 0) / trip.sales.length : 0)).toFixed(2)}</td>
+                      <td className="px-4 py-3 border-r">₹{(trip.summary?.averageRate || (trip.sales?.length > 0 ? trip.sales.reduce((acc, sale) => acc + sale.rate, 0) / trip.sales.length : 0)).toFixed(2)}</td>
                       <td className="px-4 py-3 border-r">₹{(trip.summary?.totalSalesAmount || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3 border-r">₹{(trip.summary?.totalCashPaid || trip.summary?.totalCashPayment || 0).toFixed(2)}</td>
-                      <td className="px-4 py-3 border-r">₹{(trip.summary?.totalOnlinePaid || trip.summary?.totalOnlinePayment || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 border-r">₹{(trip.summary?.totalCashPaid || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 border-r">₹{(trip.summary?.totalOnlinePaid || 0).toFixed(2)}</td>
                       <td className="px-4 py-3">₹{(trip.summary?.totalDiscount || 0).toFixed(2)}</td>
                     </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
 
-            {/* Stocks Details Section */}
-            <div className="border-t">
-              <div className="bg-gray-100 px-6 py-3 border-b">
-                <h3 className="text-lg font-semibold text-gray-900">STOCKS DETAILS</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-200">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">S.N.</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">BIRDS</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">WEIGHT (KG)</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">AVG WEIGHT</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">RATE/KG</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 border-r">VALUE</th>
-                      <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">NOTES</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {trip.stocks && trip.stocks.length > 0 ? (
-                      trip.stocks.map((stock, index) => (
-                        <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900 border-r">{index + 1}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900 border-r">{stock.birds || 0}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900 border-r">{(stock.weight || 0).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900 border-r">
-                            {stock.birds > 0 && stock.weight > 0 ? (stock.weight / stock.birds).toFixed(2) : '0.00'}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 border-r">₹{(stock.rate || 0).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(stock.value || 0).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{stock.notes || '-'}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan="7" className="px-4 py-8 text-center text-gray-500">
-                          No stock records found
+                    {/* Total Stock Row */}
+                    {trip.stocks && trip.stocks.length > 0 && (
+                      <tr className="bg-blue-600 text-white font-bold">
+                        <td className="px-4 py-3 border-r">TOTAL STOCK</td>
+                        <td className="px-4 py-3 border-r"></td>
+                        <td className="px-4 py-3 border-r"></td>
+                        <td className="px-4 py-3 border-r">{trip.stocks.reduce((sum, stock) => sum + (stock.birds || 0), 0)}</td>
+                        <td className="px-4 py-3 border-r">{(trip.stocks.reduce((sum, stock) => sum + (stock.weight || 0), 0)).toFixed(2)}</td>
+                        <td className="px-4 py-3 border-r">
+                          {(() => {
+                            const totalStockBirds = trip.stocks.reduce((sum, stock) => sum + (stock.birds || 0), 0);
+                            const totalStockWeight = trip.stocks.reduce((sum, stock) => sum + (stock.weight || 0), 0);
+                            return totalStockBirds > 0 ? (totalStockWeight / totalStockBirds).toFixed(2) : '0.00';
+                          })()}
                         </td>
+                        <td className="px-4 py-3 border-r">-</td>
+                        <td className="px-4 py-3 border-r">₹{(trip.stocks.reduce((sum, stock) => sum + (stock.value || 0), 0)).toFixed(2)}</td>
+                        <td className="px-4 py-3 border-r">-</td>
+                        <td className="px-4 py-3 border-r">-</td>
+                        <td className="px-4 py-3">-</td>
                       </tr>
                     )}
-                    {/* Total Row */}
-                    {trip.stocks && trip.stocks.length > 0 && (
-                      <tr className="bg-black text-white font-bold">
-                        <td className="px-4 py-3 border-r">TOTAL</td>
+
+                    {/* Total Transfer Row */}
+                    {trip.transfers && trip.transfers.length > 0 && (
+                      <tr className="bg-orange-600 text-white font-bold">
+                        <td className="px-4 py-3 border-r">TOTAL TRANSFER</td>
+                        <td className="px-4 py-3 border-r"></td>
+                        <td className="px-4 py-3 border-r"></td>
+                        <td className="px-4 py-3 border-r">{trip.transfers.reduce((sum, transfer) => sum + (transfer.transferredStock?.birds || 0), 0)}</td>
+                        <td className="px-4 py-3 border-r">{(trip.transfers.reduce((sum, transfer) => sum + (transfer.transferredStock?.weight || 0), 0)).toFixed(2)}</td>
                         <td className="px-4 py-3 border-r">
-                          {trip.stocks.reduce((sum, stock) => sum + (stock.birds || 0), 0)}
+                          {(() => {
+                            const totalTransferBirds = trip.transfers.reduce((sum, transfer) => sum + (transfer.transferredStock?.birds || 0), 0);
+                            const totalTransferWeight = trip.transfers.reduce((sum, transfer) => sum + (transfer.transferredStock?.weight || 0), 0);
+                            return totalTransferBirds > 0 ? (totalTransferWeight / totalTransferBirds).toFixed(2) : '0.00';
+                          })()}
                         </td>
+                        <td className="px-4 py-3 border-r">-</td>
                         <td className="px-4 py-3 border-r">
-                          {trip.stocks.reduce((sum, stock) => sum + (stock.weight || 0), 0).toFixed(2)}
+                          ₹{(trip.transfers.reduce((sum, transfer) => sum + ((transfer.transferredStock?.birds || 0) * (transfer.transferredStock?.rate || 0)), 0)).toFixed(2)}
                         </td>
-                        <td className="px-4 py-3 border-r">
-                          {trip.stocks.reduce((sum, stock) => sum + (stock.birds || 0), 0) > 0 
-                            ? (trip.stocks.reduce((sum, stock) => sum + (stock.weight || 0), 0) / trip.stocks.reduce((sum, stock) => sum + (stock.birds || 0), 0)).toFixed(2)
-                            : '0.00'
-                          }
-                        </td>
-                        <td className="px-4 py-3 border-r">
-                          {trip.stocks.reduce((sum, stock) => sum + (stock.weight || 0), 0) > 0 
-                            ? (trip.stocks.reduce((sum, stock) => sum + (stock.value || 0), 0) / trip.stocks.reduce((sum, stock) => sum + (stock.weight || 0), 0)).toFixed(2)
-                            : '0.00'
-                          }
-                        </td>
-                        <td className="px-4 py-3 border-r">₹{trip.stocks.reduce((sum, stock) => sum + (stock.value || 0), 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 border-r">-</td>
+                        <td className="px-4 py-3 border-r">-</td>
                         <td className="px-4 py-3">-</td>
                       </tr>
                     )}
@@ -1414,6 +1479,7 @@ const downloadExcel2 = () => {
                 </table>
               </div>
             </div>
+
             <div className="border-t">
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1647,7 +1713,7 @@ const downloadExcel2 = () => {
                       <Users className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
                       <div className="text-sm text-gray-600">
                         <span className="block">Labours:</span>
-                        <span className="block mt-1">{trip.labours?.join(', ')}</span>
+                        <span className="block mt-1">{trip.labour || 'N/A'}</span>
                 </div>
               </div>
 
@@ -1699,54 +1765,6 @@ const downloadExcel2 = () => {
                 </div>
               </div>
 
-              {/* Bird Summary */}
-              <div className="mt-4 pt-4 border-t">
-                <h4 className="font-medium text-gray-900 mb-2">Bird Summary</h4>
-                <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                    <span className="text-gray-600">Birds Purchased:</span>
-                    <span className="font-medium">{trip.summary?.totalBirdsPurchased || 0} birds</span>
-                    </div>
-                    <div className="flex justify-between">
-                    <span className="text-gray-600">Purchased Weight:</span>
-                    <span className="font-medium">{(trip.summary?.totalWeightPurchased || 0).toFixed(2)} kg</span>
-                    </div>
-                    <div className="flex justify-between">
-                    <span className="text-gray-600">Birds Sold:</span>
-                    <span className="font-medium">{trip.summary?.totalBirdsSold || 0} birds</span>
-                    </div>
-                    <div className="flex justify-between">
-                    <span className="text-gray-600">Sold Weight:</span>
-                    <span className="font-medium">{(trip.summary?.totalWeightSold || 0).toFixed(2)} kg</span>
-                    </div>
-                    <div className="flex justify-between">
-                    <span className="text-gray-600">In Stock:</span>
-                    <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0} birds</span>
-                    </div>
-                    <div className="flex justify-between">
-                    <span className="text-gray-600">Total Stock Weight:</span>
-                    <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0).toFixed(2) || '0.00'} kg</span>
-                    </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Death:</span>
-                    <span className="font-medium text-red-600">{trip.summary?.mortality || 0} birds</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Death Weight:</span>
-                    <span className="font-medium text-red-600">{(trip.summary?.totalWeightLost || 0).toFixed(2)} kg</span>
-                  </div>
-                  <div className="flex justify-between border-t pt-2">
-                    <span className="text-gray-600 font-medium">Remaining:</span>
-                    <span className="font-medium text-green-600">{trip.summary?.birdsRemaining || 0} birds</span>
-                  </div>
-                  <div className="flex justify-between border-t pt-2">
-                    <span className="text-gray-600 font-medium">Natural Weight Loss:</span>
-                    <span className="font-medium text-orange-600">
-                      {trip.status === 'completed' ? Math.abs(trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'} kg
-                    </span>
-                  </div>
-                </div>
-              </div>
 
             </div>
           )}
@@ -2705,6 +2723,7 @@ const downloadExcel2 = () => {
                   <option value="meals">Meals</option>
                   <option value="parking">Parking</option>
                   <option value="toll">Toll</option>
+                  <option value="loading/unloading">Loading/Unloading Charges</option>
                   <option value="maintenance">Maintenance</option>
                   <option value="tea">Tea</option>
                   <option value="lunch">Lunch</option>

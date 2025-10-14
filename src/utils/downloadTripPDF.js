@@ -85,7 +85,11 @@ export const downloadTripPDF = (trip) => {
   yPosition += lineHeight;
   addTableRow('Driver:', trip.driver || 'N/A', yPosition);
   yPosition += lineHeight;
-  addTableRow('Labours:', trip.labours?.join(', ') || 'N/A', yPosition);
+  addTableRow('Labour:', trip.labour || 'N/A', yPosition);
+  yPosition += lineHeight;
+  addTableRow('Start Location (Route):', trip.route?.from || 'N/A', yPosition);
+  yPosition += lineHeight;
+  addTableRow('End Location (Route):', trip.route?.to || 'N/A', yPosition);
   yPosition += lineHeight;
   addTableRow('Status:', trip.status?.toUpperCase() || 'N/A', yPosition, { valueBold: true });
   yPosition += 10;

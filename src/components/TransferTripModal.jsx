@@ -18,18 +18,11 @@ const TransferTripModal = ({
   const [formData, setFormData] = useState({
     supervisorId: '',
     vehicleId: '',
-    driver: '',
-    labours: [''],
-    place: '',
-    vehicleReadings: {
-      opening: 0
-    },
     reason: '',
-    notes: '',
     transferBirds: {
-      birds: 0,
-      weight: 0,
-      rate: 0
+      birds: '',
+      weight: '',
+      rate: ''
     }
   });
 
@@ -51,14 +44,16 @@ const TransferTripModal = ({
       console.log('TransferTripModal opened with:', { tripId, trip: trip ? { id: trip.id, _id: trip._id, tripId: trip.tripId } : null });
       fetchSupervisors();
       fetchVehicles();
-      // Set default rate
-      setFormData(prev => ({
-        ...prev,
-        transferBirds: {
-          ...prev.transferBirds,
-          rate: avgPurchaseRate
-        }
-      }));
+      // Set default rate if available
+      if (avgPurchaseRate > 0) {
+        setFormData(prev => ({
+          ...prev,
+          transferBirds: {
+            ...prev.transferBirds,
+            rate: avgPurchaseRate
+          }
+        }));
+      }
     }
   }, [isOpen, avgPurchaseRate, tripId, trip]);
 
@@ -126,36 +121,13 @@ const TransferTripModal = ({
     }));
   };
 
-  const handleLabourChange = (index, value) => {
-    const newLabours = [...formData.labours];
-    newLabours[index] = value;
-    setFormData(prev => ({
-      ...prev,
-      labours: newLabours
-    }));
-  };
-
-  const addLabour = () => {
-    setFormData(prev => ({
-      ...prev,
-      labours: [...prev.labours, '']
-    }));
-  };
-
-  const removeLabour = (index) => {
-    if (formData.labours.length > 1) {
-      const newLabours = formData.labours.filter((_, i) => i !== index);
-      setFormData(prev => ({
-        ...prev,
-        labours: newLabours
-      }));
-    }
-  };
-
   // Auto-calculate average weight and amount when birds or weight changes
   useEffect(() => {
-    if (formData.transferBirds.birds > 0 && formData.transferBirds.weight > 0) {
-      const avgWeight = (formData.transferBirds.weight / formData.transferBirds.birds).toFixed(2);
+    const birds = Number(formData.transferBirds.birds) || 0;
+    const weight = Number(formData.transferBirds.weight) || 0;
+
+    if (birds > 0 && weight > 0) {
+      const avgWeight = (weight / birds).toFixed(2);
       setFormData(prev => ({
         ...prev,
         transferBirds: {
@@ -179,33 +151,25 @@ const TransferTripModal = ({
         console.error('Invalid vehicle ID format:', formData.vehicleId);
       }
     }
-    if (!formData.driver.trim()) newErrors.driver = 'Driver name is required';
-    if (!formData.place.trim()) newErrors.place = 'Place is required';
     if (!formData.reason.trim()) newErrors.reason = 'Transfer reason is required';
-    
-    if (formData.vehicleReadings.opening <= 0) {
-      newErrors.openingOdometer = 'Opening odometer reading is required';
-    }
 
     // Validate transfer birds
-    if (!formData.transferBirds.birds || formData.transferBirds.birds <= 0) {
+    const transferBirds = Number(formData.transferBirds.birds);
+    const transferWeight = Number(formData.transferBirds.weight);
+    const transferRate = Number(formData.transferBirds.rate);
+
+    if (!formData.transferBirds.birds || transferBirds <= 0) {
       newErrors.transferBirds = 'Number of birds to transfer is required';
-    } else if (formData.transferBirds.birds > remainingBirds) {
-      newErrors.transferBirds = `Cannot transfer ${formData.transferBirds.birds} birds. Only ${remainingBirds} birds available`;
+    } else if (transferBirds > remainingBirds) {
+      newErrors.transferBirds = `Cannot transfer ${transferBirds} birds. Only ${remainingBirds} birds available`;
     }
 
-    if (!formData.transferBirds.weight || formData.transferBirds.weight <= 0) {
+    if (!formData.transferBirds.weight || transferWeight <= 0) {
       newErrors.transferWeight = 'Weight of birds to transfer is required';
     }
 
-    if (!formData.transferBirds.rate || formData.transferBirds.rate <= 0) {
+    if (!formData.transferBirds.rate || transferRate <= 0) {
       newErrors.transferRate = 'Rate per kg is required';
-    }
-
-    // Validate labours
-    const validLabours = formData.labours.filter(labour => labour.trim());
-    if (validLabours.length === 0) {
-      newErrors.labours = 'At least one labour worker is required';
     }
 
     setErrors(newErrors);
@@ -227,8 +191,10 @@ const TransferTripModal = ({
     setLoading(true);
     try {
       const submitData = {
-        ...formData,
-        labours: formData.labours.filter(labour => labour.trim())
+        supervisorId: formData.supervisorId,
+        vehicleId: formData.vehicleId,
+        reason: formData.reason,
+        transferBirds: formData.transferBirds
       };
 
       console.log('Transferring trip:', tripIdToUse, 'with data:', submitData);
@@ -237,7 +203,7 @@ const TransferTripModal = ({
       const { data } = await api.post(`/trip/${tripIdToUse}/transfer`, submitData);
       
       if (data.success) {
-        alert('Trip transferred successfully!');
+        alert('Trip transferred successfully! The receiving supervisor will need to complete the trip details (driver, labour, odometer, locations).');
         onTransferSuccess?.(data.data);
         onClose();
       }
@@ -275,7 +241,7 @@ const TransferTripModal = ({
                 <AlertTriangle size={16} />
                 Transfer Information
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-3">
                 <div>
                   <span className="text-blue-700">Original Trip:</span>
                   <div className="font-medium text-blue-900">{trip?.tripId}</div>
@@ -288,6 +254,9 @@ const TransferTripModal = ({
                   <span className="text-blue-700">Current Rate:</span>
                   <div className="font-medium text-blue-900">₹{avgPurchaseRate.toFixed(2)}/kg</div>
                 </div>
+              </div>
+              <div className="bg-white border-l-4 border-blue-500 p-3 text-sm text-blue-800">
+                <strong>Note:</strong> After transfer, the <strong>receiving supervisor</strong> will need to complete the trip details including driver, labour workers, odometer reading, and route locations for their new trip.
               </div>
             </div>
           </div>
@@ -323,7 +292,7 @@ const TransferTripModal = ({
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   <Truck size={16} className="inline mr-1" />
-                  Vehicle *
+                  Assign Vehicle for New Trip *
                 </label>
                 <select
                   value={formData.vehicleId}
@@ -344,61 +313,25 @@ const TransferTripModal = ({
                   })}
                 </select>
                 {errors.vehicleId && <p className="text-red-500 text-sm mt-1">{errors.vehicleId}</p>}
+                <p className="text-xs text-gray-500 mt-1">The receiving supervisor will provide driver and team details</p>
               </div>
 
-              {/* Driver */}
+              {/* Transfer Reason */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Driver Name *
+                  Reason for Transfer *
                 </label>
-                <input
-                  type="text"
-                  value={formData.driver}
-                  onChange={(e) => handleInputChange('driver', e.target.value)}
+                <textarea
+                  value={formData.reason}
+                  onChange={(e) => handleInputChange('reason', e.target.value)}
+                  rows={4}
                   className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.driver ? 'border-red-500' : 'border-gray-300'
+                    errors.reason ? 'border-red-500' : 'border-gray-300'
                   }`}
-                  placeholder="Enter driver name"
+                  placeholder="Explain why you need to transfer this trip (e.g., vehicle breakdown, supervisor availability, route optimization, etc.)"
                   disabled={loading}
                 />
-                {errors.driver && <p className="text-red-500 text-sm mt-1">{errors.driver}</p>}
-              </div>
-
-              {/* Place */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <MapPin size={16} className="inline mr-1" />
-                  Base Location *
-                </label>
-                <input
-                  type="text"
-                  value={formData.place}
-                  onChange={(e) => handleInputChange('place', e.target.value)}
-                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.place ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter base location"
-                  disabled={loading}
-                />
-                {errors.place && <p className="text-red-500 text-sm mt-1">{errors.place}</p>}
-              </div>
-
-              {/* Opening Odometer */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Opening Odometer Reading *
-                </label>
-                <input
-                  type="number"
-                  value={formData.vehicleReadings.opening}
-                  onChange={(e) => handleNestedChange('vehicleReadings', 'opening', parseInt(e.target.value) || 0)}
-                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.openingOdometer ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter opening odometer reading"
-                  disabled={loading}
-                />
-                {errors.openingOdometer && <p className="text-red-500 text-sm mt-1">{errors.openingOdometer}</p>}
+                {errors.reason && <p className="text-red-500 text-sm mt-1">{errors.reason}</p>}
               </div>
             </div>
 
@@ -484,78 +417,6 @@ const TransferTripModal = ({
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* Labour Workers */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Users size={16} className="inline mr-1" />
-                  Labour Workers *
-                </label>
-                {formData.labours.map((labour, index) => (
-                  <div key={index} className="flex gap-2 mb-2">
-                    <input
-                      type="text"
-                      value={labour}
-                      onChange={(e) => handleLabourChange(index, e.target.value)}
-                      className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder={`Labour ${index + 1} name`}
-                      disabled={loading}
-                    />
-                    {formData.labours.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeLabour(index)}
-                        className="px-3 py-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors"
-                        disabled={loading}
-                      >
-                        <X size={16} />
-                      </button>
-                    )}
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={addLabour}
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                  disabled={loading}
-                >
-                  + Add Another Labour
-                </button>
-                {errors.labours && <p className="text-red-500 text-sm mt-1">{errors.labours}</p>}
-              </div>
-
-              {/* Transfer Reason */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Reason for Transfer *
-                </label>
-                <textarea
-                  value={formData.reason}
-                  onChange={(e) => handleInputChange('reason', e.target.value)}
-                  rows={3}
-                  className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                    errors.reason ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Explain why you need to transfer this trip"
-                  disabled={loading}
-                />
-                {errors.reason && <p className="text-red-500 text-sm mt-1">{errors.reason}</p>}
-              </div>
-
-              {/* Additional Notes */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Additional Notes
-                </label>
-                <textarea
-                  value={formData.notes}
-                  onChange={(e) => handleInputChange('notes', e.target.value)}
-                  rows={2}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Any additional notes or instructions"
-                  disabled={loading}
-                />
               </div>
             </div>
           </div>
