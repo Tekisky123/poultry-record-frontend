@@ -1,6 +1,6 @@
 // src/pages/TripDetails.jsx
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   Truck, 
   MapPin, 
@@ -1111,7 +1111,18 @@ const downloadExcel2 = () => {
           {trip.type === 'transferred' && (
             <p className="text-orange-600 text-sm font-medium mt-1 flex items-center gap-1">
               <span className="w-2 h-2 bg-orange-600 rounded-full"></span>
-              Transferred Trip - Contains transferred stock from {trip.transferredFrom?.tripId ? `Trip ${trip.transferredFrom.tripId}` : 'another trip'}
+              Transferred Trip - Contains transferred stock from Trip{' '}
+              {trip.transferredFrom?.tripId ? (
+                <Link
+                  to={`/trips/${trip.transferredFrom.id}`}
+                  className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                  rel="noopener noreferrer"
+                >
+                  {trip.transferredFrom.tripId}
+                </Link>
+              ) : (
+                'another trip'
+              )}
             </p>
           )}
           <p className="text-gray-500 text-sm mt-1">Manage trip details and operations</p>
@@ -1919,14 +1930,12 @@ const downloadExcel2 = () => {
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{sale.rate || 0}</td>
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{sale.amount?.toLocaleString() || '0'}</td>
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
-                              {/* {sale.paymentMode === 'cash' ? `₹${sale.amount?.toLocaleString() || '0'}` : '₹0'} */}
-                              ₹0
+                              ₹{(sale.cashPaid || 0).toLocaleString()}
                             </td>
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
-                              {/* {sale.paymentMode === 'online' ? `₹${sale.amount?.toLocaleString() || '0'}` : '₹0'} */}
-                              ₹0
+                              ₹{(sale.onlinePaid || 0).toLocaleString()}
                             </td>
-                            <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹0</td>
+                            <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{(sale.discount || 0).toLocaleString()}</td>
                             {/* Edit button for completed trips - Admin/Superadmin only */}
                             {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
                               <td className="border border-gray-300 px-4 py-2 text-center">
@@ -1978,9 +1987,9 @@ const downloadExcel2 = () => {
                           </td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.summary?.averageRate || 0}</td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.summary?.totalSalesAmount?.toLocaleString() || '0'}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.summary?.totalCashSales?.toLocaleString() || '0'}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.summary?.totalOnlineSales?.toLocaleString() || '0'}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹0</td>
+                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{(trip.summary?.totalCashPaid || 0).toLocaleString()}</td>
+                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{(trip.summary?.totalOnlinePaid || 0).toLocaleString()}</td>
+                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{(trip.summary?.totalDiscount || 0).toLocaleString()}</td>
                         </tr>
                       </tbody>
                     </table>

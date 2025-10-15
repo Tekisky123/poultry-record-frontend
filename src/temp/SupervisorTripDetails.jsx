@@ -47,7 +47,6 @@ const SupervisorTripDetails = () => {
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
-  const [highlightedCustomerIndex, setHighlightedCustomerIndex] = useState(-1);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -277,6 +276,27 @@ const SupervisorTripDetails = () => {
     }
   }, [customers, customerSearchTerm]);
 
+  // Group customers by area for better organization
+  const getCustomersByArea = (customerList) => {
+    const grouped = customerList.reduce((acc, customer) => {
+      const area = customer.area || 'No Area';
+      if (!acc[area]) {
+        acc[area] = [];
+      }
+      acc[area].push(customer);
+      return acc;
+    }, {});
+
+    // Sort areas by customer count (descending) and then alphabetically
+    return Object.entries(grouped)
+      .sort(([a, aCustomers], [b, bCustomers]) => {
+        if (bCustomers.length !== aCustomers.length) {
+          return bCustomers.length - aCustomers.length;
+        }
+        return a.localeCompare(b);
+      })
+      .map(([area, customersGrp]) => ({ area, customersGrp, count: customersGrp.length }));
+  };
 
   const fetchVendorsAndCustomers = async () => {
     try {
@@ -365,7 +385,6 @@ const SupervisorTripDetails = () => {
     setSaleData(prev => ({ ...prev, client: customer._id || customer.id }));
     setCustomerSearchTerm(`${customer.shopName} - ${customer.ownerName || 'N/A'}`);
     setShowCustomerDropdown(false);
-    setHighlightedCustomerIndex(-1);
   };
 
   const handleCustomerInputFocus = () => {
@@ -377,47 +396,7 @@ const SupervisorTripDetails = () => {
     // Delay hiding dropdown to allow for click events
     setTimeout(() => {
       setShowCustomerDropdown(false);
-      setHighlightedCustomerIndex(-1);
     }, 150);
-  };
-
-  const handleCustomerKeyDown = (e) => {
-    if (!showCustomerDropdown || filteredCustomers.length === 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        setShowCustomerDropdown(true);
-        setHighlightedCustomerIndex(0);
-      }
-      return;
-    }
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        setHighlightedCustomerIndex(prev => {
-          const nextIndex = prev + 1;
-          return nextIndex >= filteredCustomers.length ? 0 : nextIndex;
-        });
-        break;
-      case 'ArrowUp':
-        e.preventDefault();
-        setHighlightedCustomerIndex(prev => {
-          const prevIndex = prev - 1;
-          return prevIndex < 0 ? filteredCustomers.length - 1 : prevIndex;
-        });
-        break;
-      case 'Enter':
-        e.preventDefault();
-        if (highlightedCustomerIndex >= 0 && highlightedCustomerIndex < filteredCustomers.length) {
-          handleCustomerSelect(filteredCustomers[highlightedCustomerIndex]);
-        }
-        break;
-      case 'Escape':
-        e.preventDefault();
-        setShowCustomerDropdown(false);
-        setHighlightedCustomerIndex(-1);
-        break;
-    }
   };
 
   const fetchTrip = async () => {
@@ -693,25 +672,14 @@ const SupervisorTripDetails = () => {
       const currentStockBirds = stockData.birds || 0;
       const currentStockWeight = stockData.weight || 0;
       
-      // When editing, add back the current stock entry's birds/weight to available count
-      let adjustedAvailableBirds = availableForStockBirds;
-      let adjustedAvailableWeight = availableForStockWeight;
-      
-      if (editingStockIndex !== null) {
-        // Add back the current stock entry being edited
-        const currentStockEntry = trip.stocks[editingStockIndex];
-        adjustedAvailableBirds += (currentStockEntry?.birds || 0);
-        adjustedAvailableWeight += (currentStockEntry?.weight || 0);
-      }
-      
-      if (currentStockBirds > adjustedAvailableBirds) {
-        alert(`Cannot add ${currentStockBirds} birds to stock. Only ${adjustedAvailableBirds} birds are available for stock.`);
+      if (currentStockBirds > availableForStockBirds) {
+        alert(`Cannot add ${currentStockBirds} birds to stock. Only ${availableForStockBirds} birds are available for stock.`);
         setIsSubmitting(false);
         return;
       }
       
-      if (currentStockWeight > adjustedAvailableWeight) {
-        alert(`Cannot add ${currentStockWeight} kg to stock. Only ${adjustedAvailableWeight.toFixed(2)} kg are available for stock.`);
+      if (currentStockWeight > availableForStockWeight) {
+        alert(`Cannot add ${currentStockWeight} kg to stock. Only ${availableForStockWeight.toFixed(2)} kg are available for stock.`);
         setIsSubmitting(false);
         return;
       }
@@ -1346,7 +1314,7 @@ const SupervisorTripDetails = () => {
                   {/* Area-wise Sales */}
                   {(() => {
                     const salesByArea = trip.sales.reduce((acc, sale) => {
-                      const area = sale.client?.area || 'Customers';
+                      const area = sale.client?.area || 'Unknown Area';
                       if (!acc[area]) acc[area] = [];
                       acc[area].push(sale);
                       return acc;
@@ -1370,7 +1338,7 @@ const SupervisorTripDetails = () => {
                               <div className="flex justify-between items-start">
                                 <div className="flex-1">
                                   <div className="font-medium text-gray-900">
-                                    {sale.client?.shopName || `Customer ${index + 1}`}
+                                    {sale.client?.shopName || 'Unknown Customer'}
                                   </div>
                                   <div className="text-sm text-gray-600">
                                     Bill: {sale.billNumber} | {sale.birds} birds | {sale.weight} kg
@@ -2426,11 +2394,9 @@ const SupervisorTripDetails = () => {
                         setCustomerSearchTerm(e.target.value);
                         setSelectedCustomer(null);
                         setSaleData(prev => ({ ...prev, client: '' }));
-                        setHighlightedCustomerIndex(-1);
                       }}
                       onFocus={handleCustomerInputFocus}
                       onBlur={handleCustomerInputBlur}
-                      onKeyDown={handleCustomerKeyDown}
                       placeholder="Search customer by name, owner, contact, or area..."
                       className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
@@ -2445,7 +2411,6 @@ const SupervisorTripDetails = () => {
                           setSelectedCustomer(null);
                           setCustomerSearchTerm('');
                           setSaleData(prev => ({ ...prev, client: '' }));
-                          setHighlightedCustomerIndex(-1);
                         }}
                         className="absolute right-2 top-1/3 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                       >
@@ -2455,36 +2420,59 @@ const SupervisorTripDetails = () => {
                   </div>
                   {showCustomerDropdown && filteredCustomers.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                      {filteredCustomers.map((customer, index) => (
-                        <div
-                          key={customer._id || customer.id}
-                          ref={index === highlightedCustomerIndex ? (el) => {
-                            if (el) {
-                              el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-                            }
-                          } : null}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            handleCustomerSelect(customer);
-                          }}
-                          onMouseEnter={() => setHighlightedCustomerIndex(index)}
-                          className={`px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                            index === highlightedCustomerIndex 
-                              ? 'bg-blue-100 border-blue-200' 
-                              : 'hover:bg-gray-100'
-                          }`}
-                        >
-                          <div className="font-medium text-gray-900">{customer.shopName}</div>
-                          {customer.ownerName && (
-                            <div className="text-sm text-gray-600">Owner: {customer.ownerName}</div>
-                          )}
-                          <div className="text-sm text-gray-500">{customer.contact}</div>
-                          {customer.area && (
-                            <div className="text-xs text-gray-400">Area: {customer.area}</div>
-                          )}
-                          {customer.gstOrPanNumber && (
-                            <div className="text-xs text-gray-400">GST/PAN: {customer.gstOrPanNumber}</div>
-                          )}
+                      {/* Area Statistics Summary (only when no search) */}
+                      {customerSearchTerm.trim() === '' && (
+                        <div className="px-4 py-3 bg-blue-50 border-b border-blue-200">
+                          <div className="text-sm font-medium text-blue-800 mb-2">Area-wise Customer Distribution</div>
+                          <div className="flex flex-wrap gap-2">
+                            {getCustomersByArea(filteredCustomers).slice(0, 5).map(({ area, count }) => (
+                              <span key={area} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                {area}: {count}
+                              </span>
+                            ))}
+                            {getCustomersByArea(filteredCustomers).length > 5 && (
+                              <span className="text-xs text-blue-600 px-2 py-1">
+                                +{getCustomersByArea(filteredCustomers).length - 5} more areas
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {getCustomersByArea(filteredCustomers).map(({ area, customersGrp, count }) => (
+                        <div key={area} className="border-b border-gray-200 last:border-b-0">
+                          {/* Area Header */}
+                          <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0">
+                            <div className="flex items-center justify-between">
+                              <span className="font-semibold text-gray-800 text-sm">
+                                {area}
+                              </span>
+                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                {count} customer{count !== 1 ? 's' : ''}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Customers in this area */}
+                          {customersGrp.map(customer => (
+                            <div
+                              key={customer._id || customer.id}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleCustomerSelect(customer);
+                              }}
+                              className="px-4 py-3 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                            >
+                              <div className="font-medium text-gray-900">{customer.shopName}</div>
+                              {customer.ownerName && (
+                                <div className="text-sm text-gray-600">Owner: {customer.ownerName}</div>
+                              )}
+                              <div className="text-sm text-gray-500">{customer.contact}</div>
+                              {customer.gstOrPanNumber && (
+                                <div className="text-xs text-gray-400">GST/PAN: {customer.gstOrPanNumber}</div>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       ))}
                     </div>
@@ -3089,13 +3077,7 @@ const SupervisorTripDetails = () => {
                   <label className="block text-xs font-medium text-gray-700 mb-1">Birds in Stock *</label>
                   {(() => {
                     const { availableForStockBirds } = getRemainingStockStats();
-                    // When editing, add back the current stock entry's birds to available count
-                    let adjustedAvailableBirds = availableForStockBirds;
-                    if (editingStockIndex !== null) {
-                      const currentStockEntry = trip.stocks[editingStockIndex];
-                      adjustedAvailableBirds += (currentStockEntry?.birds || 0);
-                    }
-                    const isExceeding = stockData.birds > adjustedAvailableBirds;
+                    const isExceeding = stockData.birds > availableForStockBirds;
                     const isZero = stockData.birds === 0;
                     
                     return (
@@ -3112,12 +3094,12 @@ const SupervisorTripDetails = () => {
                           required
                           min="1"
                           step="1"
-                          max={adjustedAvailableBirds}
+                          max={availableForStockBirds}
                         />
                         <div className="mt-1 text-xs">
                           <span className="text-gray-500">Available: </span>
-                          <span className={`font-medium ${adjustedAvailableBirds > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                            {adjustedAvailableBirds}
+                          <span className={`font-medium ${availableForStockBirds > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                            {availableForStockBirds}
                           </span>
                           {isZero && (
                             <span className="ml-2 text-red-600 font-medium">
@@ -3138,13 +3120,7 @@ const SupervisorTripDetails = () => {
                   <label className="block text-xs font-medium text-gray-700 mb-1">Total Weight (kg) *</label>
                   {(() => {
                     const { availableForStockWeight } = getRemainingStockStats();
-                    // When editing, add back the current stock entry's weight to available count
-                    let adjustedAvailableWeight = availableForStockWeight;
-                    if (editingStockIndex !== null) {
-                      const currentStockEntry = trip.stocks[editingStockIndex];
-                      adjustedAvailableWeight += (currentStockEntry?.weight || 0);
-                    }
-                    const isExceeding = stockData.weight > adjustedAvailableWeight;
+                    const isExceeding = stockData.weight > availableForStockWeight;
                     const isZero = stockData.weight === 0;
                     
                     return (
@@ -3161,12 +3137,12 @@ const SupervisorTripDetails = () => {
                           required
                           min="0.01"
                           step="0.01"
-                          max={adjustedAvailableWeight}
+                          max={availableForStockWeight}
                         />
                         <div className="mt-1 text-xs">
                           <span className="text-gray-500">Available: </span>
-                          <span className={`font-medium ${adjustedAvailableWeight > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                            {adjustedAvailableWeight.toFixed(2)} kg
+                          <span className={`font-medium ${availableForStockWeight > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                            {availableForStockWeight.toFixed(2)} kg
                           </span>
                           {isZero && (
                             <span className="ml-2 text-red-600 font-medium">
@@ -3258,18 +3234,8 @@ const SupervisorTripDetails = () => {
                   onClick={handleStockSubmit}
                   disabled={isSubmitting || (() => {
                     const { availableForStockBirds, availableForStockWeight } = getRemainingStockStats();
-                    // When editing, add back the current stock entry's birds/weight to available count
-                    let adjustedAvailableBirds = availableForStockBirds;
-                    let adjustedAvailableWeight = availableForStockWeight;
-                    
-                    if (editingStockIndex !== null) {
-                      const currentStockEntry = trip.stocks[editingStockIndex];
-                      adjustedAvailableBirds += (currentStockEntry?.birds || 0);
-                      adjustedAvailableWeight += (currentStockEntry?.weight || 0);
-                    }
-                    
                     return stockData.birds <= 0 || stockData.weight <= 0 || stockData.rate <= 0 || 
-                           stockData.birds > adjustedAvailableBirds || stockData.weight > adjustedAvailableWeight;
+                           stockData.birds > availableForStockBirds || stockData.weight > availableForStockWeight;
                   })()}
                   className="flex-1 px-2 py-1 bg-cyan-600 text-white rounded hover:bg-cyan-700 disabled:opacity-50 text-xs font-medium"
                 >
