@@ -1385,7 +1385,7 @@ const downloadExcel2 = () => {
                     {trip.stocks?.map((stock, index) => (
                       <tr key={`stock-${index}`} className="border-b hover:bg-gray-50 bg-blue-50">
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">{(trip.sales?.length || 0) + index + 1}</td>
-                        <td className="px-4 py-3 text-sm text-gray-900 border-r">Stock Entry #{index + 1}</td>
+                        <td className="px-4 py-3 text-sm text-gray-900 border-r">Stock Point #{index + 1}</td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">{stock.billNumber || ''}</td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">{stock.birds || 0}</td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">{(stock.weight || 0).toFixed(2)}</td>
@@ -1420,6 +1420,44 @@ const downloadExcel2 = () => {
                         <td className="px-4 py-3 text-sm text-gray-500">-</td>
                       </tr>
                     ))}
+
+                    {/* Transferred Sales Entries - Show transferred stock data */}
+                    {trip.transferHistory?.map((transfer, transferIndex) => {
+                      const transferredStock = transfer.transferredStock;
+                      const totalAmount = (transferredStock?.birds || 0) * (transferredStock?.rate || 0);
+                      
+                      return (
+                        <tr key={`transfer-sales-${transferIndex}`} className="border-b hover:bg-gray-50 bg-purple-50">
+                          <td className="px-4 py-3 text-sm text-gray-900 border-r">{(trip.sales?.length || 0) + (trip.stocks?.length || 0) + (trip.transfers?.length || 0) + transferIndex + 1}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900 border-r">
+                            <span className="text-purple-700 font-medium">INTRA 2 CROSSING (Transfer Sale)</span>
+                            <div className="text-xs text-purple-600">
+                              (To Trip #{transfer.transferredTo?.tripId ? (
+                                <Link 
+                                  to={`/trips/${transfer.transferredTo.id}`}
+                                  className="text-blue-600 hover:text-blue-800 underline cursor-pointer"
+                                >
+                                  {transfer.transferredTo.tripId}
+                                </Link>
+                              ) : (
+                                transfer.transferredTo || 'N/A'
+                              )})
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 border-r">{new Date(transfer.transferredAt).toLocaleDateString()}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900 border-r">{transferredStock?.birds || 0}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900 border-r">{(transferredStock?.weight || 0).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900 border-r">
+                            {transferredStock?.avgWeight || (transferredStock?.weight && transferredStock?.birds ? (transferredStock.weight / transferredStock.birds).toFixed(2) : '0.00')}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 border-r">₹{(transferredStock?.rate || 0).toFixed(2)}</td>
+                          <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{totalAmount.toFixed(2)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500 border-r">-</td>
+                          <td className="px-4 py-3 text-sm text-gray-500 border-r">-</td>
+                          <td className="px-4 py-3 text-sm text-gray-500">-</td>
+                        </tr>
+                      );
+                    })}
                     {/* Total Sales Row */}
                     <tr className="bg-black text-white font-bold">
                       <td className="px-4 py-3 border-r">TOTAL SALE</td>
@@ -1480,6 +1518,31 @@ const downloadExcel2 = () => {
                         <td className="px-4 py-3 border-r">-</td>
                         <td className="px-4 py-3 border-r">
                           ₹{(trip.transfers.reduce((sum, transfer) => sum + ((transfer.transferredStock?.birds || 0) * (transfer.transferredStock?.rate || 0)), 0)).toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 border-r">-</td>
+                        <td className="px-4 py-3 border-r">-</td>
+                        <td className="px-4 py-3">-</td>
+                      </tr>
+                    )}
+
+                    {/* Total Transferred Sales Row */}
+                    {trip.transferHistory && trip.transferHistory.length > 0 && (
+                      <tr className="bg-purple-600 text-white font-bold">
+                        <td className="px-4 py-3 border-r">TOTAL TRANSFERRED SALES</td>
+                        <td className="px-4 py-3 border-r"></td>
+                        <td className="px-4 py-3 border-r"></td>
+                        <td className="px-4 py-3 border-r">{trip.transferHistory.reduce((sum, transfer) => sum + (transfer.transferredStock?.birds || 0), 0)}</td>
+                        <td className="px-4 py-3 border-r">{(trip.transferHistory.reduce((sum, transfer) => sum + (transfer.transferredStock?.weight || 0), 0)).toFixed(2)}</td>
+                        <td className="px-4 py-3 border-r">
+                          {(() => {
+                            const totalTransferredBirds = trip.transferHistory.reduce((sum, transfer) => sum + (transfer.transferredStock?.birds || 0), 0);
+                            const totalTransferredWeight = trip.transferHistory.reduce((sum, transfer) => sum + (transfer.transferredStock?.weight || 0), 0);
+                            return totalTransferredBirds > 0 ? (totalTransferredWeight / totalTransferredBirds).toFixed(2) : '0.00';
+                          })()}
+                        </td>
+                        <td className="px-4 py-3 border-r">-</td>
+                        <td className="px-4 py-3 border-r">
+                          ₹{(trip.transferHistory.reduce((sum, transfer) => sum + ((transfer.transferredStock?.birds || 0) * (transfer.transferredStock?.rate || 0)), 0)).toFixed(2)}
                         </td>
                         <td className="px-4 py-3 border-r">-</td>
                         <td className="px-4 py-3 border-r">-</td>
