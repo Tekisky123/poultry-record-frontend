@@ -43,6 +43,17 @@ const customerSchema = z.object({
   gstOrPanNumber: z.string()
     .max(100, 'GST or PAN number cannot exceed 100 characters')
     .optional(),
+  // Login credentials fields
+  email: z.string()
+    .email('Invalid email format')
+    .min(1, 'Email is required'),
+  password: z.string()
+    .refine((val) => {
+      // Allow empty string for editing (keep current password)
+      if (val === '') return true;
+      // If not empty, validate password strength
+      return val.length >= 6 && /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(val);
+    }, 'Password must contain at least one uppercase letter, one lowercase letter, and one number')
 });
 
 const getShopTypeColor = (type) => {
@@ -90,6 +101,9 @@ export default function Customers() {
       contact: '',
       address: '',
       area: '',
+      gstOrPanNumber: '',
+      email: '',
+      password: ''
     }
   });
 
@@ -196,6 +210,11 @@ export default function Customers() {
     setValue('address', customer.address || '');
     setValue('area', customer.area || '');
     setValue('gstOrPanNumber', customer.gstOrPanNumber || '');
+    // Pre-fill user credentials if available
+    if (customer.user) {
+      setValue('email', customer.user.email || '');
+      setValue('password', ''); // Don't pre-fill password for security
+    }
     setShowAddModal(true);
   };
 
@@ -220,6 +239,11 @@ export default function Customers() {
       ...data,
       contact: `+91${data.contact}`
     };
+    
+    // For editing, remove password if it's empty (keep current password)
+    if (editingCustomer && !data.password) {
+      delete customerData.password;
+    }
     
     if (editingCustomer) {
       updateCustomer({ id: editingCustomer.id, ...customerData });
@@ -574,6 +598,45 @@ export default function Customers() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   {errors.address && <p className="text-red-500 text-xs mt-1">{errors.address.message}</p>}
+                </div>
+              </div>
+
+              {/* Login Credentials Section */}
+              <div className="border-t pt-6 mt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Login Credentials</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address *
+                    </label>
+                    <input
+                      type="email"
+                      {...register('email')}
+                      placeholder="customer@example.com"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Password *
+                    </label>
+                    <input
+                      type="password"
+                      {...register('password')}
+                      placeholder={editingCustomer ? "Leave blank to keep current password" : "Enter password"}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Password must contain at least one uppercase letter, one lowercase letter, and one number
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-blue-50 rounded-lg">
+                  <p className="text-sm text-blue-800">
+                    <strong>Login Info:</strong> Customer can login using their email address or mobile number (+91{editingCustomer ? 'XXXXXXXXXX' : 'contact number'}) along with the password.
+                  </p>
                 </div>
               </div>
 

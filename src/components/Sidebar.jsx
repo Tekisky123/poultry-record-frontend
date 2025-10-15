@@ -20,6 +20,7 @@ import Dropdown from './Dropdown';
 const getMenuItems = (userRole) => {
   const baseItems = [
     { name: 'Users', path: '/users', icon: UserCheck },
+    { name: 'Customers', path: '/customers', icon: Store },
     { 
       name: 'Create And Alter', 
       icon: Settings, 
@@ -27,7 +28,7 @@ const getMenuItems = (userRole) => {
       children: [
         { name: 'Vehicles', path: '/vehicles', icon: Car },
         { name: 'Vendors', path: '/vendors', icon: UsersIcon },
-        { name: 'Customers', path: '/customers', icon: Store },
+        
       ]
     },
   ];
