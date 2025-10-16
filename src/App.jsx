@@ -24,6 +24,14 @@ import SupervisorTripDetails from './pages/SupervisorTripDetails';
 import SupervisorProfile from './pages/SupervisorProfile';
 import SupervisorHeader from './components/SupervisorHeader';
 import BottomNavigation from './components/BottomNavigation';
+
+// Customer Components
+import CustomerDashboard from './pages/CustomerDashboard';
+import CustomerSales from './pages/CustomerSales';
+import CustomerProfile from './pages/CustomerProfile';
+import CustomerSecurity from './pages/CustomerSecurity';
+import CustomerHeader from './components/CustomerHeader';
+import CustomerBottomNavigation from './components/CustomerBottomNavigation';
 import { LogOut } from 'lucide-react';
 
 // Protected Route Component
@@ -79,17 +87,21 @@ const AppContent = () => {
     );
   }
 
-  if (user.role === 'customer') {
+  // Customer PWA Interface
+  if (user.role === 'customer' && user.approvalStatus === 'approved') {
     return (
       <div className="min-h-screen bg-gray-50 pb-20">
-        <h1>Customer App</h1>
-        <button
-          onClick={logout}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-        >
-          <LogOut size={16} className="text-red-500" />
-          <span>Logout</span>
-        </button>
+        <CustomerHeader />
+        <main className="px-4 py-4">
+          <Routes>
+            <Route path="/customer" element={<CustomerDashboard />} />
+            <Route path="/customer/sales" element={<CustomerSales />} />
+            <Route path="/customer/profile" element={<CustomerProfile />} />
+            <Route path="/customer/security" element={<CustomerSecurity />} />
+            <Route path="*" element={<Navigate to="/customer" replace />} />
+          </Routes>
+        </main>
+        <CustomerBottomNavigation />
       </div>
     );
   }
