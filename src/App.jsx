@@ -6,6 +6,8 @@ import Trips from './pages/Trips';
 import TripDetails from './pages/TripDetails';
 import Vendors from './pages/Vendors';
 import Customers from './pages/Customers';
+import CustomerDetails from './pages/CustomerDetails';
+import CustomerPaymentsAdmin from './pages/CustomerPaymentsAdmin';
 import Vehicles from './pages/Vehicles';
 import Reports from './pages/Reports';
 import Users from './pages/Users';
@@ -28,6 +30,7 @@ import BottomNavigation from './components/BottomNavigation';
 // Customer Components
 import CustomerDashboard from './pages/CustomerDashboard';
 import CustomerSales from './pages/CustomerSales';
+import CustomerPayments from './pages/CustomerPayments';
 import CustomerProfile from './pages/CustomerProfile';
 import CustomerSecurity from './pages/CustomerSecurity';
 import CustomerHeader from './components/CustomerHeader';
@@ -93,13 +96,14 @@ const AppContent = () => {
       <div className="min-h-screen bg-gray-50 pb-20">
         <CustomerHeader />
         <main className="px-4 py-4">
-          <Routes>
-            <Route path="/customer" element={<CustomerDashboard />} />
-            <Route path="/customer/sales" element={<CustomerSales />} />
-            <Route path="/customer/profile" element={<CustomerProfile />} />
-            <Route path="/customer/security" element={<CustomerSecurity />} />
-            <Route path="*" element={<Navigate to="/customer" replace />} />
-          </Routes>
+            <Routes>
+              <Route path="/customer" element={<CustomerDashboard />} />
+              <Route path="/customer/sales" element={<CustomerSales />} />
+              <Route path="/customer/payments" element={<CustomerPayments />} />
+              <Route path="/customer/profile" element={<CustomerProfile />} />
+              <Route path="/customer/security" element={<CustomerSecurity />} />
+              <Route path="*" element={<Navigate to="/customer" replace />} />
+            </Routes>
         </main>
         <CustomerBottomNavigation />
       </div>
@@ -125,6 +129,8 @@ const AppContent = () => {
                 <Route path="/trips/:id" element={<TripDetails />} />
                 <Route path="/vendors" element={<Vendors />} />
                 <Route path="/customers" element={<Customers />} />
+                <Route path="/customers/:id" element={<CustomerDetails />} />
+                <Route path="/customer-payments" element={<CustomerPaymentsAdmin />} />
                 <Route path="/vehicles" element={<Vehicles />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/indirect-expenses" element={<IndirectExpenses />} />

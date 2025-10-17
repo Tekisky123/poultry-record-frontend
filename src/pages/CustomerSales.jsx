@@ -13,6 +13,7 @@ import {
   Clock,
   X
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -148,13 +149,22 @@ const CustomerSales = () => {
           <h1 className="text-2xl font-bold text-gray-900">My Purchases</h1>
           <p className="text-gray-600">Track all your purchases and payment status</p>
         </div>
-        <button
-          onClick={exportToCSV}
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-        >
-          <Download size={16} />
-          Export CSV
-        </button>
+        <div className="flex gap-2">
+          <Link
+            to="/customer/payments"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <CreditCard size={16} />
+            Manage Payments
+          </Link>
+          <button
+            onClick={exportToCSV}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
+            <Download size={16} />
+            Export CSV
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -187,13 +197,37 @@ const CustomerSales = () => {
         </div>
       </div>
 
+      {/* Quick Actions for Outstanding Balances */}
+      {filteredSales && filteredSales.some(sale => sale.balance > 0) && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-6 h-6 text-red-600" />
+              <div>
+                <h3 className="font-semibold text-red-900">Outstanding Balances</h3>
+                <p className="text-sm text-red-700">
+                  You have {(filteredSales || []).filter(sale => sale.balance > 0).length} unpaid purchases
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/customer/payments"
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <CreditCard size={16} />
+              Pay Now
+            </Link>
+          </div>
+        </div>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="card">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Purchases</p>
-              <p className="text-2xl font-bold text-gray-900">{filteredSales.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{filteredSales?.length || 0}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
               <Package className="w-6 h-6 text-blue-600" />
@@ -206,7 +240,7 @@ const CustomerSales = () => {
             <div>
               <p className="text-sm text-gray-600">Total Amount</p>
               <p className="text-2xl font-bold text-gray-900">
-                ₹{filteredSales.reduce((sum, sale) => sum + (sale.amount || 0), 0).toLocaleString()}
+                ₹{(filteredSales || []).reduce((sum, sale) => sum + (sale.amount || 0), 0).toLocaleString()}
               </p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
@@ -220,7 +254,7 @@ const CustomerSales = () => {
             <div>
               <p className="text-sm text-gray-600">Balance Due</p>
               <p className="text-2xl font-bold text-red-600">
-                ₹{filteredSales.reduce((sum, sale) => sum + (sale.balance || 0), 0).toLocaleString()}
+                ₹{(filteredSales || []).reduce((sum, sale) => sum + (sale.balance || 0), 0).toLocaleString()}
               </p>
             </div>
             <div className="p-3 bg-red-100 rounded-lg">
@@ -232,7 +266,7 @@ const CustomerSales = () => {
 
       {/* Sales List */}
       <div className="card">
-        {filteredSales.length === 0 ? (
+        {!filteredSales || filteredSales.length === 0 ? (
           <div className="text-center py-12">
             <Package className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <p className="text-gray-500 text-lg">No purchases found</p>

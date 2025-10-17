@@ -1,5 +1,6 @@
 // src/pages/Customers.jsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -72,6 +73,7 @@ const getStatusColor = (isActive) => {
 
 export default function Customers() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -224,13 +226,8 @@ export default function Customers() {
     }
   };
 
-  const handleView = async (customer) => {
-    const customerDetails = await fetchCustomerById(customer.id);
-    if (customerDetails) {
-      // You can implement a view modal here or navigate to a details page
-      console.log('Customer details:', customerDetails);
-      alert(`Customer: ${customerDetails.shopName}\nOwner: ${customerDetails.ownerName}\nContact: ${customerDetails.contact}`);
-    }
+  const handleView = (customer) => {
+    navigate(`/customers/${customer.id}`);
   };
 
   const onSubmit = (data) => {
@@ -471,7 +468,7 @@ export default function Customers() {
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
                     {customer.isActive ? 'Active' : 'Inactive'}
                   </span>
-                  <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                  <button onClick={() => handleView(customer)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
                     View Details
                   </button>
                 </div>

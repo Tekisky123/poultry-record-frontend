@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom';
-import { Home, ShoppingCart, User, Shield } from 'lucide-react';
+import { Home, ShoppingCart, CreditCard, User, Shield } from 'lucide-react';
 
 const CustomerBottomNavigation = () => {
   const location = useLocation();
@@ -7,6 +7,7 @@ const CustomerBottomNavigation = () => {
   const navItems = [
     { name: 'Dashboard', path: '/customer', icon: Home },
     { name: 'Sales', path: '/customer/sales', icon: ShoppingCart },
+    { name: 'Payments', path: '/customer/payments', icon: CreditCard },
     { name: 'Profile', path: '/customer/profile', icon: User },
     { name: 'Security', path: '/customer/security', icon: Shield },
   ];

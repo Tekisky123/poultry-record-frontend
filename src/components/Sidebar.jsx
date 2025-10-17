@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   Settings,
+  CreditCard,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -21,6 +22,7 @@ const getMenuItems = (userRole) => {
   const baseItems = [
     { name: 'Users', path: '/users', icon: UserCheck },
     { name: 'Customers', path: '/customers', icon: Store },
+    { name: 'Customer Payments', path: '/customer-payments', icon: CreditCard },
     { 
       name: 'Create And Alter', 
       icon: Settings, 
