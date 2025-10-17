@@ -49,6 +49,8 @@ const SupervisorTripDetails = () => {
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [highlightedCustomerIndex, setHighlightedCustomerIndex] = useState(-1);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerBalance, setCustomerBalance] = useState(null);
+  const [loadingBalance, setLoadingBalance] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showRefreshToast, setShowRefreshToast] = useState(false);
@@ -366,6 +368,30 @@ const SupervisorTripDetails = () => {
     setCustomerSearchTerm(`${customer.shopName} - ${customer.ownerName || 'N/A'}`);
     setShowCustomerDropdown(false);
     setHighlightedCustomerIndex(-1);
+    fetchCustomerBalance(customer);
+  };
+
+  const fetchCustomerBalance = async (customer) => {
+    
+    if (!customer) {
+      setCustomerBalance(null);
+      return;
+    }
+
+    try {
+      setLoadingBalance(true);
+      const response = await api.get(`/customer/panel/${customer.user._id}/sales`);
+      if (response.data.success) {
+        const sales = response.data.data || [];
+        const totalBalance = sales.reduce((sum, sale) => sum + (sale.balance || 0), 0);
+        setCustomerBalance(totalBalance);
+      }
+    } catch (error) {
+      console.error('Error fetching customer balance:', error);
+      setCustomerBalance(null);
+    } finally {
+      setLoadingBalance(false);
+    }
   };
 
   const handleCustomerInputFocus = () => {
@@ -2427,6 +2453,7 @@ const SupervisorTripDetails = () => {
                         setSelectedCustomer(null);
                         setSaleData(prev => ({ ...prev, client: '' }));
                         setHighlightedCustomerIndex(-1);
+                        setCustomerBalance(null);
                       }}
                       onFocus={handleCustomerInputFocus}
                       onBlur={handleCustomerInputBlur}
@@ -2497,6 +2524,45 @@ const SupervisorTripDetails = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Customer Balance Display */}
+                {selectedCustomer && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <DollarSign size={16} className="text-gray-600" />
+                        <span className="text-sm font-medium text-gray-700">Customer Balance:</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {loadingBalance ? (
+                          <div className="flex items-center gap-1">
+                            <Loader2 size={14} className="animate-spin text-gray-500" />
+                            <span className="text-sm text-gray-500">Loading...</span>
+                          </div>
+                        ) : customerBalance !== null ? (
+                          <span className={`text-sm font-semibold ${
+                            customerBalance > 0 ? 'text-red-600' : 'text-green-600'
+                          }`}>
+                            ₹{customerBalance.toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-500">No data</span>
+                        )}
+                      </div>
+                    </div>
+                    {customerBalance !== null && customerBalance > 0 && (
+                      <div className="mt-2 text-xs text-red-600">
+                        ⚠️ This customer has outstanding balance
+                      </div>
+                    )}
+                    {customerBalance !== null && customerBalance === 0 && (
+                      <div className="mt-2 text-xs text-green-600">
+                        ✅ Customer account is up to date
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Bill Number</label>
                   <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">

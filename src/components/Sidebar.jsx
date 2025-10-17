@@ -17,6 +17,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Dropdown from './Dropdown';
+import chickenLogo from '../assets/chicken-logo.png';
 
 const getMenuItems = (userRole) => {
   const baseItems = [
@@ -53,6 +54,35 @@ export default function Sidebar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
   const { user: currentUser, logout } = useAuth();
+
+  // Add custom scrollbar styles
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .sidebar-scrollbar::-webkit-scrollbar {
+        width: 6px;
+      }
+      .sidebar-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .sidebar-scrollbar::-webkit-scrollbar-thumb {
+        background: rgba(147, 197, 253, 0.3);
+        border-radius: 3px;
+        transition: background 0.2s ease;
+      }
+      .sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
+        background: rgba(147, 197, 253, 0.5);
+      }
+      .sidebar-scrollbar::-webkit-scrollbar-thumb:active {
+        background: rgba(147, 197, 253, 0.7);
+      }
+    `;
+    document.head.appendChild(style);
+    
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
 
   const toggleExpanded = (itemName) => {
     setExpandedItems(prev => ({
@@ -95,14 +125,24 @@ export default function Sidebar() {
           transform transition-transform duration-300 ease-in-out
           lg:translate-x-0
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+          flex flex-col h-full
         `}
       >
-        <div className="p-6 border-b border-blue-700">
+        {/* Header */}
+        <div className="p-6 border-b border-blue-700 flex-shrink-0">
+          <img src={chickenLogo} alt="logo" className="h-18 w-18 mx-10 mb-2" />
           <h1 className="text-2xl font-bold text-white">Poultry Admin</h1>
           <p className="text-blue-200 text-sm mt-1">RCC AND TRADING COMPANY</p>
         </div>
 
-        <nav className="mt-6 px-3">
+        {/* Navigation - Scrollable */}
+        <nav 
+          className="flex-1 overflow-y-auto px-3 py-6 sidebar-scrollbar"
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(147, 197, 253, 0.3) transparent'
+          }}
+        >
           <ul className="space-y-2">
             {getMenuItems(currentUser?.role).map((item) => {
               const Icon = item.icon;
@@ -187,8 +227,8 @@ export default function Sidebar() {
           </ul>
         </nav>
 
-        {/* User section at bottom */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-blue-700">
+        {/* User section at bottom - Fixed */}
+        <div className="p-4 border-t border-blue-700 flex-shrink-0">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import FailureModal from '../components/FailureModal';
+import chickenLogo from '../assets/chicken-logo.png';
 
 const SignIn = () => {
   const [formData, setFormData] = useState({
@@ -51,13 +52,14 @@ const SignIn = () => {
       <div className="max-w-md w-full space-y-8">
         {/* Logo/Header */}
         <div className="text-center">
-          <div className="mx-auto h-16 w-16 bg-indigo-600 rounded-full flex items-center justify-center">
-            <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mx-auto h-20 w-20 rounded-full flex items-center justify-center">
+            {/* <svg className="h-8 w-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-            </svg>
+            </svg> */}
+            <img src={chickenLogo} alt="logo" className="h-20 w-20" />
           </div>
-          <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-            Poultry Farm Management
+          <h2 className="mt-6 text-2xl font-extrabold text-gray-900">
+            RCC AND TRADING COMPANY
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             Sign in to your account
