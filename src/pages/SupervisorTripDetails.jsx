@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Truck,
@@ -12,6 +12,7 @@ import {
   Eye,
   ShoppingCart,
   Receipt,
+  CreditCard,
   Fuel,
   TrendingUp,
   CheckCircle,
@@ -48,6 +49,7 @@ const SupervisorTripDetails = () => {
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
   const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
   const [highlightedCustomerIndex, setHighlightedCustomerIndex] = useState(-1);
+  const highlightedCustomerRef = useRef(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerBalance, setCustomerBalance] = useState(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
@@ -61,6 +63,7 @@ const SupervisorTripDetails = () => {
   // Form states
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const [showSaleModal, setShowSaleModal] = useState(false);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showDieselModal, setShowDieselModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
@@ -619,6 +622,79 @@ const SupervisorTripDetails = () => {
     }
   };
 
+  const handleReceiptSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    try {
+      // Validate mandatory fields for receipt
+      const mandatoryFields = ['client', 'billNumber'];
+      const validationErrors = validateMandatoryFields(saleData, mandatoryFields);
+      
+      if (validationErrors.length > 0) {
+        alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Validate that at least some payment is made
+      const totalPaid = (saleData.cashPaid || 0) + (saleData.onlinePaid || 0);
+      if (totalPaid <= 0) {
+        alert('Please enter at least some payment amount (cash or online)');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Prepare receipt data - set birds, weight, rate to 0 for receipts
+      const receiptData = {
+        ...saleData,
+        client: saleData.client === '' ? null : saleData.client,
+        birds: 0,
+        weight: 0,
+        rate: 0,
+        amount: 0,
+        avgWeight: 0,
+        isReceipt: true,
+        saleType: 'receipt' // Add label for reports
+      };
+
+      let data;
+      if (editingSaleIndex !== null) {
+        // Edit existing receipt
+        data = await api.put(`/trip/${id}/sale/${editingSaleIndex}`, receiptData);
+        if (data.data.success) {
+          setTrip(data.data.data);
+          setShowReceiptModal(false);
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '' });
+          setSelectedCustomer(null);
+          setCustomerSearchTerm('');
+          setShowCustomerDropdown(false);
+          setEditingSaleIndex(null);
+          alert('Receipt updated successfully!');
+        }
+      } else {
+        // Add new receipt as a sale
+        data = await api.post(`/trip/${id}/sale`, receiptData);
+        if (data.data.success) {
+          setTrip(data.data.data);
+          setShowReceiptModal(false);
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '' });
+          setSelectedCustomer(null);
+          setCustomerSearchTerm('');
+          setShowCustomerDropdown(false);
+          alert('Receipt added successfully!');
+          // Update status to 'ongoing' when first management activity starts
+          await updateTripStatusToOngoing();
+        }
+      }
+    } catch (error) {
+      console.error('Error with receipt:', error);
+      alert(error.response?.data?.message || 'Failed to save receipt');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleExpenseSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -1057,6 +1133,20 @@ const SupervisorTripDetails = () => {
                 Add Sale
               </button>
               <button
+                onClick={() => {
+                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', isReceipt: true });
+                  setSelectedCustomer(null);
+                  setCustomerSearchTerm('');
+                  setShowCustomerDropdown(false);
+                  setEditingSaleIndex(null);
+                  setShowReceiptModal(true);
+                }}
+                className="flex-shrink-0 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 whitespace-nowrap"
+              >
+                <CreditCard size={16} />
+                Receipt
+              </button>
+              <button
                 onClick={() => setShowExpenseModal(true)}
                 className="flex-shrink-0 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2 whitespace-nowrap"
               >
@@ -1082,8 +1172,8 @@ const SupervisorTripDetails = () => {
                     weight: '', 
                     avgWeight: 0, 
                     rate: trip.summary?.avgPurchaseRate || '', 
-                    value: 0, 
-                    notes: '' 
+                    value: 0,
+                    notes: ''
                   });
                   setShowStockModal(true);
                 }}
@@ -1198,7 +1288,7 @@ const SupervisorTripDetails = () => {
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-gray-400" />
                       <span className="text-sm text-gray-600">Labour: {trip.labour}</span>
-                    </div>
+                  </div>
                   )}
 
                   {trip.vehicleReadings?.opening && (
@@ -1399,8 +1489,20 @@ const SupervisorTripDetails = () => {
                                     {sale.client?.shopName || `Customer ${index + 1}`}
                                   </div>
                                   <div className="text-sm text-gray-600">
+                                    {sale.isReceipt ? (
+                                      <>
+                                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full mr-2">
+                                          <Receipt size={12} className="mr-1" />
+                                          Receipt
+                                        </span>
+                                        Bill: {sale.billNumber}
+                                      </>
+                                    ) : (
+                                      <>
                                     Bill: {sale.billNumber} | {sale.birds} birds | {sale.weight} kg
                                     {sale.avgWeight && ` (Avg: ${sale.avgWeight} kg/bird)`}
+                                      </>
+                                    )}
                                   </div>
                                   <div className="text-xs text-gray-500 mt-1">
                                     {/* {sale.paymentMode}: ₹{sale.receivedAmount?.toLocaleString() || '0'} | */}
@@ -1420,6 +1522,26 @@ const SupervisorTripDetails = () => {
                                     {trip.status !== 'completed' && (
                                       <button
                                         onClick={() => {
+                                          if (sale.isReceipt) {
+                                            setSaleData({
+                                              client: sale.client?._id || '',
+                                              billNumber: sale.billNumber || generateBillNumber(),
+                                              birds: 0,
+                                              weight: 0,
+                                              avgWeight: 0,
+                                              rate: 0,
+                                              amount: 0,
+                                              receivedAmount: sale.receivedAmount || 0,
+                                              discount: sale.discount || 0,
+                                              balance: sale.balance || 0,
+                                              cashPaid: sale.cashPaid || 0,
+                                              onlinePaid: sale.onlinePaid || 0,
+                                              isReceipt: true
+                                            });
+                                            setSelectedCustomer(sale.client);
+                                            setEditingSaleIndex(trip.sales.findIndex(s => s._id === sale._id));
+                                            setShowReceiptModal(true);
+                                          } else {
                                           setSaleData({
                                             client: sale.client?._id || '',
                                             billNumber: sale.billNumber || generateBillNumber(),
@@ -1439,6 +1561,7 @@ const SupervisorTripDetails = () => {
                                           setSelectedCustomer(sale.client);
                                           setEditingSaleIndex(trip.sales.findIndex(s => s._id === sale._id));
                                           setShowSaleModal(true);
+                                          }
                                         }}
                                         className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 flex items-center gap-1"
                                       >
@@ -1478,14 +1601,14 @@ const SupervisorTripDetails = () => {
                   <button
                     onClick={() => {
                       setEditingStockIndex(null);
-                  setStockData({ 
+                      setStockData({ 
                     birds: '', 
                     weight: '', 
-                    avgWeight: 0, 
+                        avgWeight: 0, 
                     rate: trip.summary?.avgPurchaseRate || '', 
-                    value: 0, 
-                    notes: '' 
-                  });
+                        value: 0,
+                        notes: ''
+                      });
                       setShowStockModal(true);
                     }}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
@@ -1646,8 +1769,8 @@ const SupervisorTripDetails = () => {
                                     expense.category === 'toll' ? 'bg-purple-100 text-purple-800' :
                                       expense.category === 'parking' ? 'bg-indigo-100 text-indigo-800' :
                                         expense.category === 'loading/unloading' ? 'bg-orange-100 text-orange-800' :
-                                          expense.category === 'maintenance' ? 'bg-red-100 text-red-800' :
-                                            'bg-gray-100 text-gray-800'
+                                        expense.category === 'maintenance' ? 'bg-red-100 text-red-800' :
+                                          'bg-gray-100 text-gray-800'
                               }`}>
                               {expense.category}
                             </span>
@@ -2483,35 +2606,35 @@ const SupervisorTripDetails = () => {
                   {showCustomerDropdown && filteredCustomers.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {filteredCustomers.map((customer, index) => (
-                        <div
-                          key={customer._id || customer.id}
+                            <div
+                              key={customer._id || customer.id}
                           ref={index === highlightedCustomerIndex ? (el) => {
                             if (el) {
                               el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                             }
                           } : null}
-                          onMouseDown={(e) => {
-                            e.preventDefault();
-                            handleCustomerSelect(customer);
-                          }}
+                              onMouseDown={(e) => {
+                                e.preventDefault();
+                                handleCustomerSelect(customer);
+                              }}
                           onMouseEnter={() => setHighlightedCustomerIndex(index)}
                           className={`px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0 ${
                             index === highlightedCustomerIndex 
                               ? 'bg-blue-100 border-blue-200' 
                               : 'hover:bg-gray-100'
                           }`}
-                        >
-                          <div className="font-medium text-gray-900">{customer.shopName}</div>
-                          {customer.ownerName && (
-                            <div className="text-sm text-gray-600">Owner: {customer.ownerName}</div>
-                          )}
-                          <div className="text-sm text-gray-500">{customer.contact}</div>
+                            >
+                              <div className="font-medium text-gray-900">{customer.shopName}</div>
+                              {customer.ownerName && (
+                                <div className="text-sm text-gray-600">Owner: {customer.ownerName}</div>
+                              )}
+                              <div className="text-sm text-gray-500">{customer.contact}</div>
                           {customer.area && (
                             <div className="text-xs text-gray-400">Area: {customer.area}</div>
                           )}
-                          {customer.gstOrPanNumber && (
-                            <div className="text-xs text-gray-400">GST/PAN: {customer.gstOrPanNumber}</div>
-                          )}
+                              {customer.gstOrPanNumber && (
+                                <div className="text-xs text-gray-400">GST/PAN: {customer.gstOrPanNumber}</div>
+                              )}
                         </div>
                       ))}
                     </div>
@@ -2815,6 +2938,255 @@ const SupervisorTripDetails = () => {
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingSaleIndex !== null ? 'Update Sale' : 'Add Sale')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Receipt Modal */}
+      {showReceiptModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-md max-h-[calc(90vh-56px)] flex flex-col">
+            <div className="p-4 pb-3 border-b border-gray-200 flex-shrink-0">
+              <h3 className="text-lg font-semibold">
+                {editingSaleIndex !== null ? 'Edit Receipt' : 'Add Receipt'}
+              </h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
+              
+              {/* Receipt Info */}
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+                <div className="flex items-center gap-2 text-green-700">
+                  <Receipt size={16} />
+                  <span className="text-sm font-medium">Payment Receipt</span>
+                </div>
+                <p className="text-xs text-green-600 mt-1">
+                  Customer paying remaining balance without purchasing birds
+                </p>
+              </div>
+
+              <form onSubmit={handleReceiptSubmit} className="space-y-3">
+                <div className="relative">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer *</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={selectedCustomer ? `${selectedCustomer.shopName} - ${selectedCustomer.ownerName || 'N/A'}` : customerSearchTerm}
+                      onChange={(e) => {
+                        setCustomerSearchTerm(e.target.value);
+                        setSelectedCustomer(null);
+                        setSaleData(prev => ({ ...prev, client: '' }));
+                        setHighlightedCustomerIndex(-1);
+                        setCustomerBalance(null);
+                      }}
+                      onFocus={handleCustomerInputFocus}
+                      onBlur={handleCustomerInputBlur}
+                      onKeyDown={handleCustomerKeyDown}
+                      placeholder="Search customer by name, owner, contact, or area..."
+                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+
+
+
+                    {selectedCustomer && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedCustomer(null);
+                          setCustomerSearchTerm('');
+                          setSaleData(prev => ({ ...prev, client: '' }));
+                          setHighlightedCustomerIndex(-1);
+                        }}
+                        className="absolute right-2 top-1/3 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  {showCustomerDropdown && filteredCustomers.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {filteredCustomers.map((customer, index) => (
+                        <div
+                          key={customer._id || customer.id}
+                          ref={index === highlightedCustomerIndex ? (el) => {
+                            if (el) {
+                              el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                            }
+                          } : null}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleCustomerSelect(customer);
+                          }}
+                          onMouseEnter={() => setHighlightedCustomerIndex(index)}
+                          className={`px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0 ${
+                            index === highlightedCustomerIndex 
+                              ? 'bg-blue-100 border-blue-200' 
+                              : 'hover:bg-gray-100'
+                          }`}
+                        >
+                          <div className="font-medium text-gray-900">{customer.shopName}</div>
+                          {customer.ownerName && (
+                            <div className="text-sm text-gray-600">Owner: {customer.ownerName}</div>
+                          )}
+                          <div className="text-sm text-gray-500">{customer.contact}</div>
+                          {customer.area && (
+                            <div className="text-xs text-gray-400">Area: {customer.area}</div>
+                          )}
+                          {customer.gstOrPanNumber && (
+                            <div className="text-xs text-gray-400">GST/PAN: {customer.gstOrPanNumber}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {showCustomerDropdown && filteredCustomers.length === 0 && customerSearchTerm.trim() !== '' && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg">
+                      <div className="px-4 py-3 text-gray-500 text-center">
+                        No customers found
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Customer Balance Display */}
+                {selectedCustomer && (
+                  <div className="mt-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <DollarSign size={16} className="text-gray-600" />
+                        <span className="text-sm font-medium text-gray-700">Customer Balance:</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {loadingBalance ? (
+                          <div className="flex items-center gap-1">
+                            <Loader2 size={14} className="animate-spin text-gray-500" />
+                            <span className="text-sm text-gray-500">Loading...</span>
+                          </div>
+                        ) : customerBalance !== null ? (
+                          <span className={`text-sm font-semibold ${
+                            customerBalance > 0 ? 'text-red-600' : 'text-green-600'
+                          }`}>
+                            ₹{customerBalance.toLocaleString()}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-500">No data</span>
+                        )}
+                      </div>
+                    </div>
+                    {customerBalance !== null && (
+                      <div className="mt-2 text-xs text-gray-600">
+                        {customerBalance > 0 ? 'Outstanding amount to be paid' : 'No outstanding balance'}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Bill Number *</label>
+                  <input
+                    type="text"
+                    value={saleData.billNumber}
+                    onChange={(e) => handleSaleDataChange('billNumber', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Auto-generated"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cash Paid (₹)</label>
+                    <input
+                      type="number"
+                      value={saleData.cashPaid}
+                      onChange={(e) => handleSaleDataChange('cashPaid', Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="0"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Online Paid (₹)</label>
+                    <input
+                      type="number"
+                      value={saleData.onlinePaid}
+                      onChange={(e) => handleSaleDataChange('onlinePaid', Number(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="0"
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Balance (₹)</label>
+                  <input
+                    type="number"
+                    value={(() => {
+                      // For Receipt modal: calculate balance based on customer's outstanding balance
+                      const totalPaid = Number(saleData.cashPaid) + Number(saleData.onlinePaid);
+                      if (customerBalance !== null && customerBalance > 0) {
+                        // If payment exceeds customer balance, show 0
+                        const remainingBalance = customerBalance - totalPaid;
+                        return Math.max(0, remainingBalance).toFixed(2);
+                      }
+                      return saleData.balance.toFixed(2);
+                    })()}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                    placeholder="Auto-calculated"
+                    readOnly
+                    step="0.01"
+                  />
+                  {/* Show extra payment info */}
+                  {customerBalance !== null && customerBalance > 0 && (Number(saleData.cashPaid) + Number(saleData.onlinePaid)) > customerBalance && (
+                    <div className="mt-1 text-xs text-blue-600 bg-blue-50 p-2 rounded">
+                      <div className="font-medium">Extra Payment Applied to Customer Balance</div>
+                      <div>Original Balance: ₹{customerBalance.toFixed(2)}</div>
+                      <div>Payment: ₹{(Number(saleData.cashPaid) + Number(saleData.onlinePaid)).toFixed(2)}</div>
+                      <div>Extra Payment: ₹{Math.max(0, (Number(saleData.cashPaid) + Number(saleData.onlinePaid)) - customerBalance).toFixed(2)}</div>
+                      <div>Remaining Customer Balance: ₹0.00</div>
+                    </div>
+                  )}
+                </div>
+              </form>
+
+              {/* Help Text */}
+              <div className="mt-3 text-xs text-gray-500 space-y-1">
+                <p>• <strong>CUSTOMER:</strong> Select customer from dropdown</p>
+                <p>• <strong>BILL NUMBER:</strong> Auto-generated receipt number</p>
+                <p>• <strong>PAYMENT:</strong> Enter cash and/or online payment amounts</p>
+                <p>• <strong>BALANCE:</strong> Automatically calculated based on customer's outstanding balance</p>
+              </div>
+            </div>
+            
+            <div className="p-4 pt-3 border-t border-gray-200 flex-shrink-0">
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowReceiptModal(false);
+                    setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '' });
+                    setSelectedCustomer(null);
+                    setCustomerSearchTerm('');
+                    setShowCustomerDropdown(false);
+                    setEditingSaleIndex(null);
+                  }}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleReceiptSubmit}
+                  disabled={isSubmitting || !selectedCustomer}
+                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+                >
+                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingSaleIndex !== null ? 'Update Receipt' : 'Add Receipt')}
                 </button>
               </div>
             </div>
