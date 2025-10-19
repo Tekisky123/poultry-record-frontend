@@ -1,6 +1,7 @@
 import { useAuth } from '../contexts/AuthContext';
 import { Bell, Menu, LogOut, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
+import chickenLogo from '../assets/chicken-logo.png';
 
 const CustomerHeader = () => {
   const { user, logout } = useAuth();
@@ -15,8 +16,9 @@ const CustomerHeader = () => {
       <div className="px-4 py-3 flex items-center justify-between">
         {/* Logo and Title */}
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-green-600 rounded-lg flex items-center justify-center">
-            <ShoppingCart className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center">
+            {/* <ShoppingCart className="w-5 h-5 text-white" /> */}
+            <img src={chickenLogo} alt="Logo" className="w-10 h-10" />
           </div>
           <div>
             <h1 className="text-lg font-semibold text-gray-900">Customer Portal</h1>

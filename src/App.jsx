@@ -98,10 +98,7 @@ const AppContent = () => {
         <main className="px-4 py-4">
             <Routes>
               <Route path="/customer" element={<CustomerDashboard />} />
-              <Route path="/customer/sales" element={<CustomerSales />} />
-              <Route path="/customer/payments" element={<CustomerPayments />} />
               <Route path="/customer/profile" element={<CustomerProfile />} />
-              <Route path="/customer/security" element={<CustomerSecurity />} />
               <Route path="*" element={<Navigate to="/customer" replace />} />
             </Routes>
         </main>

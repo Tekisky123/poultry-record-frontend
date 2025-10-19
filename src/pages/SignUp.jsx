@@ -14,7 +14,8 @@ const SignUp = () => {
     confirmPassword: '',
     role: 'supervisor',
     age: '',
-    address: ''
+    address: '',
+    gstOrPanNumber: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -49,6 +50,22 @@ const SignUp = () => {
     if (!formData.email) {
       setError('Email is required');
       return false;
+    }
+
+    // GST/PAN validation for customers
+    if (formData.role === 'customer' && !formData.gstOrPanNumber.trim()) {
+      setError('GST/PAN number is required for customers');
+      return false;
+    }
+
+    // Basic GST/PAN format validation (optional - can be enhanced)
+    if (formData.role === 'customer' && formData.gstOrPanNumber.trim()) {
+      const gstPanValue = formData.gstOrPanNumber.trim();
+      // Basic length check - GST is typically 15 chars, PAN is 10 chars
+      if (gstPanValue.length < 10 || gstPanValue.length > 15) {
+        setError('GST/PAN number must be between 10-15 characters');
+        return false;
+      }
     }
 
     return true;
@@ -227,6 +244,28 @@ const SignUp = () => {
                   placeholder="Enter your address"
                 />
               </div>
+
+              {/* GST/PAN Number Input - Only show for customers */}
+              {formData.role === 'customer' && (
+                <div>
+                  <label htmlFor="gstOrPanNumber" className="block text-sm font-medium text-gray-700">
+                    GST/PAN Number *
+                  </label>
+                  <input
+                    id="gstOrPanNumber"
+                    name="gstOrPanNumber"
+                    type="text"
+                    required={formData.role === 'customer'}
+                    value={formData.gstOrPanNumber}
+                    onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Enter GST or PAN number"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Required for customer registration. Enter your GST number (15 digits) or PAN number (10 characters)
+                  </p>
+                </div>
+              )}
 
               {/* Password Input */}
               <div>
