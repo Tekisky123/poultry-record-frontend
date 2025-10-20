@@ -4,6 +4,7 @@ import { Home, User } from 'lucide-react';
 const CustomerBottomNavigation = () => {
   const location = useLocation();
 
+  // This is customer bottom navigation
   const navItems = [
     { name: 'Dashboard', path: '/customer', icon: Home },
     { name: 'Profile', path: '/customer/profile', icon: User },
