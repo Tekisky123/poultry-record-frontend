@@ -25,6 +25,7 @@ import * as XLSX from 'xlsx';
 import { downloadTripPDF } from '../utils/downloadTripPDF';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
+import EditTripModal from '../components/EditTripModal';
 
 export default function TripDetails() {
   const { id } = useParams();
@@ -41,6 +42,7 @@ export default function TripDetails() {
   const [showDieselModal, setShowDieselModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showEditTripModal, setShowEditTripModal] = useState(false);
   
   // Edit states
   const [editingPurchaseIndex, setEditingPurchaseIndex] = useState(null);
@@ -1725,7 +1727,19 @@ const downloadExcel2 = () => {
               <h3 className="text-lg font-semibold text-gray-900">Trip Summary</h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Trip Details</h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-gray-900">Trip Details</h3>
+                    {/* Edit button - only show for completed trips */}
+                    {trip.status === 'completed' && (
+                      <button
+                        onClick={() => setShowEditTripModal(true)}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                      >
+                        <Edit size={16} />
+                        Edit
+                      </button>
+                    )}
+                  </div>
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
                       <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -3080,6 +3094,16 @@ const downloadExcel2 = () => {
           </div>
         </div>
       )}
+
+      {/* Edit Trip Modal */}
+      <EditTripModal
+        isOpen={showEditTripModal}
+        onClose={() => setShowEditTripModal(false)}
+        trip={trip}
+        onSuccess={() => {
+          fetchTrip(); // Refresh trip data
+        }}
+      />
     </div>
   );
 }

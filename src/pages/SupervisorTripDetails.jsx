@@ -17,12 +17,14 @@ import {
   TrendingUp,
   CheckCircle,
   Lock,
-  RefreshCw
+  RefreshCw,
+  Edit
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 import InvoiceGenerator from '../components/InvoiceGenerator';
 import TransferTripModal from '../components/TransferTripModal';
+import EditTripModal from '../components/EditTripModal';
 
 const SupervisorTripDetails = () => {
   const { id } = useParams();
@@ -69,6 +71,7 @@ const SupervisorTripDetails = () => {
   const [showStockModal, setShowStockModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showEditTripModal, setShowEditTripModal] = useState(false);
   const [showCompleteTripDetailsModal, setShowCompleteTripDetailsModal] = useState(false);
 
   // Edit states
@@ -1380,7 +1383,16 @@ const SupervisorTripDetails = () => {
           {activeTab === 'overview' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-gray-900">Trip Details</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">Trip Details</h3>
+                  <button
+                    onClick={() => setShowEditTripModal(true)}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    <Edit size={16} />
+                    Edit
+                  </button>
+                </div>
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
                     <MapPin className="w-4 h-4 text-gray-400" />
@@ -4061,6 +4073,16 @@ const SupervisorTripDetails = () => {
           </div>
         </div>
       )}
+
+      {/* Edit Trip Modal */}
+      <EditTripModal
+        isOpen={showEditTripModal}
+        onClose={() => setShowEditTripModal(false)}
+        trip={trip}
+        onSuccess={() => {
+          fetchTrip(); // Refresh trip data
+        }}
+      />
 
     </div>
   );
