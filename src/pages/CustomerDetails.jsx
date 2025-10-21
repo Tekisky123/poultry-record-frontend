@@ -219,6 +219,13 @@ const CustomerDetails = () => {
               </div>
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Opening Balance</label>
+              <div className="flex items-center gap-2">
+                <CreditCard size={16} className="text-gray-400" />
+                <span className="text-gray-900 font-semibold">₹{(customer.openingBalance || 0).toLocaleString()}</span>
+              </div>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                 customer.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -259,11 +266,11 @@ const CustomerDetails = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Outstanding Balance</p>
-              <p className="text-2xl font-bold text-red-600">₹{totalBalance.toLocaleString()}</p>
+              <p className="text-sm text-gray-600">Opening Balance</p>
+              <p className="text-2xl font-bold text-orange-600">₹{(customer.openingBalance || 0).toLocaleString()}</p>
             </div>
-            <div className="p-3 bg-red-100 rounded-lg">
-              <AlertCircle className="w-6 h-6 text-red-600" />
+            <div className="p-3 bg-orange-100 rounded-lg">
+              <CreditCard className="w-6 h-6 text-orange-600" />
             </div>
           </div>
         </div>
@@ -300,8 +307,8 @@ const CustomerDetails = () => {
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill No</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bill No</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Trip ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Birds</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Weight</th>
@@ -315,14 +322,14 @@ const CustomerDetails = () => {
               <tbody className="bg-white divide-y divide-gray-200">
                 {sales.map((sale, index) => (
                   <tr key={sale._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {sale.billNumber || 'N/A'}
-                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       <div className="flex items-center gap-1">
                         <Calendar size={14} className="text-gray-400" />
                         {new Date(sale.timestamp).toLocaleDateString()}
                       </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      {sale.billNumber || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <Link to={`/trips/${sale?.trip?._id}`}>
@@ -351,10 +358,10 @@ const CustomerDetails = () => {
                       ₹{((sale.cashPaid || 0) + (sale.onlinePaid || 0)).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      ₹{(sale.balance || 0).toLocaleString()}
+                      ₹{(sale.openingBalance || 0).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {sale.balance > 0 ? (
+                      {sale.openingBalance > 0 ? (
                         <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">
                           <AlertCircle size={12} />
                           Pending

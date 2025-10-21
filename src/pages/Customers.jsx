@@ -14,6 +14,7 @@ import {
   CreditCard,
   Clock,
   Eye,
+  EyeOff,
   Edit,
   Trash2,
   TrendingUp,
@@ -43,6 +44,9 @@ const customerSchema = z.object({
     .optional(),
   gstOrPanNumber: z.string()
     .max(100, 'GST or PAN number cannot exceed 100 characters')
+    .optional(),
+  openingBalance: z.number()
+    .min(0, 'Opening balance cannot be negative')
     .optional(),
   // Login credentials fields
   email: z.string()
@@ -84,6 +88,7 @@ export default function Customers() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   // Debug user information
   useEffect(() => {
@@ -104,6 +109,7 @@ export default function Customers() {
       address: '',
       area: '',
       gstOrPanNumber: '',
+      openingBalance: 0,
       email: '',
       password: ''
     }
@@ -157,7 +163,7 @@ export default function Customers() {
     try {
       setIsSubmitting(true);
       console.log('Updating customer:', { id, ...customerData });
-      const { data } = await api.put(`/customer/${id}`, customerData);
+      const { data } = await api.put(`/customer/admin/${id}`, customerData);
       console.log('Update customer response:', data);
       setCustomers(prev => prev.map(c => c.id === id ? data.data : c));
       setShowAddModal(false);
@@ -177,7 +183,7 @@ export default function Customers() {
   const deleteCustomer = async (id) => {
     try {
       console.log('Deleting customer:', id);
-      await api.delete(`/customer/${id}`);
+      await api.delete(`/customer/admin/${id}`);
       console.log('Customer deleted successfully');
       setCustomers(prev => prev.filter(c => c.id !== id));
       // Show success message
@@ -191,7 +197,7 @@ export default function Customers() {
 
   const fetchCustomerById = async (id) => {
     try {
-      const { data } = await api.get(`/customer/${id}`);
+      const { data } = await api.get(`/customer/admin/${id}`);
       return data.data;
     } catch (err) {
       setError(err.message);
@@ -212,12 +218,14 @@ export default function Customers() {
     setValue('address', customer.address || '');
     setValue('area', customer.area || '');
     setValue('gstOrPanNumber', customer.gstOrPanNumber || '');
+    setValue('openingBalance', customer.openingBalance || 0);
     // Pre-fill user credentials if available
     if (customer.user) {
       setValue('email', customer.user.email || '');
       setValue('password', ''); // Don't pre-fill password for security
     }
     setShowAddModal(true);
+    setShowPassword(false);
   };
 
   const handleDelete = async (customer) => {
@@ -253,6 +261,7 @@ export default function Customers() {
     setEditingCustomer(null);
     reset();
     setShowAddModal(true);
+    setShowPassword(false);
   };
 
   const handleCloseModal = () => {
@@ -260,6 +269,7 @@ export default function Customers() {
     setEditingCustomer(null);
     reset();
     setError('');
+    setShowPassword(false);
   };
 
   const filteredCustomers = customers.filter(customer => {
@@ -585,6 +595,23 @@ export default function Customers() {
                   />
                   {errors.gstOrPanNumber && <p className="text-red-500 text-xs mt-1">{errors.gstOrPanNumber.message}</p>}
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Opening Balance (₹)
+                  </label>
+                  <input
+                    type="number"
+                    {...register('openingBalance', { valueAsNumber: true })}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.openingBalance && <p className="text-red-500 text-xs mt-1">{errors.openingBalance.message}</p>}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Customer's initial outstanding balance
+                  </p>
+                </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Address
@@ -618,12 +645,21 @@ export default function Customers() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Password *
                     </label>
-                    <input
-                      type="password"
-                      {...register('password')}
-                      placeholder={editingCustomer ? "Leave blank to keep current password" : "Enter password"}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        {...register('password')}
+                        placeholder={editingCustomer ? "Leave blank to keep current password" : "Enter password"}
+                        className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600"
+                      >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                      </button>
+                    </div>
                     {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
                     <p className="text-xs text-gray-500 mt-1">
                       Password must contain at least one uppercase letter, one lowercase letter, and one number

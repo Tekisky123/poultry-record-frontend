@@ -1339,23 +1339,24 @@ const SupervisorTripDetails = () => {
       {/* Trip Status */}
       <div className="bg-white p-4 rounded-lg border border-gray-200">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
+          {/* <div className="flex items-center space-x-4"> */}
+          <span className="text-sm text-gray-600">
+              Created: {new Date(trip.createdAt).toLocaleDateString()}
+            </span>
             <span className={`px-3 py-1 rounded-full text-sm font-medium ${trip.status === 'completed' ? 'bg-green-100 text-green-800' :
                 trip.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
                   'bg-yellow-100 text-yellow-800'
               }`}>
               {trip.status}
             </span>
-            <span className="text-sm text-gray-600">
-              Created: {new Date(trip.createdAt).toLocaleDateString()}
-            </span>
-          </div>
-          <div className="text-right">
+            
+          {/* </div> */}
+          {/* <div className="text-right">
             <div className="text-2xl font-bold text-green-600">
               ₹{trip.status === 'completed' ? (trip.summary?.netProfit?.toFixed(2) || '0.00') : Math.max(0, trip.summary?.netProfit || 0).toFixed(2)}
             </div>
             <div className="text-sm text-gray-500">Net Profit</div>
-          </div>
+          </div> */}
         </div>
       </div>
 
