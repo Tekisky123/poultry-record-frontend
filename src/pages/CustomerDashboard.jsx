@@ -51,19 +51,20 @@ const CustomerDashboard = () => {
     currentPage: 1,
     totalPages: 1,
     totalItems: 0,
-    itemsPerPage: 15
+    itemsPerPage: 10
   });
   const [paymentRecords, setPaymentRecords] = useState([]);
   const [paymentPagination, setPaymentPagination] = useState({
     currentPage: 1,
     totalPages: 1,
     totalItems: 0,
-    itemsPerPage: 15
+    itemsPerPage: 10
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [refreshingPayments, setRefreshingPayments] = useState(false);
   const [refreshingPurchases, setRefreshingPurchases] = useState(false);
+  const [loadingPagination, setLoadingPagination] = useState(false);
   
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -141,13 +142,24 @@ const CustomerDashboard = () => {
       const userId = user?._id || user?.id;
       if (!userId) return;
 
+      // Clear existing data first to ensure clean state
+      if (!isRefresh) {
+        setPurchaseLedger([]);
+      }
+
       // Fetch purchase ledger data
       const ledgerResponse = await api.get(`/customer/panel/${userId}/purchase-ledger?page=${page}&limit=${ledgerPagination.itemsPerPage}`);
       if (ledgerResponse.data.success) {
         const ledgerData = ledgerResponse.data.data;
+        
+        // Ensure we're replacing the data completely
         setPurchaseLedger(ledgerData.ledger || []);
         setLedgerTotals(ledgerData.totals || {});
-        setLedgerPagination(ledgerData.pagination || ledgerPagination);
+        
+        // Update pagination state with new data
+        if (ledgerData.pagination) {
+          setLedgerPagination(ledgerData.pagination);
+        }
       }
 
       // Also refresh dashboard stats if this is a refresh action
@@ -167,6 +179,46 @@ const CustomerDashboard = () => {
     }
   };
 
+  // Pagination handlers for purchase ledger
+  const handlePreviousPage = async () => {
+    if (ledgerPagination.currentPage > 1 && !loadingPagination) {
+      setLoadingPagination(true);
+      try {
+        const newPage = ledgerPagination.currentPage - 1;
+        await fetchPurchaseLedger(newPage);
+      } finally {
+        setLoadingPagination(false);
+      }
+    }
+  };
+
+  const handleNextPage = async () => {
+    if (ledgerPagination.currentPage < ledgerPagination.totalPages && !loadingPagination) {
+      setLoadingPagination(true);
+      try {
+        const newPage = ledgerPagination.currentPage + 1;
+        await fetchPurchaseLedger(newPage);
+      } finally {
+        setLoadingPagination(false);
+      }
+    }
+  };
+
+  // Pagination handlers for payment records
+  const handlePaymentPreviousPage = async () => {
+    if (paymentPagination.currentPage > 1) {
+      const newPage = paymentPagination.currentPage - 1;
+      await fetchPaymentRecords(newPage);
+    }
+  };
+
+  const handlePaymentNextPage = async () => {
+    if (paymentPagination.currentPage < paymentPagination.totalPages) {
+      const newPage = paymentPagination.currentPage + 1;
+      await fetchPaymentRecords(newPage);
+    }
+  };
+
   const fetchPaymentRecords = async (page = 1, isRefresh = false) => {
     try {
       if (isRefresh) {
@@ -176,12 +228,23 @@ const CustomerDashboard = () => {
       const userId = user?._id || user?.id;
       if (!userId) return;
 
+      // Clear existing data first to ensure clean state
+      if (!isRefresh) {
+        setPaymentRecords([]);
+      }
+
       // Fetch payment records
       const paymentResponse = await api.get(`/customer/panel/${userId}/payments?page=${page}&limit=${paymentPagination.itemsPerPage}`);
       if (paymentResponse.data.success) {
         const paymentData = paymentResponse.data.data;
+        
+        // Ensure we're replacing the data completely
         setPaymentRecords(paymentData.payments || []);
-        setPaymentPagination(paymentData.pagination || paymentPagination);
+        
+        // Update pagination state with new data
+        if (paymentData.pagination) {
+          setPaymentPagination(paymentData.pagination);
+        }
       }
 
       // Also refresh dashboard stats if this is a refresh action
@@ -523,7 +586,7 @@ const CustomerDashboard = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => fetchPaymentRecords(paymentPagination.currentPage - 1)}
+                    onClick={handlePaymentPreviousPage}
                     disabled={paymentPagination.currentPage === 1}
                     className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -533,7 +596,7 @@ const CustomerDashboard = () => {
                     Page {paymentPagination.currentPage} of {paymentPagination.totalPages}
                   </span>
                   <button
-                    onClick={() => fetchPaymentRecords(paymentPagination.currentPage + 1)}
+                    onClick={handlePaymentNextPage}
                     disabled={paymentPagination.currentPage === paymentPagination.totalPages}
                     className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
@@ -582,11 +645,20 @@ const CustomerDashboard = () => {
           </div>
         ) : (
           <>
+            {/* Loading indicator for pagination */}
+            {loadingPagination && (
+              <div className="flex items-center justify-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600"></div>
+                <span className="ml-2 text-sm text-gray-600">Loading...</span>
+              </div>
+            )}
+            
             {/* Ledger Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-3 py-3 text-left font-medium text-gray-700">Sr. No.</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Date</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Vehicles No</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Driver Name</th>
@@ -605,6 +677,9 @@ const CustomerDashboard = () => {
                 <tbody className="divide-y divide-gray-200">
                   {purchaseLedger.map((entry, index) => (
                     <tr key={entry._id || index} className="hover:bg-gray-50">
+                      <td className="px-3 py-3 text-gray-900">
+                        {(ledgerPagination.currentPage - 1) * ledgerPagination.itemsPerPage + index + 1}
+                      </td>
                       <td className="px-3 py-3 text-gray-900">{formatDate(entry.date)}</td>
                       <td className="px-3 py-3 text-gray-900">{entry.vehiclesNo}</td>
                       <td className="px-3 py-3 text-gray-900">{entry.driverName}</td>
@@ -638,8 +713,8 @@ const CustomerDashboard = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => fetchPurchaseLedger(ledgerPagination.currentPage - 1)}
-                    disabled={ledgerPagination.currentPage === 1}
+                    onClick={handlePreviousPage}
+                    disabled={ledgerPagination.currentPage === 1 || loadingPagination}
                     className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ChevronLeft className="w-4 h-4" />
@@ -648,8 +723,8 @@ const CustomerDashboard = () => {
                     Page {ledgerPagination.currentPage} of {ledgerPagination.totalPages}
                   </span>
                   <button
-                    onClick={() => fetchPurchaseLedger(ledgerPagination.currentPage + 1)}
-                    disabled={ledgerPagination.currentPage === ledgerPagination.totalPages}
+                    onClick={handleNextPage}
+                    disabled={ledgerPagination.currentPage === ledgerPagination.totalPages || loadingPagination}
                     className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ChevronRight className="w-4 h-4" />

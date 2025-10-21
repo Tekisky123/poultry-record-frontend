@@ -7,7 +7,7 @@ const api = axios.create({
 	// baseURL: "https://poultry-record-backend.vercel.app/api",
 	// baseURL: "http://localhost:8889/api",
 	baseURL: isLocalhost
-    ? "http://localhost:8889/api"
+    ? "http://localhost:6060/api"
     : "https://poultry-record-backend.vercel.app/api",
 	withCredentials: true,
 	headers: {

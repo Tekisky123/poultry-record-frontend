@@ -734,7 +734,7 @@ const SupervisorTripDetails = () => {
         birds: 0,
         weight: 0,
         rate: 0,
-        amount: 0,
+        amount: saleData.amount || 0,
         avgWeight: 0,
         isReceipt: true,
         saleType: 'receipt' // Add label for reports
