@@ -14,6 +14,9 @@ import Users from './pages/Users';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import IndirectExpenses from './pages/IndirectExpenses';
+import VoucherList from './pages/VoucherList';
+import AddEditVoucher from './pages/AddEditVoucher';
+import VoucherDetails from './pages/VoucherDetails';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -131,6 +134,10 @@ const AppContent = () => {
                 <Route path="/vehicles" element={<Vehicles />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/indirect-expenses" element={<IndirectExpenses />} />
+                <Route path="/vouchers" element={<VoucherList />} />
+                <Route path="/vouchers/add" element={<AddEditVoucher />} />
+                <Route path="/vouchers/:id" element={<VoucherDetails />} />
+                <Route path="/vouchers/:id/edit" element={<AddEditVoucher />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
           </main>
