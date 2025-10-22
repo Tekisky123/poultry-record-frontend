@@ -4,6 +4,7 @@ import { Home, MapPin, Plus, User } from 'lucide-react';
 const BottomNavigation = () => {
   const location = useLocation();
 
+  // Nav items for supervisor bottom navigation
   const navItems = [
     { name: 'Dashboard', path: '/supervisor', icon: Home },
     { name: 'Trips', path: '/supervisor/trips', icon: MapPin },
