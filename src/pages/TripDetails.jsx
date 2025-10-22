@@ -1455,7 +1455,7 @@ const downloadExcel2 = () => {
                             {(transferredStock?.avgWeight).toFixed(2) || (transferredStock?.weight && transferredStock?.birds ? (transferredStock.weight / transferredStock.birds).toFixed(2) : '0.00')}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900 border-r font-medium">₹{(transferredStock?.rate || 0).toFixed(2)}</td>
-                          <td className="px-4 py-3 text-sm font-bold text-purple-800 border-r">₹{totalAmount.toFixed(2)}</td>
+                          <td className="px-4 py-3 text-sm font-bold text-purple-800 border-r">₹{(transferredStock?.rate * transferredStock?.weight || 0).toFixed(2)}</td>
                           <td className="px-4 py-3 text-sm text-gray-500 border-r">-</td>
                           <td className="px-4 py-3 text-sm text-gray-500 border-r">-</td>
                           <td className="px-4 py-3 text-sm text-gray-500">-</td>
