@@ -1529,7 +1529,7 @@ const downloadExcel2 = () => {
                             <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700">AMOUNT</th>
                           </tr>
                         </thead>
-                        <tbody>
+                        <tbody> 
                           <tr className="border-b">
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">DEATH BIRDS</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">{trip.summary?.totalBirdsLost || 0}</td>

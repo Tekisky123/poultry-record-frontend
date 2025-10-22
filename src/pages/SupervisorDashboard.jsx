@@ -1,9 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
   Truck, 
   Plus,
   MapPin,
@@ -15,12 +12,7 @@ import api from '../lib/axios';
 const SupervisorDashboard = () => {
   const [stats, setStats] = useState({
     totalTrips: 0,
-    completedTrips: 0,
-    totalSales: 0,
-    totalPurchases: 0,
-    totalProfit: 0,
-    totalBirdsSold: 0,
-    totalWeightSold: 0
+    completedTrips: 0
   });
   const [recentTrips, setRecentTrips] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,10 +28,13 @@ const SupervisorDashboard = () => {
         api.get('/trip?limit=5').catch(() => ({ data: { success: false } }))
       ]);
       
-      // if (statsResponse.data.success) {
-      //   const dashboardData = statsResponse?.data?.data;
-      //   setStats(dashboardData?.stats);
-      // }
+      if (statsResponse.data.success) {
+        const dashboardData = statsResponse?.data?.data;
+        setStats(dashboardData?.stats || { totalTrips: 0, completedTrips: 0 });
+      } else {
+        // If API call fails, ensure we have default values
+        setStats({ totalTrips: 0, completedTrips: 0 });
+      }
       
       if (tripsResponse.data.success) {
         const tripsData = tripsResponse.data.trips || [];
@@ -47,6 +42,9 @@ const SupervisorDashboard = () => {
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
+      // Ensure we have default values even if there's an error
+      setStats({ totalTrips: 0, completedTrips: 0 });
+      setRecentTrips([]);
     } finally {
       setLoading(false);
     }
@@ -101,7 +99,7 @@ const SupervisorDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Total Trips</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.totalTrips}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.totalTrips || 0}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
               <Truck className="w-6 h-6 text-blue-600" />
@@ -113,7 +111,7 @@ const SupervisorDashboard = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Completed Trips</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.completedTrips}</p>
+              <p className="text-2xl font-bold text-gray-900">{stats?.completedTrips || 0}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <Clock className="w-6 h-6 text-green-600" />
@@ -121,29 +119,6 @@ const SupervisorDashboard = () => {
           </div>
         </div>
 
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Profit</p>
-              <p className="text-2xl font-bold text-green-600">₹{stats.totalProfit.toLocaleString()}</p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Sales</p>
-              <p className="text-2xl font-bold text-blue-600">₹{stats.totalSales.toLocaleString()}</p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Recent Trips */}
