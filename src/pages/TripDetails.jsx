@@ -320,7 +320,7 @@ export default function TripDetails() {
     const basic_info = {
         'DATE': data.date,
         'VEHICLE NO': data.vehicle.vehicleNumber,
-        'PLACE': data.place,
+        // 'PLACE': data.place,
         'SUPERVISOR': data.supervisor.name,
         'DRIVER': data.driver,
         'LABOUR': data.labour || 'N/A',
@@ -460,11 +460,11 @@ export default function TripDetails() {
     worksheet.getCell('G2').style = { alignment: { horizontal: 'left' } };
 
     worksheet.mergeCells('I2:J2');
-    worksheet.getCell('I2').value = 'PLACE';
+    // worksheet.getCell('I2').value = 'PLACE';
     worksheet.getCell('I2').style = subHeaderStyle;
 
     worksheet.mergeCells('K2:L2');
-    worksheet.getCell('K2').value = trip.place || 'N/A';
+    // worksheet.getCell('K2').value = trip.place || 'N/A';
     worksheet.getCell('K2').style = { alignment: { horizontal: 'left' } };
 
     worksheet.mergeCells('M2:N2');
@@ -1204,7 +1204,7 @@ const downloadExcel2 = () => {
               <MapPin className="w-6 h-6 text-green-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">{trip.place}</h3>
+              <h3 className="font-semibold text-gray-900">{trip.route?.from || 'N/A'} - {trip.route?.to || 'N/A'}</h3>
               <p className="text-sm text-gray-500">Location</p>
             </div>
           </div>
@@ -1217,7 +1217,7 @@ const downloadExcel2 = () => {
               <p className="text-sm text-gray-500">Driver</p>
             </div>
           </div>
-        </div> */}
+        </div>
 
         {/* Comprehensive Trip Details for Admins */}
         {isAdmin && (
@@ -1241,10 +1241,10 @@ const downloadExcel2 = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">PLACE</label>
+                  {/* <label className="block text-sm font-medium text-gray-700 mb-1">PLACE</label>
                   <div className="text-lg font-semibold text-gray-900">
                     {trip.place || 'N/A'}
-                  </div>
+                  </div> */}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">SUPERVISOR</label>
@@ -1434,8 +1434,13 @@ const downloadExcel2 = () => {
                         <tr key={`transfer-sales-${transferIndex}`} className="border-b hover:bg-purple-100 bg-purple-100">
                           <td className="px-4 py-3 text-sm text-gray-900 border-r font-medium">{(trip.sales?.length || 0) + (trip.stocks?.length || 0) + (trip.transfers?.length || 0) + transferIndex + 1}</td>
                           <td className="px-4 py-3 text-sm text-gray-900 border-r font-medium">
-                            <span className="text-purple-800 font-bold">INTRA 2 CROSSING (Transfer Sale)</span>
-                            <div className="text-xs text-purple-700">
+                            <div className="text-purple-800 font-bold">
+                              Vehicle No: {transfer.transferredTo?.vehicle?.vehicleNumber || 'N/A'}
+                            </div>
+                            <div className="text-purple-800 font-bold">
+                              Supervisor: {transfer.transferredToSupervisor?.name || 'N/A'}
+                            </div>
+                            <div className="text-xs text-purple-700 mt-1">
                               (To Trip #{transfer.transferredTo?.tripId ? (
                                 <Link 
                                   to={`/trips/${transfer.transferredTo.id}`}
@@ -1628,67 +1633,100 @@ const downloadExcel2 = () => {
               </div>
             </div>
 
-            {/* Trip Metrics and Financial Breakdown - Side by Side */}
+            {/* Trip Metrics, Birds Summary, and Financial Breakdown */}
             <div className="border-t">
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">TRIP METRICS</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">OP READING:</span>
-                        <span className="font-semibold">{trip.vehicleReadings?.opening || 0}</span>
+                  {/* Left Column - Trip Metrics and Financial Breakdown */}
+                  <div className="space-y-6">
+                    {/* Trip Metrics */}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3">TRIP METRICS</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">OP READING:</span>
+                          <span className="font-semibold">{trip.vehicleReadings?.opening || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">CL READING:</span>
+                          <span className="font-semibold">{trip.vehicleReadings?.closing || 0}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">TOTAL RUNNING KM:</span>
+                          <span className="font-semibold">{(trip.vehicleReadings?.totalDistance || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">TOTAL DIESEL VOL:</span>
+                          <span className="font-semibold">{(trip.diesel?.totalVolume || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between bg-gray-800 text-white px-3 py-2 rounded">
+                          <span className="text-sm font-bold">VEHICLE AVERAGE:</span>
+                          <span className="font-bold">
+                            {trip.vehicleReadings?.totalDistance && trip.diesel?.totalVolume ? (trip.vehicleReadings?.totalDistance / trip.diesel?.totalVolume).toFixed(2) : '0.00'}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">CL READING:</span>
-                        <span className="font-semibold">{trip.vehicleReadings?.closing || 0}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">TOTAL RUNNING KM:</span>
-                        <span className="font-semibold">{(trip.vehicleReadings?.totalDistance || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">TOTAL DIESEL VOL:</span>
-                        <span className="font-semibold">{(trip.diesel?.totalVolume || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between bg-gray-800 text-white px-3 py-2 rounded">
-                        <span className="text-sm font-bold">VEHICLE AVERAGE:</span>
-                        <span className="font-bold">
-                          {trip.vehicleReadings?.totalDistance && trip.diesel?.totalVolume ? (trip.vehicleReadings?.totalDistance / trip.diesel?.totalVolume).toFixed(2) : '0.00'}
-                        </span>
+                    </div>
+                    
+                    {/* Financial Breakdown */}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3">FINANCIAL BREAKDOWN</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">RENT AMT PER KM:</span>
+                          <span className="font-semibold">₹{(trip.rentPerKm || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">GROSS RENT:</span>
+                          <span className="font-semibold">₹{(trip.totalKm ? (trip.totalKm * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
+                        </div>
+                        {/* <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">LESS DIESEL AMT:</span>
+                          <span className="font-semibold">₹{(trip.dieselAmount || 0).toFixed(2)}</span>
+                        </div> */}
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">NETT RENT:</span>
+                          <span className="font-semibold">₹{(trip.totalKm ? ((trip.totalKm * (trip.rentPerKm || 0)) - (trip.dieselAmount || 0)) : 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">BIRDS PROFIT:</span>
+                          <span className="font-semibold">₹{(trip.summary?.birdsProfit || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between bg-gray-800 text-white px-3 py-2 rounded">
+                          <span className="text-sm font-bold">NET PROFIT:</span>
+                          <span className="font-bold">₹{(trip.summary?.netProfit || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between bg-gray-200 px-3 py-2 rounded">
+                          <span className="text-sm font-bold">MARGIN:</span>
+                          <span className="font-bold">₹{(trip.summary?.totalWeightSold) ? (trip.summary.netProfit / trip.summary.totalWeightSold).toFixed(2) : '0.00'}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
+                  
+                  {/* Right Column - Birds Summary */}
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">FINANCIAL BREAKDOWN</h4>
+                    <h4 className="font-semibold text-gray-900 mb-3">BIRDS SUMMARY</h4>
                     <div className="space-y-2">
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">RENT AMT PER KM:</span>
-                        <span className="font-semibold">₹{(trip.rentPerKm || 0).toFixed(2)}</span>
+                        <span className="text-sm text-gray-600">TOTAL PURCHASED:</span>
+                        <span className="font-semibold">{trip.summary?.totalBirdsPurchased || 0} birds</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">GROSS RENT:</span>
-                        <span className="font-semibold">₹{(trip.totalKm ? (trip.totalKm * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
-                      </div>
-                      {/* <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">LESS DIESEL AMT:</span>
-                        <span className="font-semibold">₹{(trip.dieselAmount || 0).toFixed(2)}</span>
-                      </div> */}
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">NETT RENT:</span>
-                        <span className="font-semibold">₹{(trip.totalKm ? ((trip.totalKm * (trip.rentPerKm || 0)) - (trip.dieselAmount || 0)) : 0).toFixed(2)}</span>
+                        <span className="text-sm text-gray-600">TOTAL SOLD:</span>
+                        <span className="font-semibold">{trip.summary?.totalBirdsSold || 0} birds</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">BIRDS PROFIT:</span>
-                        <span className="font-semibold">₹{(trip.summary?.birdsProfit || 0).toFixed(2)}</span>
+                        <span className="text-sm text-gray-600">REMAINING STOCK:</span>
+                        <span className="font-semibold">{trip.summary?.totalBirdsStock || 0} birds</span>
                       </div>
-                      <div className="flex justify-between bg-gray-800 text-white px-3 py-2 rounded">
-                        <span className="text-sm font-bold">NET PROFIT:</span>
-                        <span className="font-bold">₹{(trip.summary?.netProfit || 0).toFixed(2)}</span>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">BIRDS LOST:</span>
+                        <span className="font-semibold">{trip.summary?.totalBirdsLost || 0} birds</span>
                       </div>
-                      <div className="flex justify-between bg-gray-200 px-3 py-2 rounded">
-                        <span className="text-sm font-bold">MARGIN:</span>
-                        <span className="font-bold">₹{(trip.summary?.totalWeightSold) ? (trip.summary.netProfit / trip.summary.totalWeightSold).toFixed(2) : '0.00'}</span>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">BIRDS TRANSFERRED:</span>
+                        <span className="font-semibold">{trip.summary?.birdsTransferred || 0} birds</span>
                       </div>
                     </div>
                   </div>
@@ -1743,8 +1781,8 @@ const downloadExcel2 = () => {
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
                       <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <span className="text-sm text-gray-600 truncate">Place: {trip.place}</span>
-                </div>
+                      <span className="text-sm text-gray-600 truncate">Location: {trip.route?.from || 'N/A'} - {trip.route?.to || 'N/A'}</span>
+                    </div>
                     <div className="flex items-center gap-3">
                       <Truck className="w-4 h-4 text-gray-400 flex-shrink-0" />
                       <span className="text-sm text-gray-600 truncate">Vehicle: {trip.vehicle?.vehicleNumber}</span>
@@ -1766,6 +1804,24 @@ const downloadExcel2 = () => {
                         <Truck className="w-4 h-4 text-gray-400 flex-shrink-0" />
                         <span className="text-sm text-gray-600 truncate">
                           Opening Odometer: {trip.vehicleReadings.opening} km
+                        </span>
+                      </div>
+                    )}
+                    
+                    {trip.status === 'completed' && trip.vehicleReadings?.closing && (
+                      <div className="flex items-center gap-3">
+                        <Truck className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <span className="text-sm text-gray-600 truncate">
+                          Closing Odometer: {trip.vehicleReadings.closing} km
+                        </span>
+                      </div>
+                    )}
+                    
+                    {trip.status === 'completed' && trip.vehicleReadings?.totalDistance && (
+                      <div className="flex items-center gap-3">
+                        <Truck className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <span className="text-sm text-gray-600 truncate">
+                          Total Running KM: {trip.vehicleReadings.totalDistance.toFixed(2)} km
                         </span>
                       </div>
                     )}

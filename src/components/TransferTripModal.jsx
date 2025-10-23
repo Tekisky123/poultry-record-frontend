@@ -36,12 +36,36 @@ const TransferTripModal = ({
     return totalPurchased - totalSold - totalInStock - totalLost - totalTransferred;
   };
 
+  // Calculate remaining weight available for transfer
+  const calculateRemainingWeight = () => {
+    const totalPurchasedWeight = trip?.summary?.totalWeightPurchased || 0;
+    const totalSoldWeight = trip?.summary?.totalWeightSold || 0;
+    const totalInStockWeight = trip?.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
+    const totalLostWeight = trip?.summary?.totalWeightLost || 0;
+    const totalTransferredWeight = trip?.summary?.weightTransferred || 0;
+    return totalPurchasedWeight - totalSoldWeight - totalInStockWeight - totalLostWeight - totalTransferredWeight;
+  };
+
   const remainingBirds = calculateRemainingBirds();
-  const avgPurchaseRate = trip?.summary?.avgPurchaseRate || 0;
+  const remainingWeight = calculateRemainingWeight();
+  
+  // Calculate average purchase rate from actual purchase data
+  const calculateAvgPurchaseRate = () => {
+    if (!trip?.purchases || trip.purchases.length === 0) return 0;
+    
+    const totalAmount = trip.purchases.reduce((sum, purchase) => sum + (purchase.amount || 0), 0);
+    const totalWeight = trip.purchases.reduce((sum, purchase) => sum + (purchase.weight || 0), 0);
+    
+    return totalWeight > 0 ? totalAmount / totalWeight : 0;
+  };
+  
+  const avgPurchaseRate = calculateAvgPurchaseRate();
 
   useEffect(() => {
     if (isOpen) {
       console.log('TransferTripModal opened with:', { tripId, trip: trip ? { id: trip.id, _id: trip._id, tripId: trip.tripId } : null });
+      console.log('Trip purchases data:', trip?.purchases);
+      console.log('Calculated avgPurchaseRate:', avgPurchaseRate);
       fetchSupervisors();
       fetchVehicles();
       // Set default rate if available
@@ -166,6 +190,8 @@ const TransferTripModal = ({
 
     if (!formData.transferBirds.weight || transferWeight <= 0) {
       newErrors.transferWeight = 'Weight of birds to transfer is required';
+    } else if (transferWeight > remainingWeight) {
+      newErrors.transferWeight = `Cannot transfer ${transferWeight.toFixed(2)} kg. Only ${remainingWeight.toFixed(2)} kg available`;
     }
 
     if (!formData.transferBirds.rate || transferRate <= 0) {
@@ -241,17 +267,21 @@ const TransferTripModal = ({
                 <AlertTriangle size={16} />
                 Transfer Information
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-3">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm mb-3">
                 <div>
                   <span className="text-blue-700">Original Trip:</span>
                   <div className="font-medium text-blue-900">{trip?.tripId}</div>
                 </div>
                 <div>
-                  <span className="text-blue-700">Remaining Birds Available:</span>
+                  <span className="text-blue-700">Remaining Birds:</span>
                   <div className="font-medium text-blue-900">{remainingBirds} birds</div>
                 </div>
                 <div>
-                  <span className="text-blue-700">Current Rate:</span>
+                  <span className="text-blue-700">Remaining Weight:</span>
+                  <div className="font-medium text-blue-900">{remainingWeight.toFixed(2)} kg</div>
+                </div>
+                <div>
+                  <span className="text-blue-700">Purchase Rate:</span>
                   <div className="font-medium text-blue-900">₹{avgPurchaseRate.toFixed(2)}/kg</div>
                 </div>
               </div>
@@ -382,7 +412,7 @@ const TransferTripModal = ({
                 {/* Rate */}
                 <div className="mb-3">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Rate per kg *
+                    Purchase Rate per kg *
                   </label>
                   <input
                     type="number"
@@ -392,10 +422,25 @@ const TransferTripModal = ({
                     className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                       errors.transferRate ? 'border-red-500' : 'border-gray-300'
                     }`}
-                    placeholder="Enter rate per kg"
+                    placeholder="Enter purchase rate per kg"
                     disabled={loading}
                   />
                   {errors.transferRate && <p className="text-red-500 text-sm mt-1">{errors.transferRate}</p>}
+                </div>
+
+                {/* Remaining Birds and Weight Display */}
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                  <h5 className="font-medium text-blue-900 mb-2">Available for Transfer:</h5>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <span className="text-blue-700">Remaining Birds:</span>
+                      <div className="font-medium text-blue-900">{remainingBirds} birds</div>
+                    </div>
+                    <div>
+                      <span className="text-blue-700">Remaining Weight:</span>
+                      <div className="font-medium text-blue-900">{remainingWeight.toFixed(2)} kg</div>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Calculated Values */}

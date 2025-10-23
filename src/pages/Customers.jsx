@@ -19,7 +19,10 @@ import {
   Trash2,
   TrendingUp,
   Loader2,
-  X
+  X,
+  List,
+  Grid3X3,
+  LayoutGrid
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -61,6 +64,10 @@ const customerSchema = z.object({
     }, 'Password must contain at least one uppercase letter, one lowercase letter, and one number')
 });
 
+const getStatusColor = (isActive) => {
+  return isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
+};
+
 const getShopTypeColor = (type) => {
   const colors = {
     'Retail': 'bg-blue-100 text-blue-800',
@@ -71,10 +78,6 @@ const getShopTypeColor = (type) => {
   return colors[type] || 'bg-gray-100 text-gray-800';
 };
 
-const getStatusColor = (isActive) => {
-  return isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800';
-};
-
 export default function Customers() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -82,6 +85,7 @@ export default function Customers() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [shopTypeFilter, setShopTypeFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('table'); // 'table', 'grid-small', 'grid-large'
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState('');
@@ -92,10 +96,10 @@ export default function Customers() {
   const [showPassword, setShowPassword] = useState(false);
 
   // Debug user information
-  useEffect(() => {
-    console.log('Current user:', user);
-    console.log('User role:', user?.role);
-  }, [user]);
+  // useEffect(() => {
+  //   console.log('Current user:', user);
+  //   console.log('User role:', user?.role);
+  // }, [user]);
 
   // Check if user has admin privileges
   const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
@@ -122,7 +126,7 @@ export default function Customers() {
       setIsLoading(true);
       console.log('Fetching customers...');
       const { data } = await api.get('/customer');
-      console.log('Customers response:', data);
+      // console.log('Customers response:', data);
       setCustomers(data.data || []);
       setIsError(false);
     } catch (err) {
@@ -364,7 +368,7 @@ export default function Customers() {
               <option value="active">Active</option>
               <option value="inactive">Inactive</option>
             </select>
-            <select
+            {/* <select
               value={shopTypeFilter}
               onChange={(e) => setShopTypeFilter(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -374,23 +378,204 @@ export default function Customers() {
               <option value="Supermarket">Supermarket</option>
               <option value="Corner Store">Corner Store</option>
               <option value="Wholesale">Wholesale</option>
-            </select>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
+            </select> */}
+            {/* <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
               <Filter size={16} />
               More Filters
-            </button>
+            </button> */}
+            
+            {/* View Toggle Filters */}
+            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-2 transition-colors ${
+                  viewMode === 'table' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+                title="Table View"
+              >
+                <List size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode('grid-small')}
+                className={`px-3 py-2 transition-colors ${
+                  viewMode === 'grid-small' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+                title="Small Grid View"
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode('grid-large')}
+                className={`px-3 py-2 transition-colors ${
+                  viewMode === 'grid-large' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+                title="Large Grid View"
+              >
+                <Grid3X3 size={16} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Customers Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+      {/* Customers Display */}
         {filteredCustomers.length === 0 ? (
-          <div className="col-span-full text-center py-10 text-gray-600">
+        <div className="text-center py-10 text-gray-600 bg-white rounded-xl shadow-sm border border-gray-200">
             <p>No customers found matching your criteria.</p>
           </div>
         ) : (
-          filteredCustomers.map((customer) => (
+        <>
+          {/* Table View */}
+          {viewMode === 'table' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
+              <div className="overflow-x-auto max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0 z-10">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Area</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredCustomers.map((customer) => (
+                    <tr key={customer.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                            <Store className="w-5 h-5 text-green-600" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{customer.shopName}</div>
+                            {customer.gstOrPanNumber && (
+                              <div className="text-xs text-gray-500">GST/PAN: {customer.gstOrPanNumber}</div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {customer.ownerName || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {customer.contact}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {customer.area || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
+                          {customer.isActive ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        {new Date(customer.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
+                        <button 
+                          onClick={() => handleView(customer)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="View Details"
+                        >
+                          <Eye size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleEdit(customer)}
+                          className="text-green-600 hover:text-green-900"
+                          title="Edit Customer"
+                        >
+                          <Edit size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(customer)}
+                          className="text-red-600 hover:text-red-900"
+                          title="Delete Customer"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Small Grid View */}
+          {viewMode === 'grid-small' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredCustomers.map((customer) => (
+                <div key={customer.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-all duration-200">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
+                        <Store className="w-4 h-4 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-gray-900 truncate">{customer.shopName}</h3>
+                        {customer.ownerName && (
+                          <p className="text-xs text-gray-500 truncate">{customer.ownerName}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button 
+                        onClick={() => handleView(customer)}
+                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="View"
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button 
+                        onClick={() => handleEdit(customer)}
+                        className="p-1 text-gray-400 hover:text-green-600 transition-colors"
+                        title="Edit"
+                      >
+                        <Edit size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2 mb-3">
+                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <Phone className="w-3 h-3" />
+                      <span className="truncate">{customer.contact}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <MapPin className="w-3 h-3" />
+                      <span className="truncate">{customer.area || 'No area'}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
+                      {customer.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <button 
+                      onClick={() => handleDelete(customer)}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Large Grid View (Original) */}
+          {viewMode === 'grid-large' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredCustomers.map((customer) => (
             <div key={customer.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
                 {/* Header */}
                 <div className="flex items-start justify-between mb-4">
@@ -487,10 +672,11 @@ export default function Customers() {
                   </button>
                 </div>
               </div>
-            )
-          )
-        )}
-      </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       {/* Summary Stats */}
       {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -602,23 +788,23 @@ export default function Customers() {
                 
                 {/* Show Opening Balance field only when creating new customer, not when editing */}
                 {!isEdit && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Opening Balance (₹)
-                    </label>
-                    <input
-                      type="number"
-                      {...register('openingBalance', { valueAsNumber: true })}
-                      placeholder="0.00"
-                      min="0"
-                      step="0.01"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                    {errors.openingBalance && <p className="text-red-500 text-xs mt-1">{errors.openingBalance.message}</p>}
-                    <p className="text-xs text-gray-500 mt-1">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Opening Balance (₹)
+                  </label>
+                  <input
+                    type="number"
+                    {...register('openingBalance', { valueAsNumber: true })}
+                    placeholder="0.00"
+                    min="0"
+                    step="0.01"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  {errors.openingBalance && <p className="text-red-500 text-xs mt-1">{errors.openingBalance.message}</p>}
+                  <p className="text-xs text-gray-500 mt-1">
                       Customer's initial opening balance
-                    </p>
-                  </div>
+                  </p>
+                </div>
                 )}
                 
                 <div className="md:col-span-2">

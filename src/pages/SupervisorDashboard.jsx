@@ -155,7 +155,7 @@ const SupervisorDashboard = () => {
                     {trip.vehicle?.vehicleNumber || 'N/A'}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {trip.place || 'Round Trip'}
+                    {/* {trip.place || 'Round Trip'} */}
                   </p>
                 </div>
                 <Link

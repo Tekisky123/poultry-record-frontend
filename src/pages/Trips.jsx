@@ -120,7 +120,7 @@ export default function Trips() {
       setIsLoading(true);
       console.log('Fetching trips...');
       const { data } = await api.get('/trip');
-      console.log('Trips response:', data);
+      // console.log('Trips response:', data);
       setTrips(data.data?.trips || data.data || data.trips || []);
       setIsError(false);
     } catch (err) {

@@ -30,15 +30,9 @@ const SupervisorTripDetails = () => {
 
   // Generate unique bill number
   const generateBillNumber = () => {
-    const now = new Date();
-    const year = now.getFullYear().toString().slice(-2);
-    const month = (now.getMonth() + 1).toString().padStart(2, '0');
-    const day = now.getDate().toString().padStart(2, '0');
-    const hours = now.getHours().toString().padStart(2, '0');
-    const minutes = now.getMinutes().toString().padStart(2, '0');
-    const seconds = now.getSeconds().toString().padStart(2, '0');
-    
-    return `BILL${year}${month}${day}${hours}${minutes}${seconds}`;
+    // Generate a 6-digit bill number
+    const randomNumber = Math.floor(Math.random() * 900000) + 100000; // 100000 to 999999
+    return randomNumber.toString();
   };
 
   const [trip, setTrip] = useState(null);
@@ -1089,12 +1083,12 @@ const SupervisorTripDetails = () => {
               Created: {new Date(trip.createdAt).toLocaleDateString()}
             </span>
           </div>
-          <div className="text-right">
+          {/* <div className="text-right">
             <div className="text-2xl font-bold text-green-600">
               ₹{trip.status === 'completed' ? (trip.summary?.netProfit?.toFixed(2) || '0.00') : Math.max(0, trip.summary?.netProfit || 0).toFixed(2)}
             </div>
             <div className="text-sm text-gray-500">Net Profit</div>
-          </div>
+          </div> */}
         </div>
       </div>
 
@@ -1151,6 +1145,24 @@ const SupervisorTripDetails = () => {
                       </span>
                     </div>
                   )}
+                  
+                  {trip.status === 'completed' && trip.vehicleReadings?.closing && (
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600">
+                        Closing Odometer: {trip.vehicleReadings.closing} km
+                      </span>
+                    </div>
+                  )}
+                  
+                  {trip.status === 'completed' && trip.vehicleReadings?.totalDistance && (
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-600">
+                        Total Running KM: {trip.vehicleReadings.totalDistance.toFixed(2)} km
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1184,6 +1196,96 @@ const SupervisorTripDetails = () => {
                       <span className="font-medium text-orange-600">
                         {trip.status === 'completed' ? Math.abs(trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'} kg
                       </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trip Metrics, Birds Summary, and Financial Breakdown */}
+              <div className="border-t">
+                <div className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Left Column - Trip Metrics and Financial Breakdown */}
+                    <div className="space-y-6">
+                      {/* Trip Metrics */}
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-3">TRIP METRICS</h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">OP READING:</span>
+                            <span className="font-semibold">{trip.vehicleReadings?.opening || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">CL READING:</span>
+                            <span className="font-semibold">{trip.vehicleReadings?.closing || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">TOTAL RUNNING KM:</span>
+                            <span className="font-semibold">{(trip.vehicleReadings?.totalDistance || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">TOTAL DIESEL VOL:</span>
+                            <span className="font-semibold">{(trip.diesel?.totalVolume || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between bg-gray-800 text-white px-3 py-2 rounded">
+                            <span className="text-sm font-bold">VEHICLE AVERAGE:</span>
+                            <span className="font-bold">
+                              {trip.vehicleReadings?.totalDistance && trip.diesel?.totalVolume ? (trip.vehicleReadings?.totalDistance / trip.diesel?.totalVolume).toFixed(2) : '0.00'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Financial Breakdown */}
+                      <div>
+                        <h4 className="font-semibold text-gray-900 mb-3">FINANCIAL BREAKDOWN</h4>
+                        <div className="space-y-2">
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">RENT AMT PER KM:</span>
+                            <span className="font-semibold">₹{(trip.rentPerKm || 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">GROSS RENT:</span>
+                            <span className="font-semibold">₹{(trip.totalKm ? (trip.totalKm * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">NETT RENT:</span>
+                            <span className="font-semibold">₹{(trip.totalKm ? ((trip.totalKm * (trip.rentPerKm || 0)) - (trip.dieselAmount || 0)) : 0).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-sm text-gray-600">BIRDS PROFIT:</span>
+                            <span className="font-semibold">₹{(trip.summary?.birdsProfit || 0).toFixed(2)}</span>
+                          </div>
+                          {/* Net Profit and Margin are hidden for supervisor panel as per previous request */}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Right Column - Birds Summary */}
+                    <div>
+                      <h4 className="font-semibold text-gray-900 mb-3">BIRDS SUMMARY</h4>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">TOTAL PURCHASED:</span>
+                          <span className="font-semibold">{trip.summary?.totalBirdsPurchased || 0} birds</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">TOTAL SOLD:</span>
+                          <span className="font-semibold">{trip.summary?.totalBirdsSold || 0} birds</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">REMAINING STOCK:</span>
+                          <span className="font-semibold">{trip.summary?.totalBirdsStock || 0} birds</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">BIRDS LOST:</span>
+                          <span className="font-semibold">{trip.summary?.totalBirdsLost || 0} birds</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-sm text-gray-600">BIRDS TRANSFERRED:</span>
+                          <span className="font-semibold">{trip.summary?.birdsTransferred || 0} birds</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1296,10 +1398,10 @@ const SupervisorTripDetails = () => {
                         <div className="text-sm text-green-600">Total Sales</div>
                         <div className="font-medium text-green-800">₹{trip.summary?.totalSalesAmount?.toFixed(2) || '0.00'}</div>
                       </div>
-                      <div>
+                      {/* <div>
                         <div className="text-sm text-green-600">Total Profit</div>
                         <div className="font-medium text-green-800">₹{trip.summary?.totalProfitMargin?.toFixed(2) || '0.00'}</div>
-                      </div>
+                      </div> */}
                       <div>
                         <div className="text-sm text-green-600">Avg Purchase Rate</div>
                         <div className="font-medium text-green-800">₹{trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00'}/kg</div>
@@ -1327,8 +1429,7 @@ const SupervisorTripDetails = () => {
                             <h4 className="font-medium text-gray-800">{area}</h4>
                             <div className="text-sm text-gray-600">
                               {salesInArea.length} sale{salesInArea.length !== 1 ? 's' : ''} | 
-                              Total: ₹{salesInArea.reduce((sum, sale) => sum + (sale.amount || 0), 0).toFixed(2)} | 
-                              Profit: ₹{salesInArea.reduce((sum, sale) => sum + (sale.profitAmount || 0), 0).toFixed(2)}
+                              Total: ₹{salesInArea.reduce((sum, sale) => sum + (sale.amount || 0), 0).toFixed(2)}
                             </div>
                           </div>
                         </div>
@@ -1354,9 +1455,9 @@ const SupervisorTripDetails = () => {
                                   <div className="text-right">
                                     <div className="font-medium">₹{sale.amount?.toFixed(2)}</div>
                                     <div className="text-sm text-gray-500">₹{(sale.rate || 0).toFixed(2)}/kg</div>
-                                    <div className="text-xs text-green-600 font-medium">
+                                    {/* <div className="text-xs text-green-600 font-medium">
                                       Profit: ₹{sale.profitAmount?.toFixed(2)} ({sale.profitMargin > 0 ? '+' : ''}{sale.profitMargin?.toFixed(2)}/kg)
-                                    </div>
+                                    </div> */}
                                   </div>
                                   <div className="flex space-x-2">
                                     {trip.status !== 'completed' && (
@@ -1583,15 +1684,14 @@ const SupervisorTripDetails = () => {
                       <div className="flex justify-between items-start">
                         <div>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${expense.category === 'lunch' ? 'bg-green-100 text-green-800' :
-                                  expense.category === 'tea' ? 'bg-yellow-100 text-yellow-800' :
-                                    expense.category === 'toll' ? 'bg-purple-100 text-purple-800' :
-                                      expense.category === 'parking' ? 'bg-indigo-100 text-indigo-800' :
-                                        expense.category === 'loading/unloading' ? 'bg-orange-100 text-orange-800' :
-                                          expense.category === 'maintenance' ? 'bg-red-100 text-red-800' :
-                                            'bg-gray-100 text-gray-800'
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${expense.category === 'lunch/tea-snacks' || expense.category === 'lunch' || expense.category === 'tea' ? 'bg-green-100 text-green-800' :
+                                  expense.category === 'toll' ? 'bg-purple-100 text-purple-800' :
+                                    expense.category === 'parking' ? 'bg-indigo-100 text-indigo-800' :
+                                      expense.category === 'loading/unloading' ? 'bg-orange-100 text-orange-800' :
+                                        expense.category === 'maintenance' ? 'bg-red-100 text-red-800' :
+                                          'bg-gray-100 text-gray-800'
                               }`}>
-                              {expense.category}
+                              {expense.category === 'lunch' || expense.category === 'tea' ? 'lunch/tea-snacks' : expense.category}
                             </span>
                             {expense.date && (
                               <span className="text-xs text-gray-500">
@@ -1615,9 +1715,15 @@ const SupervisorTripDetails = () => {
                 <div className="mt-6 bg-blue-50 p-4 rounded-lg">
                   <h4 className="font-medium text-gray-900 mb-3">Expense Summary by Category</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {['lunch', 'tea', 'toll', 'parking', 'maintenance', 'other'].map(category => {
+                    {['lunch/tea-snacks', 'toll', 'parking', 'maintenance', 'other'].map(category => {
                       const categoryTotal = trip.expenses
-                        .filter(exp => exp.category === category)
+                        .filter(exp => {
+                          // Handle migration: include both old categories (lunch, tea) and new merged category
+                          if (category === 'lunch/tea-snacks') {
+                            return exp.category === 'lunch' || exp.category === 'tea' || exp.category === 'lunch/tea-snacks';
+                          }
+                          return exp.category === category;
+                        })
                         .reduce((sum, exp) => sum + (exp.amount || 0), 0);
 
                       if (categoryTotal === 0) return null;
@@ -1816,12 +1922,12 @@ const SupervisorTripDetails = () => {
                   </div>
                 </div>
 
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                {/* <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <div className="text-sm text-blue-600">Net Profit</div>
                   <div className="text-2xl font-bold text-blue-700">
                     ₹{trip.status === 'completed' ? (trip.summary?.netProfit?.toFixed(2) || '0.00') : Math.max(0, trip.summary?.netProfit || 0).toFixed(2)}
                   </div>
-                </div>
+                </div> */}
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
@@ -3212,7 +3318,7 @@ const SupervisorTripDetails = () => {
                 <div className="space-y-0.5">
                   <div>• Stock represents birds kept for future sales</div>
                   <div>• Stock value calculated at purchase rate</div>
-                  <div>• Not included in current profit calculations</div>
+                  {/* <div>• Not included in current profit calculations</div> */}
                   <div>• Death birds calculated automatically</div>
                 </div>
               </div>

@@ -5,7 +5,7 @@ import api from '../lib/axios';
 const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
   const [formData, setFormData] = useState({
     date: '',
-    place: '',
+    // place: '',
     driver: '',
     labour: '',
     route: {
@@ -25,7 +25,7 @@ const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
     if (trip && isOpen) {
       setFormData({
         date: trip.date ? new Date(trip.date).toISOString().split('T')[0] : '',
-        place: trip.place || '',
+        // place: trip.place || '',
         driver: trip.driver || '',
         labour: trip.labour || '',
         route: {
@@ -135,7 +135,7 @@ const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
                 />
               </div>
 
-              <div>
+              {/* <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Place
                 </label>
@@ -147,7 +147,7 @@ const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
                   placeholder="Enter place"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
-              </div>
+              </div> */}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
