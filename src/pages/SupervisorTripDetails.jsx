@@ -220,10 +220,10 @@ const SupervisorTripDetails = () => {
 
     if (saleData.amount > 0 && customerBalance !== null) {
       const receivedAmount = cashPaid + onlinePaid;
-      // Calculate balance using the correct formula: openingBalance + Total Amount - Online Paid - Cash Paid - Discount
+      // Calculate balance using the correct formula: outstandingBalance + Total Amount - Online Paid - Cash Paid - Discount
       let balance = Number(customerBalance) + Number(saleData.amount) - Number(onlinePaid) - Number(cashPaid) - Number(discount);
       
-      // If payment exceeds the sale amount + current opening balance, 
+      // If payment exceeds the sale amount + current outstanding balance, 
       // the extra payment reduces the balance to 0 (minimum)
       balance = Math.max(0, balance);
       
@@ -362,10 +362,10 @@ const SupervisorTripDetails = () => {
       const discount = Number(newData.discount) || 0;
       newData.receivedAmount = cashPaid + onlinePaid;
       
-      // Calculate balance using the correct formula: openingBalance + Total Amount - Online Paid - Cash Paid - Discount
+      // Calculate balance using the correct formula: outstandingBalance + Total Amount - Online Paid - Cash Paid - Discount
       if (customerBalance !== null) {
         let balance = Number(customerBalance) + Number(newData.amount) - Number(onlinePaid) - Number(cashPaid) - Number(discount);
-        // If payment exceeds the sale amount + current opening balance, 
+        // If payment exceeds the sale amount + current outstanding balance, 
         // the extra payment reduces the balance to 0 (minimum)
         newData.balance = Math.max(0, balance);
       }
@@ -377,7 +377,7 @@ const SupervisorTripDetails = () => {
       // Recalculate balance
       if (customerBalance !== null) {
         let balance = Number(customerBalance) + Number(newData.amount) - Number(newData.onlinePaid) - Number(newData.cashPaid) - Number(newData.discount);
-        // If payment exceeds the sale amount + current opening balance, 
+        // If payment exceeds the sale amount + current outstanding balance, 
         // the extra payment reduces the balance to 0 (minimum)
         newData.balance = Math.max(0, balance);
       }
@@ -409,11 +409,11 @@ const SupervisorTripDetails = () => {
 
     try {
       setLoadingBalance(true);
-      // Fetch customer profile to get opening balance
+      // Fetch customer profile to get outstanding balance
       const response = await api.get(`/customer/panel/${customer.user._id}/profile`);
       if (response.data.success) {
         const customerData = response.data.data;
-        setCustomerBalance(Number(customerData.openingBalance) || 0);
+        setCustomerBalance(Number(customerData.outstandingBalance) || 0);
       }
     } catch (error) {
       console.error('Error fetching customer balance:', error);
@@ -619,7 +619,7 @@ const SupervisorTripDetails = () => {
           const overpaymentAmount = Math.abs(calculatedBalance);
           const confirmOverpayment = confirm(
             `Warning: This sale will result in an overpayment of ₹${overpaymentAmount.toFixed(2)}.\n\n` +
-            `Customer's opening balance: ₹${Number(customerBalance).toFixed(2)}\n` +
+            `Customer's outstanding balance: ₹${Number(customerBalance).toFixed(2)}\n` +
             `Sale amount: ₹${totalAmount.toFixed(2)}\n` +
             `Total payment: ₹${totalPaid.toFixed(2)}\n` +
             `Discount: ₹${discount.toFixed(2)}\n\n` +
@@ -650,8 +650,8 @@ const SupervisorTripDetails = () => {
           // Update customer's opening balance if sale has a client
           if (cleanedSaleData.client && cleanedSaleData.balance !== undefined) {
             try {
-              await api.put(`/customer/${cleanedSaleData.client}/opening-balance`, {
-                newOpeningBalance: cleanedSaleData.balance
+              await api.put(`/customer/${cleanedSaleData.client}/outstanding-balance`, {
+                newOutstandingBalance: cleanedSaleData.balance
               });
               console.log(`Updated customer opening balance to ${cleanedSaleData.balance}`);
             } catch (error) {
@@ -678,8 +678,8 @@ const SupervisorTripDetails = () => {
           // Update customer's opening balance if sale has a client
           if (cleanedSaleData.client && cleanedSaleData.balance !== undefined) {
             try {
-              await api.put(`/customer/${cleanedSaleData.client}/opening-balance`, {
-                newOpeningBalance: cleanedSaleData.balance
+              await api.put(`/customer/${cleanedSaleData.client}/outstanding-balance`, {
+                newOutstandingBalance: cleanedSaleData.balance
               });
               console.log(`Updated customer opening balance to ${cleanedSaleData.balance}`);
             } catch (error) {
@@ -753,8 +753,8 @@ const SupervisorTripDetails = () => {
           // Update customer's opening balance if receipt has a client and balance
           if (receiptData.client && receiptData.balance !== undefined && receiptData.balance !== 0) {
             try {
-              await api.put(`/customer/${receiptData.client}/opening-balance`, {
-                newOpeningBalance: receiptData.balance
+              await api.put(`/customer/${receiptData.client}/outstanding-balance`, {
+                newOutstandingBalance: receiptData.balance
               });
               console.log(`Updated customer opening balance to ${receiptData.balance}`);
             } catch (error) {
@@ -780,8 +780,8 @@ const SupervisorTripDetails = () => {
           // Update customer's opening balance if receipt has a client and balance
           if (receiptData.client && receiptData.balance !== undefined && receiptData.balance !== 0) {
             try {
-              await api.put(`/customer/${receiptData.client}/opening-balance`, {
-                newOpeningBalance: receiptData.balance
+              await api.put(`/customer/${receiptData.client}/outstanding-balance`, {
+                newOutstandingBalance: receiptData.balance
               });
               console.log(`Updated customer opening balance to ${receiptData.balance}`);
             } catch (error) {
@@ -1677,7 +1677,7 @@ const SupervisorTripDetails = () => {
                                             // paymentStatus: sale.paymentStatus || 'pending',
                                             receivedAmount: sale.receivedAmount || 0,
                                             discount: sale.discount || 0,
-                                            openingBalance: sale.openingBalance || 0,
+                                            outstandingBalance: sale.outstandingBalance || 0,
                                             cashPaid: sale.cashPaid || 0,
                                             onlinePaid: sale.onlinePaid || 0
                                           });
@@ -3017,9 +3017,9 @@ const SupervisorTripDetails = () => {
                       // For Receipt modal: calculate opening balance based on customer's current opening balance
                       const totalPaid = Number(saleData.cashPaid) + Number(saleData.onlinePaid);
                       if (customerBalance !== null) {
-                        // Calculate new opening balance: current opening balance + amount - payments - discount
-                        const newOpeningBalance = Number(customerBalance) + Number(saleData.amount) - Number(totalPaid) - Number(saleData.discount || 0);
-                        return Math.max(0, newOpeningBalance).toFixed(2);
+                        // Calculate new outstanding balance: current outstanding balance + amount - payments - discount
+                        const newOutstandingBalance = Number(customerBalance) + Number(saleData.amount) - Number(totalPaid) - Number(saleData.discount || 0);
+                        return Math.max(0, newOutstandingBalance).toFixed(2);
                       }
                       return 0.00;
                     })()}
@@ -3040,7 +3040,7 @@ const SupervisorTripDetails = () => {
                 <p>• <strong>RATE:</strong> Price per kg</p>
                 <p>• <strong>TOTAL:</strong> Auto-calculated as Weight × Rate</p>
                 <p>• <strong>PAYMENT:</strong> Enter cash/online amounts and discount</p>
-                <p>• <strong>BALANCE:</strong> Auto-calculated using formula: Global Opening Balance + Total Amount - Online Paid - Cash Paid - Discount</p>
+                <p>• <strong>BALANCE:</strong> Auto-calculated using formula: Global Outstanding Balance + Total Amount - Online Paid - Cash Paid - Discount</p>
               </div>
             </div>
 
@@ -3210,7 +3210,7 @@ const SupervisorTripDetails = () => {
                     </div>
                     {customerBalance !== null && (
                       <div className="mt-2 text-xs text-gray-600">
-                        {Number(customerBalance) > 0 ? `Opening Balance: ₹${Number(customerBalance).toLocaleString()}` : 'No outstanding balance'}
+                        {Number(customerBalance) > 0 ? `Outstanding Balance: ₹${Number(customerBalance).toLocaleString()}` : 'No outstanding balance'}
                       </div>
                     )}
                   </div>
@@ -3256,16 +3256,16 @@ const SupervisorTripDetails = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Opening Balance (₹)</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Outstanding Balance (₹)</label>
                   <input
                     type="number"
                     value={(() => {
                       // For Receipt modal: calculate opening balance based on customer's current opening balance
                       const totalPaid = Number(saleData.cashPaid) + Number(saleData.onlinePaid);
                       if (customerBalance !== null) {
-                        // Calculate new opening balance: current opening balance + amount - payments - discount
-                        const newOpeningBalance = Number(customerBalance) + Number(saleData.amount) - Number(totalPaid) - Number(saleData.discount || 0);
-                        return Math.max(0, newOpeningBalance).toFixed(2);
+                        // Calculate new outstanding balance: current outstanding balance + amount - payments - discount
+                        const newOutstandingBalance = Number(customerBalance) + Number(saleData.amount) - Number(totalPaid) - Number(saleData.discount || 0);
+                        return Math.max(0, newOutstandingBalance).toFixed(2);
                       }
                       return '0.00';
                     })()}
@@ -3277,12 +3277,12 @@ const SupervisorTripDetails = () => {
                   {/* Show extra payment info */}
                   {customerBalance !== null && (Number(saleData.cashPaid) + Number(saleData.onlinePaid)) > (Number(customerBalance) + Number(saleData.amount) - Number(saleData.discount || 0)) && (
                     <div className="mt-1 text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                      <div className="font-medium">Extra Payment Applied - Opening Balance Reduced</div>
-                      <div>Current Opening Balance: ₹{Number(customerBalance).toFixed(2)}</div>
+                      <div className="font-medium">Extra Payment Applied - Outstanding Balance Reduced</div>
+                      <div>Current Outstanding Balance: ₹{Number(customerBalance).toFixed(2)}</div>
                       <div>Sale Amount: ₹{Number(saleData.amount).toFixed(2)}</div>
                       <div>Total Payment: ₹{(Number(saleData.cashPaid) + Number(saleData.onlinePaid)).toFixed(2)}</div>
                       <div>Extra Payment: ₹{Math.max(0, (Number(saleData.cashPaid) + Number(saleData.onlinePaid)) - (Number(customerBalance) + Number(saleData.amount) - Number(saleData.discount || 0))).toFixed(2)}</div>
-                      <div>New Opening Balance: ₹0.00</div>
+                      <div>New Outstanding Balance: ₹0.00</div>
                     </div>
                   )}
                 </div>

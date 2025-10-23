@@ -42,7 +42,8 @@ const CustomerDashboard = () => {
     totalBirds: 0,
     totalWeight: 0,
     pendingPayments: 0,
-    openingBalance: 0
+    openingBalance: 0,
+    outstandingBalance: 0
   });
   const [recentSales, setRecentSales] = useState([]);
   const [purchaseLedger, setPurchaseLedger] = useState([]);
@@ -350,14 +351,14 @@ const CustomerDashboard = () => {
       _id: 'balance_payment',
       billNumber: 'BAL-' + Date.now(),
       tripId: 'BALANCE',
-      balance: stats.openingBalance,
+      balance: stats.outstandingBalance,
       timestamp: new Date()
     };
     
     setSelectedSale(mockSale);
     setPaymentForm(prev => ({
       ...prev,
-      amount: stats.openingBalance.toString(),
+      amount: stats.outstandingBalance.toString(),
       customerDetails: {
         name: user?.name || '',
         mobileNumber: user?.mobileNumber || '',
@@ -394,15 +395,15 @@ const CustomerDashboard = () => {
     }
   };
 
-  const getPaymentStatusColor = (openingBalance) => {
-    if (openingBalance === 0) return 'text-green-600 bg-green-100';
-    if (openingBalance > 0) return 'text-yellow-600 bg-yellow-100';
+  const getPaymentStatusColor = (outstandingBalance) => {
+    if (outstandingBalance === 0) return 'text-green-600 bg-green-100';
+    if (outstandingBalance > 0) return 'text-yellow-600 bg-yellow-100';
     return 'text-gray-600 bg-gray-100';
   };
 
-  const getPaymentStatusText = (openingBalance) => {
-    if (openingBalance === 0) return 'Paid';
-    if (openingBalance > 0) return 'Pending';
+  const getPaymentStatusText = (outstandingBalance) => {
+    if (outstandingBalance === 0) return 'Paid';
+    if (outstandingBalance > 0) return 'Pending';
     return 'Overpaid';
   };
 
@@ -509,6 +510,24 @@ const CustomerDashboard = () => {
         </div>
         
         {/* Opening Balance Display */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-blue-100 rounded-lg">
+                <AlertCircle className="w-6 h-6 text-blue-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-blue-800">Opening Balance</h3>
+                <p className="text-lg font-bold text-blue-900">₹{stats.openingBalance.toLocaleString()}</p>
+                <p className="text-sm text-blue-700">
+                  Initial balance set when account was created
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Outstanding Balance Display */}
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
@@ -516,10 +535,10 @@ const CustomerDashboard = () => {
                 <AlertCircle className="w-6 h-6 text-yellow-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-yellow-800">Opening Balance</h3>
-                <p className="text-lg font-bold text-yellow-900">₹{stats.openingBalance.toLocaleString()}</p>
+                <h3 className="font-semibold text-yellow-800">Outstanding Balance</h3>
+                <p className="text-lg font-bold text-yellow-900">₹{stats.outstandingBalance.toLocaleString()}</p>
                 <p className="text-sm text-yellow-700">
-                  This is your current opening balance from all transactions
+                  This is your current outstanding balance from all transactions
                 </p>
               </div>
             </div>
@@ -696,7 +715,7 @@ const CustomerDashboard = () => {
                       <td className="px-3 py-3 text-right text-gray-900">{entry.avgWeight.toFixed(2)}</td>
                       <td className="px-3 py-3 text-right text-gray-900">₹{entry.rate.toLocaleString()}</td>
                       <td className="px-3 py-3 text-right text-gray-900">₹{entry.amount.toLocaleString()}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">₹{entry.openingBalance.toLocaleString()}</td>
+                      <td className="px-3 py-3 text-right text-gray-900">₹{entry.outstandingBalance.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -87,6 +87,7 @@ export default function Customers() {
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState(null);
+  const [isEdit, setIsEdit] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -225,6 +226,7 @@ export default function Customers() {
       setValue('password', ''); // Don't pre-fill password for security
     }
     setShowAddModal(true);
+    setIsEdit(true);
     setShowPassword(false);
   };
 
@@ -259,6 +261,7 @@ export default function Customers() {
 
   const handleAddNew = () => {
     setEditingCustomer(null);
+    setIsEdit(false);
     reset();
     setShowAddModal(true);
     setShowPassword(false);
@@ -267,6 +270,7 @@ export default function Customers() {
   const handleCloseModal = () => {
     setShowAddModal(false);
     setEditingCustomer(null);
+    setIsEdit(false);
     reset();
     setError('');
     setShowPassword(false);
@@ -595,23 +599,28 @@ export default function Customers() {
                   />
                   {errors.gstOrPanNumber && <p className="text-red-500 text-xs mt-1">{errors.gstOrPanNumber.message}</p>}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Opening Balance (₹)
-                  </label>
-                  <input
-                    type="number"
-                    {...register('openingBalance', { valueAsNumber: true })}
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {errors.openingBalance && <p className="text-red-500 text-xs mt-1">{errors.openingBalance.message}</p>}
-                  <p className="text-xs text-gray-500 mt-1">
-                    Customer's initial outstanding balance
-                  </p>
-                </div>
+                
+                {/* Show Opening Balance field only when creating new customer, not when editing */}
+                {!isEdit && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Opening Balance (₹)
+                    </label>
+                    <input
+                      type="number"
+                      {...register('openingBalance', { valueAsNumber: true })}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    {errors.openingBalance && <p className="text-red-500 text-xs mt-1">{errors.openingBalance.message}</p>}
+                    <p className="text-xs text-gray-500 mt-1">
+                      Customer's initial opening balance
+                    </p>
+                  </div>
+                )}
+                
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Address

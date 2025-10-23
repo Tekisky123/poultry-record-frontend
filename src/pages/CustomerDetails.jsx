@@ -226,6 +226,13 @@ const CustomerDetails = () => {
               </div>
             </div>
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Current Outstanding Balance</label>
+              <div className="flex items-center gap-2">
+                <CreditCard size={16} className="text-gray-400" />
+                <span className="text-gray-900 font-semibold">₹{(customer.outstandingBalance || 0).toLocaleString()}</span>
+              </div>
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                 customer.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
@@ -267,7 +274,19 @@ const CustomerDetails = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-600">Opening Balance</p>
-              <p className="text-2xl font-bold text-orange-600">₹{(customer.openingBalance || 0).toLocaleString()}</p>
+              <p className="text-2xl font-bold text-blue-600">₹{(customer.openingBalance || 0).toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-blue-100 rounded-lg">
+              <CreditCard className="w-6 h-6 text-blue-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Current Outstanding Balance</p>
+              <p className="text-2xl font-bold text-orange-600">₹{(customer.outstandingBalance || 0).toLocaleString()}</p>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
               <CreditCard className="w-6 h-6 text-orange-600" />
@@ -358,10 +377,10 @@ const CustomerDetails = () => {
                       ₹{((sale.cashPaid || 0) + (sale.onlinePaid || 0)).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
-                      ₹{(sale.openingBalance || 0).toLocaleString()}
+                      ₹{(sale.outstandingBalance || 0).toLocaleString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {sale.openingBalance > 0 ? (
+                      {sale.outstandingBalance > 0 ? (
                         <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-red-100 text-red-700 rounded-full">
                           <AlertCircle size={12} />
                           Pending

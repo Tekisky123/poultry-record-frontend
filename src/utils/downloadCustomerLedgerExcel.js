@@ -16,7 +16,7 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
       'Avg': entry.avgWeight,
       'Rate': entry.rate,
       'Amount': entry.amount,
-      'Balance': entry.openingBalance
+      'Balance': entry.outstandingBalance
     }));
 
     // Calculate totals
@@ -33,7 +33,7 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
       'Avg': '',
       'Rate': '',
       'Amount': ledgerData.reduce((sum, entry) => sum + entry.amount, 0),
-      'Balance': ledgerData[ledgerData.length - 1]?.openingBalance || 0
+      'Balance': ledgerData[ledgerData.length - 1]?.outstandingBalance || 0
     };
 
     // Add totals row
