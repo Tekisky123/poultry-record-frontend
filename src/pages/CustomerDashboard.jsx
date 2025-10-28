@@ -510,7 +510,7 @@ const CustomerDashboard = () => {
         </div>
         
         {/* Opening Balance Display */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+        {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-blue-100 rounded-lg">
@@ -525,7 +525,7 @@ const CustomerDashboard = () => {
               </div>
             </div>
           </div>
-        </div>
+        </div> */}
 
         {/* Outstanding Balance Display */}
         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-4">

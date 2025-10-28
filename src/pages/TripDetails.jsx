@@ -1377,6 +1377,7 @@ const downloadExcel2 = () => {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">₹{(sale.ratePerKg || sale.rate || 0).toFixed(2)}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.totalAmount || sale.amount || 0).toFixed(2)}</td>
+                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.totalAmount || sale.amount || 0).toFixed(2)}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.cashPaid || 0).toFixed(2)}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.onlinePaid || 0).toFixed(2)}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900">₹{(sale.discount || 0).toFixed(2)}</td>
@@ -1479,7 +1480,8 @@ const downloadExcel2 = () => {
                           ? (trip.summary.totalWeightSold / trip.summary.totalBirdsSold).toFixed(2) 
                           : '0.00'}
                       </td>
-                      <td className="px-4 py-3 border-r">₹{(trip.summary?.averageRate || (trip.sales?.length > 0 ? trip.sales.reduce((acc, sale) => acc + sale.rate, 0) / trip.sales.length : 0)).toFixed(2)}</td>
+                      {/* <td className="px-4 py-3 border-r">₹{(trip.summary?.averageRate || (trip.sales?.length > 0 ? trip.sales.reduce((acc, sale) => acc + sale.rate, 0) / trip.sales.length : 0)).toFixed(2)}</td> */}
+                      <td className="px-4 py-3 border-r">₹{Math.floor((trip.summary?.totalSalesAmount / trip.summary?.totalWeightSold)*100) / 100 || 0}</td>
                       <td className="px-4 py-3 border-r">₹{(trip.summary?.totalSalesAmount || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 border-r">₹{(trip.summary?.totalCashPaid || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 border-r">₹{(trip.summary?.totalOnlinePaid || 0).toFixed(2)}</td>
@@ -1633,100 +1635,96 @@ const downloadExcel2 = () => {
               </div>
             </div>
 
-            {/* Trip Metrics, Birds Summary, and Financial Breakdown */}
+            {/* Trip Metrics and Financial Summary */}
             <div className="border-t">
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Left Column - Trip Metrics and Financial Breakdown */}
-                  <div className="space-y-6">
-                    {/* Trip Metrics */}
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3">TRIP METRICS</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">OP READING:</span>
-                          <span className="font-semibold">{trip.vehicleReadings?.opening || 0}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">CL READING:</span>
-                          <span className="font-semibold">{trip.vehicleReadings?.closing || 0}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">TOTAL RUNNING KM:</span>
-                          <span className="font-semibold">{(trip.vehicleReadings?.totalDistance || 0).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">TOTAL DIESEL VOL:</span>
-                          <span className="font-semibold">{(trip.diesel?.totalVolume || 0).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between bg-gray-800 text-white px-3 py-2 rounded">
-                          <span className="text-sm font-bold">VEHICLE AVERAGE:</span>
-                          <span className="font-bold">
-                            {trip.vehicleReadings?.totalDistance && trip.diesel?.totalVolume ? (trip.vehicleReadings?.totalDistance / trip.diesel?.totalVolume).toFixed(2) : '0.00'}
-                          </span>
-                        </div>
+                  {/* Left Column - Trip Metrics */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3">TRIP METRICS</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">TOTAL RUNNING KM:</span>
+                        <span className="font-semibold">{(trip.vehicleReadings?.totalDistance || 0).toFixed(2)}</span>
                       </div>
-                    </div>
-                    
-                    {/* Financial Breakdown */}
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3">FINANCIAL BREAKDOWN</h4>
-                      <div className="space-y-2">
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">RENT AMT PER KM:</span>
-                          <span className="font-semibold">₹{(trip.rentPerKm || 0).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">GROSS RENT:</span>
-                          <span className="font-semibold">₹{(trip.totalKm ? (trip.totalKm * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
-                        </div>
-                        {/* <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">LESS DIESEL AMT:</span>
-                          <span className="font-semibold">₹{(trip.dieselAmount || 0).toFixed(2)}</span>
-                        </div> */}
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">NETT RENT:</span>
-                          <span className="font-semibold">₹{(trip.totalKm ? ((trip.totalKm * (trip.rentPerKm || 0)) - (trip.dieselAmount || 0)) : 0).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-sm text-gray-600">BIRDS PROFIT:</span>
-                          <span className="font-semibold">₹{(trip.summary?.birdsProfit || 0).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between bg-gray-800 text-white px-3 py-2 rounded">
-                          <span className="text-sm font-bold">NET PROFIT:</span>
-                          <span className="font-bold">₹{(trip.summary?.netProfit || 0).toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between bg-gray-200 px-3 py-2 rounded">
-                          <span className="text-sm font-bold">MARGIN:</span>
-                          <span className="font-bold">₹{(trip.summary?.totalWeightSold) ? (trip.summary.netProfit / trip.summary.totalWeightSold).toFixed(2) : '0.00'}</span>
-                        </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">TOTAL DIESEL VOL:</span>
+                        <span className="font-semibold">{(trip.diesel?.totalVolume || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">VEHICLE AVERAGE:</span>
+                        <span className="font-semibold">
+                          {trip.vehicleReadings?.totalDistance && trip.diesel?.totalVolume 
+                            ? (trip.vehicleReadings.totalDistance / trip.diesel.totalVolume).toFixed(2) 
+                            : '0.00'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">RENT PER KM:</span>
+                        <span className="font-semibold">₹{(trip.rentPerKm || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">GROSS RENT:</span>
+                        <span className="font-semibold">₹{(trip.vehicleReadings?.totalDistance ? (trip.vehicleReadings.totalDistance * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">LESS DIESEL COST:</span>
+                        <span className="font-semibold">₹{(trip.summary?.totalDieselAmount || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between bg-gray-700 text-white px-3 py-2 rounded">
+                        <span className="text-sm font-semibold">NETT RENT:</span>
+                        <span className="font-semibold">
+                          ₹{(trip.vehicleReadings?.totalDistance 
+                            ? ((trip.vehicleReadings.totalDistance * (trip.rentPerKm || 0)) - (trip.summary?.totalDieselAmount || 0)) 
+                            : 0).toFixed(2)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between bg-black text-white px-3 py-2 rounded">
+                        <span className="text-sm font-bold">TRIP PROFIT:</span>
+                        <span className="font-bold">₹{(trip.summary?.netProfit || 0).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
                   
-                  {/* Right Column - Birds Summary */}
+                  {/* Right Column - Financial Summary */}
                   <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">BIRDS SUMMARY</h4>
+                    <h4 className="font-semibold text-gray-900 mb-3">FINANCIAL SUMMARY</h4>
                     <div className="space-y-2">
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">TOTAL PURCHASED:</span>
-                        <span className="font-semibold">{trip.summary?.totalBirdsPurchased || 0} birds</span>
+                        <span className="text-sm text-gray-600">TOTAL SALES:</span>
+                        <span className="font-semibold">₹{(trip.summary?.totalSalesAmount || 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">TOTAL SOLD:</span>
-                        <span className="font-semibold">{trip.summary?.totalBirdsSold || 0} birds</span>
+                        <span className="text-sm text-gray-600">TOTAL PURCHASE:</span>
+                        <span className="font-semibold">₹{(trip.summary?.totalPurchaseAmount || 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">REMAINING STOCK:</span>
-                        <span className="font-semibold">{trip.summary?.totalBirdsStock || 0} birds</span>
+                        <span className="text-sm text-gray-600">GROSS PROFIT:</span>
+                        <span className="font-semibold">₹{(trip.summary?.totalProfitMargin || 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">BIRDS LOST:</span>
-                        <span className="font-semibold">{trip.summary?.totalBirdsLost || 0} birds</span>
+                        <span className="text-sm text-gray-600">TOTAL EXP:</span>
+                        <span className="font-semibold">₹{(trip.summary?.totalExpenses || 0).toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">BIRDS TRANSFERRED:</span>
-                        <span className="font-semibold">{trip.summary?.birdsTransferred || 0} birds</span>
+                        <span className="text-sm text-gray-600">GROSS RENT:</span>
+                        <span className="font-semibold">₹{(trip.vehicleReadings?.totalDistance ? (trip.vehicleReadings.totalDistance * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between bg-orange-100 px-3 py-2 rounded">
+                        <span className="text-sm text-gray-600">MORTALITY & WEIGHT LOSS:</span>
+                        <span className="font-semibold">₹{(trip.summary?.totalLosses || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between bg-gray-700 text-white px-3 py-2 rounded">
+                        <span className="text-sm font-semibold">BIRDS PROFIT:</span>
+                        <span className="font-semibold">₹{(trip.summary?.birdsProfit || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between bg-black text-white px-3 py-2 rounded">
+                        <span className="text-sm font-bold">MARGIN:</span>
+                        <span className="font-bold">
+                          ₹{(trip.summary?.totalWeightSold && trip.summary?.totalWeightSold > 0) 
+                            ? (trip.summary.netProfit / trip.summary.totalWeightSold).toFixed(2) 
+                            : '0.00'}
+                        </span>
                       </div>
                     </div>
                   </div>

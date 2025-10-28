@@ -2950,17 +2950,31 @@ const SupervisorTripDetails = () => {
                     )}
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (₹)</label>
-                  <input
-                    type="number"
-                    value={saleData.amount}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                    placeholder="Auto-calculated"
-                    readOnly
-                    step="0.01"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Trip Total Amount (₹)</label>
+                    <input
+                      type="number"
+                      value={saleData.amount}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                      placeholder="Auto-calculated"
+                      readOnly
+                      step="0.01"
+                    />
+                  </div>
+                    <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Total Balance (₹)</label>
+                    <input
+                      type="number"
+                      value={Number(saleData.amount) + Number(customerBalance) || 0}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                      placeholder="Auto-Calculated"
+                      readOnly
+                      step="0.01"
+                    />
+                  </div>
                 </div>
+                
                 <div className="grid grid-cols-2 gap-4">
                   {/* <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Payment Mode</label>

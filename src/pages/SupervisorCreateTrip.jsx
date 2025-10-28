@@ -209,7 +209,7 @@ const SupervisorCreateTrip = () => {
               <p className="text-xs text-gray-500 mt-1">Where the trip ends (can be same as start for round trips)</p>
             </div>
 
-            <div>
+            {/* <div>
               <label htmlFor="place" className="block text-sm font-medium text-gray-700 mb-1">
                 Area/Region Reference (Optional)
               </label>
@@ -223,7 +223,7 @@ const SupervisorCreateTrip = () => {
                 placeholder="e.g., SNK Area, North Zone"
               />
               <p className="text-xs text-gray-500 mt-1">General area reference (optional)</p>
-            </div>
+            </div> */}
 
             <div>
               <label htmlFor="vehicle" className="block text-sm font-medium text-gray-700 mb-1">
