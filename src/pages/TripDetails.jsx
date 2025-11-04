@@ -1377,7 +1377,7 @@ const downloadExcel2 = () => {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">₹{(sale.ratePerKg || sale.rate || 0).toFixed(2)}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.totalAmount || sale.amount || 0).toFixed(2)}</td>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.totalAmount || sale.amount || 0).toFixed(2)}</td>
+                        
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.cashPaid || 0).toFixed(2)}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">₹{(sale.onlinePaid || 0).toFixed(2)}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900">₹{(sale.discount || 0).toFixed(2)}</td>
