@@ -179,7 +179,11 @@ export const downloadTripPDF = (trip) => {
   yPosition += lineHeight;
   addTableRow('Total Losses:', `₹${trip.summary?.totalLosses?.toLocaleString() || '0'}`, yPosition);
   yPosition += lineHeight;
-  addTableRow('Net Profit:', `₹${trip.summary?.netProfit?.toLocaleString() || '0'}`, yPosition, { valueBold: true, color: '#059669' });
+  addTableRow('Net Profit:', `₹${trip.summary?.netProfit?.toLocaleString() || '0'}`, yPosition);
+  yPosition += lineHeight;
+  addTableRow('Birds Profit:', `₹${trip.summary?.birdsProfit?.toLocaleString() || '0'}`, yPosition);
+  yPosition += lineHeight;
+  addTableRow('Trip Profit:', `₹${trip.summary?.tripProfit?.toLocaleString() || '0'}`, yPosition, { valueBold: true, color: '#059669' });
   yPosition += 10;
 
   // Bird Statistics

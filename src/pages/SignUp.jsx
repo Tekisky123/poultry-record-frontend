@@ -15,7 +15,8 @@ const SignUp = () => {
     role: 'supervisor',
     age: '',
     address: '',
-    gstOrPanNumber: ''
+    gstOrPanNumber: '',
+    area: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -66,6 +67,12 @@ const SignUp = () => {
         setError('GST/PAN number must be between 10-15 characters');
         return false;
       }
+    }
+
+    // Area validation for customers
+    if (formData.role === 'customer' && !formData.area.trim()) {
+      setError('Area is required for customers');
+      return false;
     }
 
     return true;
@@ -263,6 +270,28 @@ const SignUp = () => {
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Required for customer registration. Enter your GST number (15 digits) or PAN number (10 characters)
+                  </p>
+                </div>
+              )}
+
+              {/* Area Input - Only show for customers */}
+              {formData.role === 'customer' && (
+                <div>
+                  <label htmlFor="area" className="block text-sm font-medium text-gray-700">
+                    Area *
+                  </label>
+                  <input
+                    id="area"
+                    name="area"
+                    type="text"
+                    required={formData.role === 'customer'}
+                    value={formData.area}
+                    onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Enter your area"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Required for customer registration. Enter your area/location
                   </p>
                 </div>
               )}

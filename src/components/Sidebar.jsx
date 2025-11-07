@@ -23,7 +23,6 @@ import chickenLogo from '../assets/chicken-logo.png';
 const getMenuItems = (userRole) => {
   const baseItems = [
     { name: 'Users', path: '/users', icon: UserCheck },
-    { name: 'Customers', path: '/customers', icon: Store },
     { name: 'Customer Payments', path: '/customer-payments', icon: CreditCard },
     { name: 'Vouchers', path: '/vouchers', icon: Receipt },
     { 
@@ -31,6 +30,7 @@ const getMenuItems = (userRole) => {
       icon: Settings, 
       isParent: true,
       children: [
+        { name: 'Customers', path: '/customers', icon: Store },
         { name: 'Vehicles', path: '/vehicles', icon: Car },
         { name: 'Vendors', path: '/vendors', icon: UsersIcon },
         

@@ -442,7 +442,7 @@ export default function TripDetails() {
     particularsCell.value = 'PARTICULARS';
     particularsCell.style = { font: { bold: true, size: 14 } };
 
-    // Date and vehicle details
+    // Row 2: DATE | VEHICLE NO | START LOCATION ( ROUTE ) | END LOCATION ( ROUTE )
     worksheet.mergeCells('A2:B2');
     worksheet.getCell('A2').value = 'DATE';
     worksheet.getCell('A2').style = subHeaderStyle;
@@ -460,53 +460,45 @@ export default function TripDetails() {
     worksheet.getCell('G2').style = { alignment: { horizontal: 'left' } };
 
     worksheet.mergeCells('I2:J2');
-    // worksheet.getCell('I2').value = 'PLACE';
+    worksheet.getCell('I2').value = 'START LOCATION (ROUTE)';
     worksheet.getCell('I2').style = subHeaderStyle;
 
     worksheet.mergeCells('K2:L2');
-    // worksheet.getCell('K2').value = trip.place || 'N/A';
+    worksheet.getCell('K2').value = trip.route?.from || 'N/A';
     worksheet.getCell('K2').style = { alignment: { horizontal: 'left' } };
 
     worksheet.mergeCells('M2:N2');
-    worksheet.getCell('M2').value = 'SUPERVISOR';
+    worksheet.getCell('M2').value = 'END LOCATION (ROUTE)';
     worksheet.getCell('M2').style = subHeaderStyle;
 
     worksheet.mergeCells('O2:P2');
-    worksheet.getCell('O2').value = trip.supervisor?.name || 'N/A';
+    worksheet.getCell('O2').value = trip.route?.to || 'N/A';
     worksheet.getCell('O2').style = { alignment: { horizontal: 'left' } };
 
-    // Row 3: Driver, Labour, Start Location, End Location
+    // Row 3: SUPERVISOR | DRIVER | LABOUR
     worksheet.mergeCells('A3:B3');
-    worksheet.getCell('A3').value = 'DRIVER';
+    worksheet.getCell('A3').value = 'SUPERVISOR';
     worksheet.getCell('A3').style = subHeaderStyle;
 
     worksheet.mergeCells('C3:D3');
-    worksheet.getCell('C3').value = trip.driver || 'N/A';
+    worksheet.getCell('C3').value = trip.supervisor?.name || 'N/A';
     worksheet.getCell('C3').style = { alignment: { horizontal: 'left' } };
 
     worksheet.mergeCells('E3:F3');
-    worksheet.getCell('E3').value = 'LABOUR';
+    worksheet.getCell('E3').value = 'DRIVER';
     worksheet.getCell('E3').style = subHeaderStyle;
 
     worksheet.mergeCells('G3:H3');
-    worksheet.getCell('G3').value = trip.labour || 'N/A';
+    worksheet.getCell('G3').value = trip.driver || 'N/A';
     worksheet.getCell('G3').style = { alignment: { horizontal: 'left' } };
 
     worksheet.mergeCells('I3:J3');
-    worksheet.getCell('I3').value = 'START LOCATION (ROUTE)';
+    worksheet.getCell('I3').value = 'LABOUR';
     worksheet.getCell('I3').style = subHeaderStyle;
 
     worksheet.mergeCells('K3:L3');
-    worksheet.getCell('K3').value = trip.route?.from || 'N/A';
+    worksheet.getCell('K3').value = trip.labour || 'N/A';
     worksheet.getCell('K3').style = { alignment: { horizontal: 'left' } };
-
-    worksheet.mergeCells('M3:N3');
-    worksheet.getCell('M3').value = 'END LOCATION (ROUTE)';
-    worksheet.getCell('M3').style = subHeaderStyle;
-
-    worksheet.mergeCells('O3:P3');
-    worksheet.getCell('O3').value = trip.route?.to || 'N/A';
-    worksheet.getCell('O3').style = { alignment: { horizontal: 'left' } };
 
     // Column headers for purchases (now at row 5 since we added row 3)
     const headers = [
@@ -863,7 +855,7 @@ export default function TripDetails() {
     worksheet.getCell(`A${currentRow}`).value = 'TOTAL PROFIT';
     worksheet.getCell(`A${currentRow}`).style = subHeaderStyle;
 
-    worksheet.getCell(`B${currentRow}`).value = trip.summary?.netProfit || 0;
+    worksheet.getCell(`B${currentRow}`).value = trip.summary?.tripProfit || 0;
     worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
 
     currentRow++;
@@ -1227,7 +1219,8 @@ const downloadExcel2 = () => {
               <h3 className="text-lg font-bold">PARTICULARS</h3>
             </div>
             <div className="p-6">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+              {/* First Row: DATE | VEHICLE NO | START LOCATION ( ROUTE ) | END LOCATION ( ROUTE ) */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">DATE</label>
                   <div className="text-lg font-semibold text-gray-900">
@@ -1241,11 +1234,21 @@ const downloadExcel2 = () => {
                   </div>
                 </div>
                 <div>
-                  {/* <label className="block text-sm font-medium text-gray-700 mb-1">PLACE</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">START LOCATION ( ROUTE )</label>
                   <div className="text-lg font-semibold text-gray-900">
-                    {trip.place || 'N/A'}
-                  </div> */}
+                    {trip.route?.from || 'N/A'}
+                  </div>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">END LOCATION ( ROUTE )</label>
+                  <div className="text-lg font-semibold text-gray-900">
+                    {trip.route?.to || 'N/A'}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Second Row: SUPERVISOR | DRIVER | LABOUR | (empty) - aligned with first row columns */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">SUPERVISOR</label>
                   <div className="text-lg font-semibold text-gray-900">
@@ -1265,16 +1268,7 @@ const downloadExcel2 = () => {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">START LOCATION ( ROUTE )</label>
-                  <div className="text-lg font-semibold text-gray-900">
-                    {trip.route?.from || 'N/A'}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">END LOCATION ( ROUTE )</label>
-                  <div className="text-lg font-semibold text-gray-900">
-                    {trip.route?.to || 'N/A'}
-                  </div>
+                  {/* Empty column to maintain alignment with END LOCATION */}
                 </div>
               </div>
             </div>
@@ -1418,7 +1412,7 @@ const downloadExcel2 = () => {
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">₹{(transfer.transferredStock?.rate || 0).toFixed(2)}</td>
                         <td className="px-4 py-3 text-sm font-semibold text-gray-900 border-r">
-                          ₹{((transfer.transferredStock?.birds || 0) * (transfer.transferredStock?.rate || 0)).toFixed(2)}
+                          ₹{((transfer.transferredStock?.weight || 0) * (transfer.transferredStock?.rate || 0)).toFixed(2)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-500 border-r">-</td>
                         <td className="px-4 py-3 text-sm text-gray-500 border-r">-</td>
@@ -1429,7 +1423,6 @@ const downloadExcel2 = () => {
                     {/* Transferred Sales Entries - Show transferred stock data */}
                     {trip.transferHistory?.map((transfer, transferIndex) => {
                       const transferredStock = transfer.transferredStock;
-                      const totalAmount = (transferredStock?.birds || 0) * (transferredStock?.rate || 0);
                       
                       return (
                         <tr key={`transfer-sales-${transferIndex}`} className="border-b hover:bg-purple-100 bg-purple-100">
@@ -1468,21 +1461,21 @@ const downloadExcel2 = () => {
                         </tr>
                       );
                     })}
-                    {/* Total Sales Row */}
+                    {/* Total Sales Row - Only Customer Sales for Display */}
                     <tr className="bg-black text-white font-bold">
                       <td className="px-4 py-3 border-r">TOTAL SALE</td>
                       <td className="px-4 py-3 border-r"></td>
                       <td className="px-4 py-3 border-r"></td>
-                      <td className="px-4 py-3 border-r">{trip.summary?.totalBirdsSold || 0}</td>
-                      <td className="px-4 py-3 border-r">{(trip.summary?.totalWeightSold || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 border-r">{trip.summary?.customerBirdsSold || 0}</td>
+                      <td className="px-4 py-3 border-r">{(trip.summary?.customerWeightSold || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 border-r">
-                        {trip.summary?.totalBirdsSold && trip.summary?.totalWeightSold 
-                          ? (trip.summary.totalWeightSold / trip.summary.totalBirdsSold).toFixed(2) 
+                        {trip.summary?.customerBirdsSold && trip.summary?.customerWeightSold 
+                          ? (trip.summary.customerWeightSold / trip.summary.customerBirdsSold).toFixed(2) 
                           : '0.00'}
                       </td>
                       {/* <td className="px-4 py-3 border-r">₹{(trip.summary?.averageRate || (trip.sales?.length > 0 ? trip.sales.reduce((acc, sale) => acc + sale.rate, 0) / trip.sales.length : 0)).toFixed(2)}</td> */}
-                      <td className="px-4 py-3 border-r">₹{Math.floor((trip.summary?.totalSalesAmount / trip.summary?.totalWeightSold)*100) / 100 || 0}</td>
-                      <td className="px-4 py-3 border-r">₹{(trip.summary?.totalSalesAmount || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 border-r">₹{Math.floor((trip.summary?.customerSalesAmount / trip.summary?.customerWeightSold)*100) / 100 || 0}</td>
+                      <td className="px-4 py-3 border-r">₹{(trip.summary?.customerSalesAmount || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 border-r">₹{(trip.summary?.totalCashPaid || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 border-r">₹{(trip.summary?.totalOnlinePaid || 0).toFixed(2)}</td>
                       <td className="px-4 py-3">₹{(trip.summary?.totalDiscount || 0).toFixed(2)}</td>
@@ -1506,7 +1499,7 @@ const downloadExcel2 = () => {
                         </td>
                         <td className="px-4 py-3 border-r">-</td>
                         <td className="px-4 py-3 border-r">
-                          ₹{(trip.transfers.reduce((sum, transfer) => sum + ((transfer.transferredStock?.birds || 0) * (transfer.transferredStock?.rate || 0)), 0)).toFixed(2)}
+                          ₹{(trip.transfers.reduce((sum, transfer) => sum + ((transfer.transferredStock?.weight || 0) * (transfer.transferredStock?.rate || 0)), 0)).toFixed(2)}
                         </td>
                         <td className="px-4 py-3 border-r">-</td>
                         <td className="px-4 py-3 border-r">-</td>
@@ -1681,7 +1674,7 @@ const downloadExcel2 = () => {
                       </div>
                       <div className="flex justify-between bg-black text-white px-3 py-2 rounded">
                         <span className="text-sm font-bold">TRIP PROFIT:</span>
-                        <span className="font-bold">₹{(trip.summary?.netProfit || 0).toFixed(2)}</span>
+                        <span className="font-bold">₹{(trip.summary?.tripProfit || 0).toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -1761,7 +1754,7 @@ const downloadExcel2 = () => {
           {activeTab === 'overview' && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Trip Summary</h3>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              <div className={`grid grid-cols-1 ${user.role !== 'admin' && user.role !== 'superadmin' ? 'lg:grid-cols-2' : ''} gap-4 sm:gap-6`}>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-gray-900">Trip Details</h3>
@@ -1826,41 +1819,44 @@ const downloadExcel2 = () => {
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Financial Summary</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Total Sales:</span>
-                      <span className="font-medium text-right">₹{trip.summary?.totalSalesAmount?.toFixed(2) || '0.00'}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Total Purchase:</span>
-                      <span className="font-medium text-right">₹{trip.summary?.totalPurchaseAmount?.toFixed(2) || '0.00'}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Gross Profit:</span>
-                      <span className="font-medium text-green-600 text-right">₹{trip.summary?.totalProfitMargin?.toFixed(2) || '0.00'}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Total Expenses:</span>
-                      <span className="font-medium text-right">₹{trip.summary?.totalExpenses?.toFixed(2) || '0.00'}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Diesel Cost:</span>
-                      <span className="font-medium text-right">₹{trip.summary?.totalDieselAmount?.toFixed(2) || '0.00'}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Mortality & Weight Loss :</span>
-                      <span className="font-medium text-red-600 text-right">₹{trip.summary?.totalLosses?.toFixed(2) || '0.00'}</span>
-                    </div>
-                    <div className="flex justify-between items-center border-t pt-3 mt-3">
-                      <span className="text-sm font-medium text-gray-900">Net Profit:</span>
-                      <span className="text-lg font-semibold text-green-600 text-right">
-                        ₹{trip.status === 'completed' ? (trip.summary?.netProfit?.toFixed(2) || '0.00') : Math.max(0, trip.summary?.netProfit || 0).toFixed(2)}
-                      </span>
+                {/* Hide Financial Summary for admin users in overview tab */}
+                {user.role !== 'admin' && user.role !== 'superadmin' && (
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold text-gray-900">Financial Summary</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Total Sales:</span>
+                        <span className="font-medium text-right">₹{trip.summary?.totalSalesAmount?.toFixed(2) || '0.00'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Total Purchase:</span>
+                        <span className="font-medium text-right">₹{trip.summary?.totalPurchaseAmount?.toFixed(2) || '0.00'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Gross Profit:</span>
+                        <span className="font-medium text-green-600 text-right">₹{trip.summary?.totalProfitMargin?.toFixed(2) || '0.00'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Total Expenses:</span>
+                        <span className="font-medium text-right">₹{trip.summary?.totalExpenses?.toFixed(2) || '0.00'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Diesel Cost:</span>
+                        <span className="font-medium text-right">₹{trip.summary?.totalDieselAmount?.toFixed(2) || '0.00'}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">Mortality & Weight Loss :</span>
+                        <span className="font-medium text-red-600 text-right">₹{trip.summary?.totalLosses?.toFixed(2) || '0.00'}</span>
+                      </div>
+                      <div className="flex justify-between items-center border-t pt-3 mt-3">
+                        <span className="text-sm font-medium text-gray-900">Net Profit:</span>
+                        <span className="text-lg font-semibold text-green-600 text-right">
+                          ₹{trip.status === 'completed' ? (trip.summary?.netProfit?.toFixed(2) || '0.00') : Math.max(0, trip.summary?.netProfit || 0).toFixed(2)}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
               </div>
 
 
@@ -2066,14 +2062,14 @@ const downloadExcel2 = () => {
                         ))}
                         <tr className="bg-gray-100 font-semibold">
                           <td className="border border-gray-300 px-4 py-2 text-sm text-gray-900" colSpan={trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') ? "4" : "3"}>TOTAL</td>
-                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">{trip.summary?.totalBirdsSold || 0}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">{trip.summary?.totalWeightSold || 0}</td>
+                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">{trip.summary?.customerBirdsSold || 0}</td>
+                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">{trip.summary?.customerWeightSold || 0}</td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
-                            {trip.summary?.totalWeightSold && trip.summary?.totalBirdsSold ? 
-                              (trip.summary.totalWeightSold / trip.summary.totalBirdsSold).toFixed(2) : '0.00'}
+                            {trip.summary?.customerWeightSold && trip.summary?.customerBirdsSold ? 
+                              (trip.summary.customerWeightSold / trip.summary.customerBirdsSold).toFixed(2) : '0.00'}
                           </td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.summary?.averageRate || 0}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.summary?.totalSalesAmount?.toLocaleString() || '0'}</td>
+                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.summary?.customerSalesAmount?.toLocaleString() || '0'}</td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{(trip.summary?.totalCashPaid || 0).toLocaleString()}</td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{(trip.summary?.totalOnlinePaid || 0).toLocaleString()}</td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{(trip.summary?.totalDiscount || 0).toLocaleString()}</td>

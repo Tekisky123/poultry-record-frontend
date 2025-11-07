@@ -25,7 +25,8 @@ import {
   Upload,
   Eye,
   EyeOff,
-  RefreshCw
+  RefreshCw,
+  Columns
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -66,6 +67,8 @@ const CustomerDashboard = () => {
   const [refreshingPayments, setRefreshingPayments] = useState(false);
   const [refreshingPurchases, setRefreshingPurchases] = useState(false);
   const [loadingPagination, setLoadingPagination] = useState(false);
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+  const [showAllColumns, setShowAllColumns] = useState(false);
   
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -134,7 +137,7 @@ const CustomerDashboard = () => {
     }
   };
 
-  const fetchPurchaseLedger = async (page = 1, isRefresh = false) => {
+  const fetchPurchaseLedger = async (page = 1, isRefresh = false, skipLastPageCheck = false) => {
     try {
       if (isRefresh) {
         setRefreshingPurchases(true);
@@ -144,7 +147,7 @@ const CustomerDashboard = () => {
       if (!userId) return;
 
       // Clear existing data first to ensure clean state
-      if (!isRefresh) {
+      if (!isRefresh && !skipLastPageCheck) {
         setPurchaseLedger([]);
       }
 
@@ -153,13 +156,35 @@ const CustomerDashboard = () => {
       if (ledgerResponse.data.success) {
         const ledgerData = ledgerResponse.data.data;
         
-        // Ensure we're replacing the data completely
-        setPurchaseLedger(ledgerData.ledger || []);
-        setLedgerTotals(ledgerData.totals || {});
-        
-        // Update pagination state with new data
+        // Update pagination state first to get totalPages
         if (ledgerData.pagination) {
           setLedgerPagination(ledgerData.pagination);
+        }
+        
+        // On first load or refresh, if there are multiple pages, load the last page
+        if ((isFirstLoad || isRefresh) && !skipLastPageCheck && ledgerData.pagination && ledgerData.pagination.totalPages > 1) {
+          const lastPage = ledgerData.pagination.totalPages;
+          // Fetch the last page instead
+          const lastPageResponse = await api.get(`/customer/panel/${userId}/purchase-ledger?page=${lastPage}&limit=${ledgerPagination.itemsPerPage}`);
+          if (lastPageResponse.data.success) {
+            const lastPageData = lastPageResponse.data.data;
+            setPurchaseLedger(lastPageData.ledger || []);
+            setLedgerTotals(lastPageData.totals || {});
+            
+            // Update pagination to show we're on the last page
+            if (lastPageData.pagination) {
+              setLedgerPagination(lastPageData.pagination);
+            }
+          }
+        } else {
+          // Normal pagination or single page
+          setPurchaseLedger(ledgerData.ledger || []);
+          setLedgerTotals(ledgerData.totals || {});
+        }
+        
+        // Mark first load as complete only after first successful load (not on refresh)
+        if (isFirstLoad && !isRefresh) {
+          setIsFirstLoad(false);
         }
       }
 
@@ -186,7 +211,7 @@ const CustomerDashboard = () => {
       setLoadingPagination(true);
       try {
         const newPage = ledgerPagination.currentPage - 1;
-        await fetchPurchaseLedger(newPage);
+        await fetchPurchaseLedger(newPage, false, true); // skipLastPageCheck = true to prevent re-fetching last page
       } finally {
         setLoadingPagination(false);
       }
@@ -198,7 +223,7 @@ const CustomerDashboard = () => {
       setLoadingPagination(true);
       try {
         const newPage = ledgerPagination.currentPage + 1;
-        await fetchPurchaseLedger(newPage);
+        await fetchPurchaseLedger(newPage, false, true); // skipLastPageCheck = true to prevent re-fetching last page
       } finally {
         setLoadingPagination(false);
       }
@@ -458,23 +483,13 @@ const CustomerDashboard = () => {
           <div className="bg-purple-50 p-4 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Birds</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalBirds}</p>
+                <p className="text-sm text-gray-600">Total Birds/Weight</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {stats.totalBirds} / {stats.totalWeight.toFixed(2)} Kg
+                </p>
               </div>
               <div className="p-3 bg-purple-100 rounded-lg">
                 <Package className="w-6 h-6 text-purple-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-orange-50 p-4 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Weight</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.totalWeight.toFixed(2)} kg</p>
-              </div>
-              <div className="p-3 bg-orange-100 rounded-lg">
-                <TrendingUp className="w-6 h-6 text-orange-600" />
               </div>
             </div>
           </div>
@@ -637,7 +652,15 @@ const CustomerDashboard = () => {
         </h2>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => fetchPurchaseLedger(ledgerPagination.currentPage, true)}
+              onClick={() => setShowAllColumns(!showAllColumns)}
+              className="flex items-center gap-2 px-3 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              title={showAllColumns ? "Hide additional columns" : "Show all columns"}
+            >
+              <Columns className="w-4 h-4" />
+              {showAllColumns ? 'Hide Columns' : 'Show Columns'}
+            </button>
+            <button
+              onClick={() => fetchPurchaseLedger(1, true)}
               disabled={refreshingPurchases}
               className="flex items-center gap-2 px-3 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               title="Refresh purchase records"
@@ -679,16 +702,16 @@ const CustomerDashboard = () => {
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Sr. No.</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Date</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Vehicles No</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Driver Name</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Supervisor</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Product</th>
+                    {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Vehicles No</th>}
+                    {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Driver Name</th>}
+                    {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Supervisor</th>}
+                    {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Product</th>}
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Particulars</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Invoice No</th>
-                    <th className="px-3 py-3 text-right font-medium text-gray-700">Birds</th>
-                    <th className="px-3 py-3 text-right font-medium text-gray-700">Weight</th>
-                    <th className="px-3 py-3 text-right font-medium text-gray-700">Avg</th>
-                    <th className="px-3 py-3 text-right font-medium text-gray-700">Rate</th>
+                    {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Invoice No</th>}
+                    {showAllColumns && <th className="px-3 py-3 text-right font-medium text-gray-700">Birds</th>}
+                    {showAllColumns && <th className="px-3 py-3 text-right font-medium text-gray-700">Weight</th>}
+                    {showAllColumns && <th className="px-3 py-3 text-right font-medium text-gray-700">Avg</th>}
+                    {showAllColumns && <th className="px-3 py-3 text-right font-medium text-gray-700">Rate</th>}
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Amount</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Balance</th>
                   </tr>
@@ -700,22 +723,22 @@ const CustomerDashboard = () => {
                         {(ledgerPagination.currentPage - 1) * ledgerPagination.itemsPerPage + index + 1}
                       </td>
                       <td className="px-3 py-3 text-gray-900">{formatDate(entry.date)}</td>
-                      <td className="px-3 py-3 text-gray-900">{entry.vehiclesNo}</td>
-                      <td className="px-3 py-3 text-gray-900">{entry.driverName}</td>
-                      <td className="px-3 py-3 text-gray-900">{entry.supervisor}</td>
-                      <td className="px-3 py-3 text-gray-900">{entry.product}</td>
+                      {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.vehiclesNo || '-'}</td>}
+                      {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.driverName || '-'}</td>}
+                      {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.supervisor || '-'}</td>}
+                      {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.product || '-'}</td>}
                       <td className="px-3 py-3">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getParticularsColor(entry.particulars)}`}>
                           {entry.particulars}
-                    </span>
+                        </span>
                       </td>
-                      <td className="px-3 py-3 text-gray-900">{entry.invoiceNo}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">{entry.birds}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">{entry.weight.toFixed(2)}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">{entry.avgWeight.toFixed(2)}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">₹{entry.rate.toLocaleString()}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">₹{entry.amount.toLocaleString()}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">₹{entry.outstandingBalance.toLocaleString()}</td>
+                      {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry?.invoiceNo || '-'}</td>}
+                      {showAllColumns && <td className="px-3 py-3 text-right text-gray-900">{entry?.birds || 0}</td>}
+                      {showAllColumns && <td className="px-3 py-3 text-right text-gray-900">{(entry?.weight || 0).toFixed(2)}</td>}
+                      {showAllColumns && <td className="px-3 py-3 text-right text-gray-900">{(entry?.avgWeight || 0).toFixed(2)}</td>}
+                      {showAllColumns && <td className="px-3 py-3 text-right text-gray-900">₹{(entry?.rate || 0).toLocaleString()}</td>}
+                      <td className="px-3 py-3 text-right text-gray-900">₹{(entry?.amount || 0).toLocaleString()}</td>
+                      <td className="px-3 py-3 text-right text-gray-900">₹{(entry?.outstandingBalance || 0).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
