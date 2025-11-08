@@ -43,9 +43,10 @@ const getMenuItems = (userRole) => {
     baseItems.unshift({ name: 'Trips', path: '/trips', icon: Truck });
   }
 
-  // Only show Indirect Expenses for admin/superadmin
+  // Only show Indirect Expenses and Indirect Purchase & Sales for admin/superadmin
   if (userRole === 'admin' || userRole === 'superadmin') {
     baseItems.push({ name: 'Indirect Expenses', path: '/indirect-expenses', icon: FileText });
+    baseItems.push({ name: 'Indirect Purchase & Sales', path: '/indirect-sales', icon: FileText });
   }
 
   return baseItems;

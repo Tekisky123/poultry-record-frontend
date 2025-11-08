@@ -14,6 +14,8 @@ import Users from './pages/Users';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import IndirectExpenses from './pages/IndirectExpenses';
+import IndirectSales from './pages/IndirectSales';
+import IndirectSaleDetail from './pages/IndirectSaleDetail';
 import VoucherList from './pages/VoucherList';
 import AddEditVoucher from './pages/AddEditVoucher';
 import VoucherDetails from './pages/VoucherDetails';
@@ -134,6 +136,8 @@ const AppContent = () => {
                 <Route path="/vehicles" element={<Vehicles />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/indirect-expenses" element={<IndirectExpenses />} />
+                <Route path="/indirect-sales" element={<IndirectSales />} />
+                <Route path="/indirect-sales/:id" element={<IndirectSaleDetail />} />
                 <Route path="/vouchers" element={<VoucherList />} />
                 <Route path="/vouchers/add" element={<AddEditVoucher />} />
                 <Route path="/vouchers/:id" element={<VoucherDetails />} />
