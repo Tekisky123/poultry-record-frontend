@@ -58,6 +58,7 @@ const vendorSchema = z.object({
   defaultPaymentMode: z.enum(['cash', 'credit', 'advance'], {
     required_error: 'Payment mode is required',
   }).default('cash'),
+  tdsApplicable: z.boolean().default(false)
 });
 
 const getPaymentModeColor = (mode) => {
@@ -110,6 +111,7 @@ export default function Vendors() {
       postalCode: '',
       country: '',
       defaultPaymentMode: 'cash',
+      tdsApplicable: false
     }
   });
 
@@ -217,6 +219,7 @@ export default function Vendors() {
     setValue('postalCode', vendor.postalCode || '');
     setValue('country', vendor.country || '');
     setValue('defaultPaymentMode', vendor.defaultPaymentMode || 'cash');
+    setValue('tdsApplicable', vendor.tdsApplicable || false);
     setShowAddModal(true);
   };
 
@@ -237,9 +240,9 @@ export default function Vendors() {
 
   const onSubmit = (data) => {
     if (editingVendor) {
-      updateVendor({ id: editingVendor.id, ...data });
+      updateVendor({ id: editingVendor.id, ...data, tdsApplicable: data.tdsApplicable ?? false });
     } else {
-      addVendor(data);
+      addVendor({ ...data, tdsApplicable: data.tdsApplicable ?? false });
     }
   };
 
@@ -560,6 +563,19 @@ export default function Vendors() {
                     <option value="advance">Advance</option>
                   </select>
                   {errors.defaultPaymentMode && <p className="text-red-500 text-xs mt-1">{errors.defaultPaymentMode.message}</p>}
+                </div>
+                <div className="md:col-span-2">
+                  <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                    <input
+                      type="checkbox"
+                      {...register('tdsApplicable')}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span>TDS applicable</span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enable this if TDS should be deducted for this vendor&apos;s payments.
+                  </p>
                 </div>
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
