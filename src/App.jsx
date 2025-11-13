@@ -19,6 +19,8 @@ import IndirectSaleDetail from './pages/IndirectSaleDetail';
 import VoucherList from './pages/VoucherList';
 import AddEditVoucher from './pages/AddEditVoucher';
 import VoucherDetails from './pages/VoucherDetails';
+import Groups from './pages/Groups';
+import Ledgers from './pages/Ledgers';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -142,6 +144,8 @@ const AppContent = () => {
                 <Route path="/vouchers/add" element={<AddEditVoucher />} />
                 <Route path="/vouchers/:id" element={<VoucherDetails />} />
                 <Route path="/vouchers/:id/edit" element={<AddEditVoucher />} />
+                <Route path="/groups" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Groups /></ProtectedRoute>} />
+                <Route path="/ledgers" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Ledgers /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
           </main>

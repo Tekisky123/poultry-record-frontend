@@ -14,6 +14,8 @@ import {
   Settings,
   CreditCard,
   Receipt,
+  FolderTree,
+  BookOpen,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -25,15 +27,19 @@ const getMenuItems = (userRole) => {
     { name: 'Users', path: '/users', icon: UserCheck },
     { name: 'Customer Payments', path: '/customer-payments', icon: CreditCard },
     { name: 'Vouchers', path: '/vouchers', icon: Receipt },
-    { 
-      name: 'Create And Alter', 
-      icon: Settings, 
+    {
+      name: 'Create And Alter',
+      icon: Settings,
       isParent: true,
       children: [
         { name: 'Customers', path: '/customers', icon: Store },
         { name: 'Vehicles', path: '/vehicles', icon: Car },
         { name: 'Vendors', path: '/vendors', icon: UsersIcon },
         
+        // Add Accounting section for Groups and Ledgers
+        { name: 'Groups', path: '/groups', icon: FolderTree },
+        { name: 'Ledgers', path: '/ledgers', icon: BookOpen },
+        ,
       ]
     },
   ];
@@ -47,6 +53,7 @@ const getMenuItems = (userRole) => {
   if (userRole === 'admin' || userRole === 'superadmin') {
     baseItems.push({ name: 'Indirect Expenses', path: '/indirect-expenses', icon: FileText });
     baseItems.push({ name: 'Indirect Purchase & Sales', path: '/indirect-sales', icon: FileText });
+
   }
 
   return baseItems;
@@ -81,7 +88,7 @@ export default function Sidebar() {
       }
     `;
     document.head.appendChild(style);
-    
+
     return () => {
       document.head.removeChild(style);
     };
@@ -139,7 +146,7 @@ export default function Sidebar() {
         </div>
 
         {/* Navigation - Scrollable */}
-        <nav 
+        <nav
           className="flex-1 overflow-y-auto px-3 py-6 sidebar-scrollbar"
           style={{
             scrollbarWidth: 'thin',
@@ -174,14 +181,14 @@ export default function Sidebar() {
                       </div>
                       {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
                     </button>
-                    
+
                     {/* Sub-menu */}
                     {isExpanded && (
                       <ul className="ml-6 mt-2 space-y-1">
                         {item.children.map((child) => {
                           const ChildIcon = child.icon;
                           const isChildActive = location.pathname === child.path;
-                          
+
                           return (
                             <li key={child.path}>
                               <Link
