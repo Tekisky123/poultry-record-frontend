@@ -10,9 +10,9 @@ const api = axios.create({
     ? "http://localhost:6060/api"
     : "https://poultry-record-backend.vercel.app/api", 
 	withCredentials: true,
-	headers: {
-		'Content-Type': 'application/json',
-	},
+	// headers: {
+	// 	'Content-Type': 'application/json',
+	// },
 });
 
 // Helper function to get token from cookies
