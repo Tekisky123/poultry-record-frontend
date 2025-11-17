@@ -207,6 +207,7 @@ const CustomerDetails = () => {
   const totalSales = ledgerTotals.totalAmount || 0;
   const totalBirds = ledgerTotals.totalBirds || 0;
   const totalWeight = ledgerTotals.totalWeight || 0;
+  const totalReceipt = ledgerTotals.totalReceipt || 0;
 
   return (
     <div className="space-y-6">
@@ -246,7 +247,7 @@ const CustomerDetails = () => {
       </div>
 
       {/* Customer Information */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
           <User size={20} />
           Customer Information
@@ -287,8 +288,8 @@ const CustomerDetails = () => {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
-              <p className="text-gray-900">{customer.area || 'Not specified'}</p>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Place</label>
+              <p className="text-gray-900">{customer.place || 'Not specified'}</p>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">GST/PAN Number</label>
@@ -321,14 +322,32 @@ const CustomerDetails = () => {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Sales Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Total Birds / Total Weight */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Amount</p>
+              <p className="text-sm text-gray-600 mb-2">Total Birds / Total Weight</p>
+              <div className="flex items-baseline gap-2">
+                <p className="text-2xl font-bold text-purple-600">{totalBirds.toLocaleString()}</p>
+                <span className="text-sm text-gray-500">/</span>
+                <p className="text-lg font-semibold text-gray-700">{totalWeight.toFixed(2)} kg</p>
+              </div>
+            </div>
+            <div className="p-3 bg-purple-100 rounded-lg">
+              <Package className="w-6 h-6 text-purple-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Amount */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Amount</p>
               <p className="text-2xl font-bold text-blue-600">₹{totalSales.toLocaleString()}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -337,39 +356,28 @@ const CustomerDetails = () => {
           </div>
         </div>
 
+        {/* Total Receipt */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Opening Balance</p>
-              <p className="text-2xl font-bold text-blue-600">₹{(customer.openingBalance || 0).toLocaleString()}</p>
+              <p className="text-sm text-gray-600">Total Receipt</p>
+              <p className="text-2xl font-bold text-green-600">₹{totalReceipt.toLocaleString()}</p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <CreditCard className="w-6 h-6 text-blue-600" />
+            <div className="p-3 bg-green-100 rounded-lg">
+              <Receipt className="w-6 h-6 text-green-600" />
             </div>
           </div>
         </div>
 
+        {/* Outstanding Balance */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Current Outstanding Balance</p>
+              <p className="text-sm text-gray-600">Outstanding Balance</p>
               <p className="text-2xl font-bold text-orange-600">₹{(customer.outstandingBalance || 0).toLocaleString()}</p>
             </div>
             <div className="p-3 bg-orange-100 rounded-lg">
               <CreditCard className="w-6 h-6 text-orange-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Birds</p>
-              <p className="text-2xl font-bold text-purple-600">{totalBirds.toLocaleString()}</p>
-              <p className="text-xs text-gray-500">{totalWeight.toFixed(2)} kg</p>
-            </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Package className="w-6 h-6 text-purple-600" />
             </div>
           </div>
         </div>

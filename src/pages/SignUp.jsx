@@ -14,9 +14,10 @@ const SignUp = () => {
     confirmPassword: '',
     role: 'supervisor',
     age: '',
+    dateOfBirth: '',
     address: '',
     gstOrPanNumber: '',
-    area: ''
+    place: ''
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -29,9 +30,35 @@ const SignUp = () => {
   const navigate = useNavigate();
 
   const handleChange = (e) => {
+    const { name, value } = e.target;
+    
+    // For mobile number, only allow digits and limit to 10 digits
+    if (name === 'mobileNumber') {
+      const numericValue = value.replace(/\D/g, ''); // Remove non-digit characters
+      const limitedValue = numericValue.slice(0, 10); // Limit to 10 digits
+      setFormData({
+        ...formData,
+        [name]: limitedValue
+      });
+    } else {
+      setFormData({
+        ...formData,
+        [name]: value
+      });
+    }
+    setError(''); // Clear error when user types
+    setInfo('');
+  };
+  
+  const handleMobileNumberChange = (e) => {
+    const value = e.target.value;
+    // Remove any non-digit characters
+    const numericValue = value.replace(/\D/g, '');
+    // Limit to 10 digits
+    const limitedValue = numericValue.slice(0, 10);
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      mobileNumber: limitedValue
     });
     setError(''); // Clear error when user types
     setInfo('');
@@ -53,6 +80,12 @@ const SignUp = () => {
       return false;
     }
 
+    // Mobile number validation - must be exactly 10 digits
+    if (!formData.mobileNumber || formData.mobileNumber.length !== 10) {
+      setError('Mobile number must be exactly 10 digits');
+      return false;
+    }
+
     // GST/PAN validation for customers
     if (formData.role === 'customer' && !formData.gstOrPanNumber.trim()) {
       setError('GST/PAN number is required for customers');
@@ -69,9 +102,9 @@ const SignUp = () => {
       }
     }
 
-    // Area validation for customers
-    if (formData.role === 'customer' && !formData.area.trim()) {
-      setError('Area is required for customers');
+    // Place validation for customers
+    if (formData.role === 'customer' && !formData.place.trim()) {
+      setError('Place is required for customers');
       return false;
     }
 
@@ -98,9 +131,22 @@ const SignUp = () => {
     try {
       const userData = { ...formData };
       delete userData.confirmPassword;
-      // Convert age to number if provided
+      // Convert age to number if provided (for non-customers)
       if (userData.age) {
         userData.age = parseInt(userData.age);
+      }
+      // For customers, remove age and use dateOfBirth instead
+      if (userData.role === 'customer') {
+        delete userData.age;
+        // dateOfBirth is already a string in YYYY-MM-DD format from date input
+      } else {
+        // For non-customers, remove dateOfBirth
+        delete userData.dateOfBirth;
+      }
+      
+      // Add +91 prefix to mobile number if not already present
+      if (userData.mobileNumber && !userData.mobileNumber.startsWith('+91')) {
+        userData.mobileNumber = '+91' + userData.mobileNumber;
       }
 
       const result = await signup(userData);
@@ -205,36 +251,70 @@ const SignUp = () => {
                 <label htmlFor="mobileNumber" className="block text-sm font-medium text-gray-700">
                   Mobile Number *
                 </label>
-                <input
-                  id="mobileNumber"
-                  name="mobileNumber"
-                  type="tel"
-                  autoComplete="tel"
-                  required
-                  value={formData.mobileNumber}
-                  onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="Enter your mobile number"
-                />
+                <div className="mt-1 relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <span className="text-gray-400 text-sm">+91</span>
+                  </div>
+                  <input
+                    id="mobileNumber"
+                    name="mobileNumber"
+                    type="tel"
+                    autoComplete="tel"
+                    required
+                    value={formData.mobileNumber}
+                    onChange={handleMobileNumberChange}
+                    maxLength={10}
+                    pattern="[0-9]{10}"
+                    className="block w-full pl-12 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="9922537397"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Enter exactly 10 digits (numbers only)
+                </p>
               </div>
 
-              {/* Age Input */}
-              <div>
-                <label htmlFor="age" className="block text-sm font-medium text-gray-700">
-                  Age
-                </label>
-                <input
-                  id="age"
-                  name="age"
-                  type="number"
-                  min="18"
-                  max="100"
-                  value={formData.age}
-                  onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  placeholder="Enter your age"
-                />
-              </div>
+              {/* Age Input - Only for non-customers */}
+              {formData.role !== 'customer' && (
+                <div>
+                  <label htmlFor="age" className="block text-sm font-medium text-gray-700">
+                    Age
+                  </label>
+                  <input
+                    id="age"
+                    name="age"
+                    type="number"
+                    min="18"
+                    max="100"
+                    value={formData.age}
+                    onChange={handleChange}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                    placeholder="Enter your age"
+                  />
+                </div>
+              )}
+
+              {/* Date of Birth Input - Only for customers */}
+              {formData.role === 'customer' && (
+                <div>
+                  <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700">
+                    Date of Birth (DOB) *
+                  </label>
+                  <input
+                    id="dateOfBirth"
+                    name="dateOfBirth"
+                    type="date"
+                    required={formData.role === 'customer'}
+                    value={formData.dateOfBirth}
+                    onChange={handleChange}
+                    max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Required for customer registration. You must be at least 18 years old.
+                  </p>
+                </div>
+              )}
 
               {/* Address Input */}
               <div>
@@ -274,24 +354,24 @@ const SignUp = () => {
                 </div>
               )}
 
-              {/* Area Input - Only show for customers */}
+              {/* Place Input - Only show for customers */}
               {formData.role === 'customer' && (
                 <div>
-                  <label htmlFor="area" className="block text-sm font-medium text-gray-700">
-                    Area *
+                  <label htmlFor="place" className="block text-sm font-medium text-gray-700">
+                    Place *
                   </label>
                   <input
-                    id="area"
-                    name="area"
+                    id="place"
+                    name="place"
                     type="text"
                     required={formData.role === 'customer'}
-                    value={formData.area}
+                    value={formData.place}
                     onChange={handleChange}
                     className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                    placeholder="Enter your area"
+                    placeholder="Enter your place"
                   />
                   <p className="mt-1 text-xs text-gray-500">
-                    Required for customer registration. Enter your area/location
+                    Required for customer registration. Enter your place/location
                   </p>
                 </div>
               )}

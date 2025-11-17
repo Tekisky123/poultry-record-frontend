@@ -42,8 +42,8 @@ const customerSchema = z.object({
   address: z.string()
     .max(200, 'Address cannot exceed 200 characters')
     .optional(),
-  area: z.string()
-    .max(100, 'Area name too long')
+  place: z.string()
+    .max(100, 'Place name too long')
     .optional(),
   gstOrPanNumber: z.string()
     .max(100, 'GST or PAN number cannot exceed 100 characters')
@@ -113,7 +113,7 @@ export default function Customers() {
       ownerName: '',
       contact: '',
       address: '',
-      area: '',
+      place: '',
       gstOrPanNumber: '',
       openingBalance: 0,
       email: '',
@@ -223,7 +223,7 @@ export default function Customers() {
       : customer.contact || '';
     setValue('contact', contactNumber);
     setValue('address', customer.address || '');
-    setValue('area', customer.area || '');
+    setValue('place', customer.place || '');
     setValue('gstOrPanNumber', customer.gstOrPanNumber || '');
     setValue('openingBalance', customer.openingBalance || 0);
     setValue('tdsApplicable', customer.tdsApplicable || false);
@@ -445,7 +445,7 @@ export default function Customers() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Area</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Place</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -474,7 +474,7 @@ export default function Customers() {
                         {customer.contact}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {customer.area || 'N/A'}
+                        {customer.place || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
@@ -556,7 +556,7 @@ export default function Customers() {
                     </div>
                     <div className="flex items-center gap-1 text-xs text-gray-600">
                       <MapPin className="w-3 h-3" />
-                      <span className="truncate">{customer.area || 'No area'}</span>
+                      <span className="truncate">{customer.place || 'No place'}</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
@@ -637,9 +637,9 @@ export default function Customers() {
                 {/* Shop Type and Credit Info */}
                 <div className="space-y-3 mb-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Area:</span>
+                    <span className="text-sm text-gray-500">Place:</span>
                     <span className="text-sm font-medium text-gray-900">
-                      {customer.area || 'Not specified'}
+                      {customer.place || 'Not specified'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
@@ -701,9 +701,9 @@ export default function Customers() {
           </div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <div className="text-sm text-gray-500">With Area Info</div>
+          <div className="text-sm text-gray-500">With Place Info</div>
           <div className="text-2xl font-bold text-blue-600">
-            {filteredCustomers.filter(c => c.area).length}
+            {filteredCustomers.filter(c => c.place).length}
           </div>
         </div>
       </div> */}
@@ -768,14 +768,14 @@ export default function Customers() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Area *
+                    Place *
                   </label>
                   <input
                     type="text"
-                    {...register('area', { required: 'Area is required' })}
+                    {...register('place', { required: 'Place is required' })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
-                  {errors.area && <p className="text-red-500 text-xs mt-1">{errors.area.message}</p>}
+                  {errors.place && <p className="text-red-500 text-xs mt-1">{errors.place.message}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

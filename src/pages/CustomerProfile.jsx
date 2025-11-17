@@ -25,7 +25,7 @@ const CustomerProfile = () => {
     email: '',
     mobileNumber: '',
     address: '',
-    area: '',
+    place: '',
     city: '',
     state: '',
     pincode: '',
@@ -73,7 +73,7 @@ const CustomerProfile = () => {
           email: customerData.email || '',
           mobileNumber: customerData.mobileNumber || '',
           address: customerData.address || '',
-          area: customerData.area || '',
+          place: customerData.place || '',
           city: customerData.city || '',
           state: customerData.state || '',
           pincode: customerData.pincode || '',
@@ -359,17 +359,17 @@ const CustomerProfile = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Area</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Place</label>
                 {isEditing ? (
                   <input
                     type="text"
-                    value={profile.area}
-                    onChange={(e) => handleChange('area', e.target.value)}
+                    value={profile.place}
+                    onChange={(e) => handleChange('place', e.target.value)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-                    placeholder="Enter area"
+                    placeholder="Enter place"
                   />
                 ) : (
-                  <p className="text-sm text-gray-900 py-2">{profile.area || 'Not provided'}</p>
+                  <p className="text-sm text-gray-900 py-2">{profile.place || 'Not provided'}</p>
                 )}
               </div>
 

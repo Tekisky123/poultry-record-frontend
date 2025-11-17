@@ -279,7 +279,7 @@ const SupervisorTripDetails = () => {
         customer.shopName.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
         customer.ownerName?.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
         customer.contact?.includes(customerSearchTerm) ||
-        customer.area?.toLowerCase().includes(customerSearchTerm.toLowerCase())
+        customer.place?.toLowerCase().includes(customerSearchTerm.toLowerCase())
       );
       setFilteredCustomers(filtered);
     }
@@ -1358,7 +1358,7 @@ const SupervisorTripDetails = () => {
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="border-b border-gray-200">
           <nav className="flex overflow-x-auto scrollbar-hide px-6">
-            {['overview', 'purchases', 'sales', 'stock', 'expenses', 'diesel', 'losses', 'financials', 'transfers'].map((tab) => (
+            {['overview', 'purchases', 'sales', 'receipts', 'stock', 'expenses', 'diesel', 'losses', 'financials', 'transfers'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -1594,28 +1594,28 @@ const SupervisorTripDetails = () => {
                     </div>
                   </div>
 
-                  {/* Area-wise Sales */}
+                  {/* Place-wise Sales */}
                   {(() => {
-                    const salesByArea = trip.sales.reduce((acc, sale) => {
-                      const area = sale.client?.area || 'Customers';
-                      if (!acc[area]) acc[area] = [];
-                      acc[area].push(sale);
+                    const salesByPlace = trip.sales.reduce((acc, sale) => {
+                      const place = sale.client?.place || 'Customers';
+                      if (!acc[place]) acc[place] = [];
+                      acc[place].push(sale);
                       return acc;
                     }, {});
 
-                    return Object.entries(salesByArea).map(([area, salesInArea]) => (
-                      <div key={area} className="border border-gray-200 rounded-lg">
+                    return Object.entries(salesByPlace).map(([place, salesInPlace]) => (
+                      <div key={place} className="border border-gray-200 rounded-lg">
                         <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
                           <div className="flex justify-between items-center">
-                            <h4 className="font-medium text-gray-800">{area}</h4>
+                            <h4 className="font-medium text-gray-800">{place}</h4>
                             <div className="text-sm text-gray-600">
-                              {salesInArea.length} sale{salesInArea.length !== 1 ? 's' : ''} | 
-                              Total: ₹{salesInArea.reduce((sum, sale) => sum + (sale.amount || 0), 0).toFixed(2)}
+                              {salesInPlace.length} sale{salesInPlace.length !== 1 ? 's' : ''} | 
+                              Total: ₹{salesInPlace.reduce((sum, sale) => sum + (sale.amount || 0), 0).toFixed(2)}
                             </div>
                           </div>
                         </div>
                         <div className="p-4 space-y-3">
-                          {salesInArea.map((sale, index) => (
+                          {salesInPlace.map((sale, index) => (
                             <div key={index} className="bg-white p-3 rounded border border-gray-100">
                               <div className="flex justify-between items-start">
                                 <div className="flex-1">
@@ -1723,6 +1723,165 @@ const SupervisorTripDetails = () => {
               ) : (
                 <p className="text-gray-500 text-center py-8">No sales recorded yet</p>
               )}
+            </div>
+          )}
+
+          {/* Receipts Tab */}
+          {activeTab === 'receipts' && (
+            <div className="space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Receipts</h3>
+              {(() => {
+                // Filter receipts from sales (where isReceipt is true or birds/weight/amount are 0)
+                const receipts = trip.sales?.filter(sale => 
+                  sale.isReceipt === true || 
+                  ((sale.birds === 0 || !sale.birds) && (sale.weight === 0 || !sale.weight) && (sale.amount === 0 || !sale.amount))
+                ) || [];
+
+                if (receipts.length > 0) {
+                  // Calculate receipts summary
+                  const totalCashPaid = receipts.reduce((sum, receipt) => sum + (receipt.cashPaid || 0), 0);
+                  const totalOnlinePaid = receipts.reduce((sum, receipt) => sum + (receipt.onlinePaid || 0), 0);
+                  const totalDiscount = receipts.reduce((sum, receipt) => sum + (receipt.discount || 0), 0);
+                  const totalPaid = totalCashPaid + totalOnlinePaid;
+
+                  // Group receipts by place
+                  const receiptsByPlace = receipts.reduce((acc, receipt) => {
+                    const place = receipt.client?.place || 'Customers';
+                    if (!acc[place]) acc[place] = [];
+                    acc[place].push(receipt);
+                    return acc;
+                  }, {});
+
+                  return (
+                    <div className="space-y-4">
+                      {/* Receipts Summary */}
+                      <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                        <h4 className="font-medium text-green-900 mb-2">Receipts Summary</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                          <div>
+                            <div className="text-sm text-green-600">Total Receipts</div>
+                            <div className="font-medium text-green-800">{receipts.length}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-green-600">Cash Receipt</div>
+                            <div className="font-medium text-green-800">₹{totalCashPaid.toFixed(2)}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-green-600">Online Receipt</div>
+                            <div className="font-medium text-green-800">₹{totalOnlinePaid.toFixed(2)}</div>
+                          </div>
+                          <div>
+                            <div className="text-sm text-green-600">Total Received</div>
+                            <div className="font-medium text-green-800">₹{totalPaid.toFixed(2)}</div>
+                          </div>
+                          {totalDiscount > 0 && (
+                            <div>
+                              <div className="text-sm text-green-600">Total Discount</div>
+                              <div className="font-medium text-green-800">₹{totalDiscount.toFixed(2)}</div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Place-wise Receipts */}
+                      {Object.entries(receiptsByPlace).map(([place, receiptsInPlace]) => (
+                        <div key={place} className="border border-gray-200 rounded-lg">
+                          <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
+                            <div className="flex justify-between items-center">
+                              <h4 className="font-medium text-gray-800">{place}</h4>
+                              <div className="text-sm text-gray-600">
+                                {receiptsInPlace.length} receipt{receiptsInPlace.length !== 1 ? 's' : ''} | 
+                                Total: ₹{receiptsInPlace.reduce((sum, receipt) => sum + (receipt.cashPaid || 0) + (receipt.onlinePaid || 0), 0).toFixed(2)}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="p-4 space-y-3">
+                            {receiptsInPlace.map((receipt, index) => (
+                              <div key={index} className="bg-white p-3 rounded border border-gray-100">
+                                <div className="flex justify-between items-start">
+                                  <div className="flex-1">
+                                    <div className="font-medium text-gray-900">
+                                      {receipt.client?.shopName || `Customer ${index + 1}`}
+                                    </div>
+                                    <div className="text-sm text-gray-600 mt-1">
+                                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full mr-2">
+                                        <Receipt size={12} className="mr-1" />
+                                        Receipt
+                                      </span>
+                                      Bill: {receipt.billNumber}
+                                    </div>
+                                    <div className="text-xs text-gray-500 mt-2 space-y-1">
+                                      {(receipt.cashPaid || 0) > 0 && (
+                                        <div>Cash Receipt: ₹{receipt.cashPaid.toFixed(2)}</div>
+                                      )}
+                                      {(receipt.onlinePaid || 0) > 0 && (
+                                        <div>Online Receipt: ₹{receipt.onlinePaid.toFixed(2)}</div>
+                                      )}
+                                      {(receipt.discount || 0) > 0 && (
+                                        <div>Discount: ₹{receipt.discount.toFixed(2)}</div>
+                                      )}
+                                      <div className="font-medium">Balance: ₹{receipt.balance?.toFixed(2) || '0.00'}</div>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col items-end space-y-2">
+                                    <div className="text-right">
+                                      <div className="font-medium text-green-600">
+                                        ₹{((receipt.cashPaid || 0) + (receipt.onlinePaid || 0)).toFixed(2)}
+                                      </div>
+                                      <div className="text-xs text-gray-500">Total Received</div>
+                                    </div>
+                                    <div className="flex space-x-2">
+                                      {trip.status !== 'completed' && (
+                                        <button
+                                          onClick={() => {
+                                            setSaleData({
+                                              client: receipt.client?._id || '',
+                                              billNumber: receipt.billNumber || generateBillNumber(),
+                                              birds: 0,
+                                              weight: 0,
+                                              avgWeight: 0,
+                                              rate: 0,
+                                              amount: 0,
+                                              receivedAmount: receipt.receivedAmount || 0,
+                                              discount: receipt.discount || 0,
+                                              balance: receipt.balance || 0,
+                                              cashPaid: receipt.cashPaid || 0,
+                                              onlinePaid: receipt.onlinePaid || 0,
+                                              isReceipt: true
+                                            });
+                                            setSelectedCustomer(receipt.client);
+                                            setEditingSaleIndex(trip.sales.findIndex(s => s._id === receipt._id));
+                                            setShowReceiptModal(true);
+                                          }}
+                                          className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 flex items-center gap-1"
+                                        >
+                                          <Edit size={12} />
+                                          Edit
+                                        </button>
+                                      )}
+                                      <button
+                                        onClick={() => handleDownloadInvoice(receipt)}
+                                        className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                                      >
+                                        <Receipt size={12} />
+                                        Download
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                } else {
+                  return (
+                    <p className="text-gray-500 text-center py-8">No receipts recorded yet</p>
+                  );
+                }
+              })()}
             </div>
           )}
 
@@ -2720,7 +2879,7 @@ const SupervisorTripDetails = () => {
                       onFocus={handleCustomerInputFocus}
                       onBlur={handleCustomerInputBlur}
                       onKeyDown={handleCustomerKeyDown}
-                      placeholder="Search customer by name, owner, contact, or area..."
+                      placeholder="Search customer by name, owner, contact, or place..."
                       className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -2768,8 +2927,8 @@ const SupervisorTripDetails = () => {
                                 <div className="text-sm text-gray-600">Owner: {customer.ownerName}</div>
                               )}
                               <div className="text-sm text-gray-500">{customer.contact}</div>
-                          {customer.area && (
-                            <div className="text-xs text-gray-400">Area: {customer.area}</div>
+                          {customer.place && (
+                            <div className="text-xs text-gray-400">Place: {customer.place}</div>
                           )}
                               {customer.gstOrPanNumber && (
                                 <div className="text-xs text-gray-400">GST/PAN: {customer.gstOrPanNumber}</div>
@@ -3148,7 +3307,7 @@ const SupervisorTripDetails = () => {
                       onFocus={handleCustomerInputFocus}
                       onBlur={handleCustomerInputBlur}
                       onKeyDown={handleCustomerKeyDown}
-                      placeholder="Search customer by name, owner, contact, or area..."
+                      placeholder="Search customer by name, owner, contact, or place..."
                       className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -3196,8 +3355,8 @@ const SupervisorTripDetails = () => {
                             <div className="text-sm text-gray-600">Owner: {customer.ownerName}</div>
                           )}
                           <div className="text-sm text-gray-500">{customer.contact}</div>
-                          {customer.area && (
-                            <div className="text-xs text-gray-400">Area: {customer.area}</div>
+                          {customer.place && (
+                            <div className="text-xs text-gray-400">Place: {customer.place}</div>
                           )}
                           {customer.gstOrPanNumber && (
                             <div className="text-xs text-gray-400">GST/PAN: {customer.gstOrPanNumber}</div>
@@ -3250,19 +3409,15 @@ const SupervisorTripDetails = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Bill Number *</label>
-                  <input
-                    type="text"
-                    value={saleData.billNumber}
-                    onChange={(e) => handleSaleDataChange('billNumber', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="Auto-generated"
-                    required
-                  />
+                  <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700">
+                    {saleData.billNumber}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Auto-generated bill number</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Cash Paid (₹)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Cash Receipt (₹)</label>
                     <input
                       type="number"
                       value={saleData.cashPaid}
@@ -3274,7 +3429,7 @@ const SupervisorTripDetails = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Online Paid (₹)</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Online Receipt (₹)</label>
                     <input
                       type="number"
                       value={saleData.onlinePaid}

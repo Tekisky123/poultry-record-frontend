@@ -264,24 +264,24 @@ const SupervisorTripDetails = () => {
         customer.shopName.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
         customer.ownerName?.toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
         customer.contact?.includes(customerSearchTerm) ||
-        customer.area?.toLowerCase().includes(customerSearchTerm.toLowerCase())
+        customer.place?.toLowerCase().includes(customerSearchTerm.toLowerCase())
       );
       setFilteredCustomers(filtered);
     }
   }, [customers, customerSearchTerm]);
 
-  // Group customers by area for better organization
-  const getCustomersByArea = (customerList) => {
+  // Group customers by place for better organization
+  const getCustomersByPlace = (customerList) => {
     const grouped = customerList.reduce((acc, customer) => {
-      const area = customer.area || 'No Area';
-      if (!acc[area]) {
-        acc[area] = [];
+      const place = customer.place || 'No Place';
+      if (!acc[place]) {
+        acc[place] = [];
       }
-      acc[area].push(customer);
+      acc[place].push(customer);
       return acc;
     }, {});
 
-    // Sort areas by customer count (descending) and then alphabetically
+    // Sort places by customer count (descending) and then alphabetically
     return Object.entries(grouped)
       .sort(([a, aCustomers], [b, bCustomers]) => {
         if (bCustomers.length !== aCustomers.length) {
@@ -289,7 +289,7 @@ const SupervisorTripDetails = () => {
         }
         return a.localeCompare(b);
       })
-      .map(([area, customersGrp]) => ({ area, customersGrp, count: customersGrp.length }));
+      .map(([place, customersGrp]) => ({ place, customersGrp, count: customersGrp.length }));
   };
 
   const fetchVendorsAndCustomers = async () => {
@@ -2503,7 +2503,7 @@ const SupervisorTripDetails = () => {
                       }}
                       onFocus={handleCustomerInputFocus}
                       onBlur={handleCustomerInputBlur}
-                      placeholder="Search customer by name, owner, contact, or area..."
+                      placeholder="Search customer by name, owner, contact, or place..."
                       className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
@@ -2529,29 +2529,29 @@ const SupervisorTripDetails = () => {
                       {/* Area Statistics Summary (only when no search) */}
                       {customerSearchTerm.trim() === '' && (
                         <div className="px-4 py-3 bg-blue-50 border-b border-blue-200">
-                          <div className="text-sm font-medium text-blue-800 mb-2">Area-wise Customer Distribution</div>
+                          <div className="text-sm font-medium text-blue-800 mb-2">Place-wise Customer Distribution</div>
                           <div className="flex flex-wrap gap-2">
-                            {getCustomersByArea(filteredCustomers).slice(0, 5).map(({ area, count }) => (
-                              <span key={area} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                                {area}: {count}
+                            {getCustomersByPlace(filteredCustomers).slice(0, 5).map(({ place, count }) => (
+                              <span key={place} className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                                {place}: {count}
                               </span>
                             ))}
-                            {getCustomersByArea(filteredCustomers).length > 5 && (
+                            {getCustomersByPlace(filteredCustomers).length > 5 && (
                               <span className="text-xs text-blue-600 px-2 py-1">
-                                +{getCustomersByArea(filteredCustomers).length - 5} more areas
+                                +{getCustomersByPlace(filteredCustomers).length - 5} more places
                               </span>
                             )}
                           </div>
                         </div>
                       )}
 
-                      {getCustomersByArea(filteredCustomers).map(({ area, customersGrp, count }) => (
-                        <div key={area} className="border-b border-gray-200 last:border-b-0">
-                          {/* Area Header */}
+                      {getCustomersByPlace(filteredCustomers).map(({ place, customersGrp, count }) => (
+                        <div key={place} className="border-b border-gray-200 last:border-b-0">
+                          {/* Place Header */}
                           <div className="px-4 py-2 bg-gray-50 border-b border-gray-200 sticky top-0">
                             <div className="flex items-center justify-between">
                               <span className="font-semibold text-gray-800 text-sm">
-                                {area}
+                                {place}
                               </span>
                               <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                                 {count} customer{count !== 1 ? 's' : ''}

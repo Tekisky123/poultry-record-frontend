@@ -69,6 +69,11 @@ const CustomerDashboard = () => {
   const [loadingPagination, setLoadingPagination] = useState(false);
   const [isFirstLoad, setIsFirstLoad] = useState(true);
   const [showAllColumns, setShowAllColumns] = useState(false);
+  const [dateFilter, setDateFilter] = useState({
+    startDate: '',
+    endDate: ''
+  });
+  const [showPaymentTable, setShowPaymentTable] = useState(false);
   
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -432,6 +437,40 @@ const CustomerDashboard = () => {
     return 'Overpaid';
   };
 
+  const isDateFilterActive = dateFilter.startDate || dateFilter.endDate;
+  const filteredPurchaseLedger = purchaseLedger.filter((entry) => {
+    if (!entry?.date) return false;
+    const entryDate = new Date(entry.date);
+    if (Number.isNaN(entryDate.getTime())) return false;
+
+    if (dateFilter.startDate) {
+      const start = new Date(dateFilter.startDate);
+      if (entryDate < start) {
+        return false;
+      }
+    }
+
+    if (dateFilter.endDate) {
+      const end = new Date(dateFilter.endDate);
+      // Include the entire end date (set to end of day)
+      end.setHours(23, 59, 59, 999);
+      if (entryDate > end) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  const displayedPurchaseLedger = isDateFilterActive ? filteredPurchaseLedger : purchaseLedger;
+
+  const handleClearDateFilter = () => {
+    setDateFilter({
+      startDate: '',
+      endDate: ''
+    });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -505,6 +544,22 @@ const CustomerDashboard = () => {
           </h2>
           <div className="flex items-center gap-2">
             <button
+              onClick={() => setShowPaymentTable(!showPaymentTable)}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              {showPaymentTable ? (
+                <>
+                  <EyeOff className="w-4 h-4" />
+                  Hide Payments
+                </>
+              ) : (
+                <>
+                  <Eye className="w-4 h-4" />
+                  Show Payments
+                </>
+              )}
+            </button>
+            <button
               onClick={() => fetchPaymentRecords(paymentPagination.currentPage, true)}
               disabled={refreshingPayments}
               className="flex items-center gap-2 px-3 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -567,7 +622,9 @@ const CustomerDashboard = () => {
         </div>
 
         {/* Payment Records Table */}
-        {paymentRecords.length === 0 ? (
+        {showPaymentTable && (
+          <>
+            {paymentRecords.length === 0 ? (
           <div className="text-center py-8">
             <CreditCard className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <p className="text-gray-500">No payment records yet</p>
@@ -640,17 +697,20 @@ const CustomerDashboard = () => {
               </div>
             )}
           </>
+            )}
+          </>
         )}
       </div>
 
       {/* Customer Purchases Ledger Section */}
       <div className="card">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center">
-          <Receipt className="w-5 h-5 mr-2 text-green-600" />
-            Customer Purchases
-        </h2>
-          <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-4 mb-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900 flex items-center">
+              <Receipt className="w-5 h-5 mr-2 text-green-600" />
+              Customer Purchases
+            </h2>
+            <div className="flex items-center gap-2">
             <button
               onClick={() => setShowAllColumns(!showAllColumns)}
               className="flex items-center gap-2 px-3 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
@@ -676,14 +736,56 @@ const CustomerDashboard = () => {
               <Download className="w-4 h-4" />
               Download Excel
             </button>
+            </div>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input
+                type="date"
+                value={dateFilter.startDate}
+                onChange={(e) => setDateFilter((prev) => ({ ...prev, startDate: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input
+                type="date"
+                value={dateFilter.endDate}
+                onChange={(e) => setDateFilter((prev) => ({ ...prev, endDate: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleClearDateFilter}
+                disabled={!isDateFilterActive}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Clear Filter
+              </button>
+              <div className="px-4 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg bg-gray-50">
+                Showing: {isDateFilterActive ? `${displayedPurchaseLedger.length} filtered records` : `${purchaseLedger.length} records`}
+              </div>
+            </div>
           </div>
         </div>
 
-        {purchaseLedger.length === 0 ? (
+        {displayedPurchaseLedger.length === 0 ? (
           <div className="text-center py-8">
             <ShoppingCart className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-gray-500">No purchase records yet</p>
-            <p className="text-sm text-gray-400 mt-1">Your purchase history will appear here</p>
+            <p className="text-gray-500">
+              {isDateFilterActive
+                ? 'No purchase records found for the selected date range.'
+                : 'No purchase records yet'}
+            </p>
+            <p className="text-sm text-gray-400 mt-1">
+              {isDateFilterActive
+                ? 'Try adjusting the date range or clear the filter.'
+                : 'Your purchase history will appear here'}
+            </p>
           </div>
         ) : (
           <>
@@ -703,7 +805,7 @@ const CustomerDashboard = () => {
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Sr. No.</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Date</th>
                     {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Vehicles No</th>}
-                    {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Driver Name</th>}
+                    {/* {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Driver Name</th>} */}
                     {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Supervisor</th>}
                     {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Product</th>}
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Particulars</th>
@@ -717,14 +819,14 @@ const CustomerDashboard = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {purchaseLedger.map((entry, index) => (
+                  {displayedPurchaseLedger.map((entry, index) => (
                     <tr key={entry._id || index} className="hover:bg-gray-50">
                       <td className="px-3 py-3 text-gray-900">
                         {(ledgerPagination.currentPage - 1) * ledgerPagination.itemsPerPage + index + 1}
                       </td>
                       <td className="px-3 py-3 text-gray-900">{formatDate(entry.date)}</td>
                       {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.vehiclesNo || '-'}</td>}
-                      {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.driverName || '-'}</td>}
+                      {/* {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.driverName || '-'}</td>} */}
                       {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.supervisor || '-'}</td>}
                       {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.product || '-'}</td>}
                       <td className="px-3 py-3">
@@ -743,7 +845,7 @@ const CustomerDashboard = () => {
                   ))}
                 </tbody>
               </table>
-                  </div>
+            </div>
 
             {/* Pagination */}
             {ledgerPagination.totalPages > 1 && (

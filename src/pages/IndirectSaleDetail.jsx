@@ -150,7 +150,7 @@ export default function IndirectSaleDetail() {
     setDetailForm(prev => ({
       ...prev,
       customer: value,
-      place: selected?.area || prev.place
+      place: selected?.place || prev.place
     }));
   };
 

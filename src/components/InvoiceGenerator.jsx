@@ -108,8 +108,8 @@ const InvoiceGenerator = {
     const contactDetails = [
       { text: 'Contact:', options: { fontStyle: 'bold' } },
       { text: customer.contact, options: {} },
-      { text: 'Area:', options: { fontStyle: 'bold' } },
-      { text: customer.area || 'N/A', options: {} }
+      { text: 'Place:', options: { fontStyle: 'bold' } },
+      { text: customer.place || 'N/A', options: {} }
     ];
     
     drawTableRow(margin, currentY, contentWidth, 8, contactDetails);
