@@ -111,12 +111,17 @@ const SupervisorTripDetails = () => {
     amount: ''
   });
 
-  const [dieselData, setDieselData] = useState({
+  const createInitialDieselData = () => ({
     stationName: '',
     volume: '',
     rate: '',
-    amount: 0
+    amount: 0,
+    selectedStationId: '',
+    useCustomStation: false,
   });
+  const [dieselData, setDieselData] = useState(createInitialDieselData());
+  const [dieselStations, setDieselStations] = useState([]);
+  const [dieselStationsLoading, setDieselStationsLoading] = useState(false);
 
   const [stockData, setStockData] = useState({
     birds: '',
@@ -151,6 +156,10 @@ const SupervisorTripDetails = () => {
     fetchTrip();
     fetchVendorsAndCustomers();
   }, [id]);
+
+  useEffect(() => {
+    fetchDieselStations();
+  }, []);
 
   // Check if trip has incomplete details (TBD values) and show modal
   useEffect(() => {
@@ -284,6 +293,18 @@ const SupervisorTripDetails = () => {
       setFilteredCustomers(filtered);
     }
   }, [customers, customerSearchTerm]);
+
+  const fetchDieselStations = async () => {
+    try {
+      setDieselStationsLoading(true);
+      const { data } = await api.get('/diesel-stations');
+      setDieselStations(data.data || []);
+    } catch (error) {
+      console.error('Failed to fetch diesel stations:', error);
+    } finally {
+      setDieselStationsLoading(false);
+    }
+  };
 
 
   const fetchVendorsAndCustomers = async () => {
@@ -849,26 +870,27 @@ const SupervisorTripDetails = () => {
         return;
       }
 
+      const payload = getDieselPayload();
       let data;
       if (editingDieselIndex !== null) {
         // Edit existing diesel record
-        data = await api.put(`/trip/${id}/diesel/${editingDieselIndex}`, dieselData);
+        data = await api.put(`/trip/${id}/diesel/${editingDieselIndex}`, payload);
         if (data.data.success) {
           setTrip(data.data.data);
           setShowDieselModal(false);
           setEditingDieselIndex(null);
-          setDieselData({ stationName: '', volume: '', rate: '', amount: 0 });
+          setDieselData(createInitialDieselData());
           alert('Diesel record updated successfully!');
         }
       } else {
         // Add new diesel record
         data = await api.put(`/trip/${id}/diesel`, {
-          stations: [...(trip.diesel?.stations || []), dieselData]
+          stations: [...(trip.diesel?.stations || []), payload]
         });
         if (data.data.success) {
           setTrip(data.data.data);
           setShowDieselModal(false);
-          setDieselData({ stationName: '', volume: '', rate: '', amount: 0 });
+          setDieselData(createInitialDieselData());
           alert('Diesel record added successfully!');
           // Update status to 'ongoing' when first management activity starts
           await updateTripStatusToOngoing();
@@ -1159,6 +1181,57 @@ const SupervisorTripDetails = () => {
     );
   }
 
+  // Diesel functions
+
+
+  const OTHER_STATION_VALUE = '__other__';
+
+  const getDieselStationSelection = (stationName) => {
+    if (!stationName) {
+      return { selectedStationId: '', useCustomStation: false };
+    }
+    const match = dieselStations.find((station) => station.name === stationName);
+    if (match) {
+      return { selectedStationId: match.id, useCustomStation: false };
+    }
+    return { selectedStationId: OTHER_STATION_VALUE, useCustomStation: true };
+  };
+
+  const handleDieselStationSelect = (value) => {
+    if (!value) {
+      setDieselData((prev) => ({
+        ...prev,
+        selectedStationId: '',
+        useCustomStation: false,
+        stationName: '',
+      }));
+      return;
+    }
+
+    if (value === OTHER_STATION_VALUE) {
+      setDieselData((prev) => ({
+        ...prev,
+        selectedStationId: value,
+        useCustomStation: true,
+        stationName: '',
+      }));
+      return;
+    }
+
+    const station = dieselStations.find((item) => item.id === value);
+    setDieselData((prev) => ({
+      ...prev,
+      selectedStationId: value,
+      useCustomStation: false,
+      stationName: station?.name || '',
+    }));
+  };
+
+  const getDieselPayload = () => {
+    const { selectedStationId, useCustomStation, ...payload } = dieselData;
+    return payload;
+  };
+
   return (
     <div className="space-y-0 relative">
       {/* Refresh toast */}
@@ -1263,7 +1336,7 @@ const SupervisorTripDetails = () => {
               <button
                 onClick={() => {
                   setEditingDieselIndex(null);
-                  setDieselData({ stationName: '', volume: '', rate: '', amount: 0 });
+                  setDieselData(createInitialDieselData());
                   setShowDieselModal(true);
                 }}
                 className="flex-shrink-0 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2 whitespace-nowrap"
@@ -2142,12 +2215,15 @@ const SupervisorTripDetails = () => {
                             <button
                               onClick={() => {
                                 setEditingDieselIndex(index);
+                                const selection = getDieselStationSelection(station.stationName || '');
                                 setDieselData({
                                   stationName: station.stationName || '',
                                   volume: station.volume || 0,
                                   rate: station.rate || 0,
                                   amount: station.amount || 0,
-                                  date: station.date || new Date().toISOString().split('T')[0]
+                                  date: station.date || new Date().toISOString().split('T')[0],
+                                  selectedStationId: selection.selectedStationId,
+                                  useCustomStation: selection.useCustomStation,
                                 });
                                 setShowDieselModal(true);
                               }}
@@ -2188,7 +2264,7 @@ const SupervisorTripDetails = () => {
                   <button
                     onClick={() => {
                       setEditingDieselIndex(null);
-                      setDieselData({ stationName: '', volume: '', rate: '', amount: 0 });
+                      setDieselData(createInitialDieselData());
                       setShowDieselModal(true);
                     }}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -3686,16 +3762,39 @@ const SupervisorTripDetails = () => {
 
             <form onSubmit={handleDieselSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Station Name *</label>
-                <input
-                  type="text"
-                  value={dieselData.stationName}
-                  onChange={(e) => setDieselData(prev => ({ ...prev, stationName: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder="e.g., HP Pump, Shell Station"
-                  required
-                />
+                <label className="block text-sm font-medium text-gray-700 mb-1">Station *</label>
+                <select
+                  value={dieselData.useCustomStation ? OTHER_STATION_VALUE : (dieselData.selectedStationId || '')}
+                  onChange={(e) => handleDieselStationSelect(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                  required={!dieselData.useCustomStation}
+                >
+                  <option value="">Select station</option>
+                  {dieselStations.map((station) => (
+                    <option key={station.id} value={station.id}>
+                      {station.name}{station.location ? ` - ${station.location}` : ''}
+                    </option>
+                  ))}
+                  <option value={OTHER_STATION_VALUE}>Other</option>
+                </select>
+                {dieselStationsLoading && (
+                  <p className="text-xs text-gray-500 mt-1">Loading stations...</p>
+                )}
               </div>
+
+              {dieselData.useCustomStation && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Custom Station Name *</label>
+                  <input
+                    type="text"
+                    value={dieselData.stationName}
+                    onChange={(e) => setDieselData(prev => ({ ...prev, stationName: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="e.g., HP Pump, Shell Station"
+                    required
+                  />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Volume (liters) *</label>
@@ -4267,5 +4366,6 @@ const SupervisorTripDetails = () => {
   );
 };
 
+  
 export default SupervisorTripDetails;
 

@@ -141,7 +141,7 @@ const SupervisorDashboard = () => {
         ) : (
           <div className="space-y-3">
             {recentTrips.slice(0, 5).map((trip) => (
-              <div key={trip._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              <div key={trip._id || trip.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                 <div className="flex-1">
                   <div className="flex items-center space-x-2 mb-1">
                     <span className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(trip.status)}`}>

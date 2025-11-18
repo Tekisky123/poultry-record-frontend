@@ -1,64 +1,125 @@
 import * as XLSX from 'xlsx';
 
+const calculateOpeningBalanceValue = (entry) => {
+  if (!entry) return 0;
+  const balance = Number(entry.outstandingBalance) || 0;
+  const amount = Number(entry.amount) || 0;
+
+  switch (entry.particulars) {
+    case 'SALES':
+      return balance - amount;
+    case 'BY CASH RECEIPT':
+    case 'BY BANK RECEIPT':
+    case 'DISCOUNT':
+      return balance + amount;
+    default:
+      return balance;
+  }
+};
+
 export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
   try {
     // Prepare data for Excel export
-    const excelData = ledgerData.map(entry => ({
-      'Date': formatDate(entry.date),
-      'Vehicles No': entry.vehiclesNo,
-      'Driver Name': entry.driverName,
-      'Supervisor': entry.supervisor,
-      'Product': entry.product,
-      'Particulars': entry.particulars,
-      'Invoice No': entry.invoiceNo,
-      'Birds': entry.birds,
-      'Weight': entry.weight,
-      'Avg': entry.avgWeight,
-      'Rate': entry.rate,
-      'Amount': entry.amount,
-      'Balance': entry.outstandingBalance
-    }));
+    const excelData = ledgerData.map((entry) => {
+      const rowBalance =
+        typeof entry.outstandingBalance === 'number' ? entry.outstandingBalance : 0;
+
+      return {
+        Date: formatDate(entry.date),
+        Particulars: entry.particulars || '',
+        'Invoice No': entry.invoiceNo || '',
+        Birds: entry.birds || 0,
+        Weight: entry.weight || 0,
+        Avg: entry.avgWeight
+          ? parseFloat(Number(entry.avgWeight).toFixed(2))
+          : 0,
+        Rate: entry.rate
+          ? parseFloat(Number(entry.rate).toFixed(2))
+          : 0,
+        Amount: entry.amount || 0,
+        Balance: rowBalance,
+        Product: entry.product || '',
+        Supervisor: entry.supervisor || '',
+        'Vehicles No': entry.vehiclesNo || ''
+      };
+    });
+
+    const openingBalanceValue = calculateOpeningBalanceValue(ledgerData[0]);
+
+    const columnHeaders = [
+      'Date',
+      'Particulars',
+      'Invoice No',
+      'Birds',
+      'Weight',
+      'Avg',
+      'Rate',
+      'Amount',
+      'Balance',
+      'Product',
+      'Supervisor',
+      'Vehicles No'
+    ];
 
     // Calculate totals
+    const totalBirds = ledgerData.reduce((sum, entry) => sum + (entry.birds || 0), 0);
+    const totalWeight = ledgerData.reduce((sum, entry) => sum + (entry.weight || 0), 0);
+    const totalAmount = ledgerData.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+    const lastBalance =
+      ledgerData.length > 0
+        ? ledgerData[ledgerData.length - 1].outstandingBalance || 0
+        : 0;
+
     const totals = {
-      'Date': 'TOTAL',
-      'Vehicles No': '',
-      'Driver Name': '',
-      'Supervisor': '',
-      'Product': '',
-      'Particulars': '',
+      Date: 'TOTAL',
+      Particulars: '',
       'Invoice No': '',
-      'Birds': ledgerData.reduce((sum, entry) => sum + entry.birds, 0),
-      'Weight': ledgerData.reduce((sum, entry) => sum + entry.weight, 0),
-      'Avg': '',
-      'Rate': '',
-      'Amount': ledgerData.reduce((sum, entry) => sum + entry.amount, 0),
-      'Balance': ledgerData[ledgerData.length - 1]?.outstandingBalance || 0
+      Birds: totalBirds,
+      Weight: totalWeight,
+      Avg: '',
+      Rate: '',
+      Amount: totalAmount,
+      Balance: lastBalance,
+      Product: '',
+      Supervisor: '',
+      'Vehicles No': ''
     };
 
-    // Add totals row
-    excelData.push(totals);
+    const openingRow = columnHeaders.map((header) => {
+      if (header === 'Date') return 'Opening Balance';
+      if (header === 'Balance') return openingBalanceValue;
+      return '';
+    });
+
+    const dataRows = excelData.map((row) =>
+      columnHeaders.map((header) => (row[header] !== undefined ? row[header] : ''))
+    );
+
+    const totalsRow = columnHeaders.map((header) =>
+      totals[header] !== undefined ? totals[header] : ''
+    );
+
+    const aoa = [columnHeaders, openingRow, ...dataRows, totalsRow];
 
     // Create workbook and worksheet
-    const ws = XLSX.utils.json_to_sheet(excelData);
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Purchase Ledger');
 
     // Set column widths
     const colWidths = [
       { wch: 12 }, // Date
-      { wch: 12 }, // Vehicles No
-      { wch: 12 }, // Driver Name
-      { wch: 12 }, // Supervisor
-      { wch: 12 }, // Product
-      { wch: 12 }, // Particulars
+      { wch: 18 }, // Particulars
       { wch: 15 }, // Invoice No
-      { wch: 8 },  // Birds
+      { wch: 10 }, // Birds
       { wch: 12 }, // Weight
-      { wch: 8 },  // Avg
+      { wch: 8 }, // Avg
       { wch: 10 }, // Rate
       { wch: 12 }, // Amount
-      { wch: 12 }  // Balance
+      { wch: 12 }, // Balance
+      { wch: 15 }, // Product
+      { wch: 15 }, // Supervisor
+      { wch: 12 } // Vehicles No
     ];
     ws['!cols'] = colWidths;
 
@@ -77,8 +138,33 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
       ws[cellAddress].s = headerStyle;
     }
 
+    // Merge Opening Balance label cells (A2:H2)
+    ws['!merges'] = ws['!merges'] || [];
+    ws['!merges'].push({
+      s: { r: 1, c: 0 },
+      e: { r: 1, c: 7 }
+    });
+
+    // Style Opening Balance row
+    const openingLabelCell = XLSX.utils.encode_cell({ r: 1, c: 0 });
+    if (ws[openingLabelCell]) {
+      ws[openingLabelCell].s = {
+        font: { bold: true },
+        alignment: { horizontal: 'left' }
+      };
+    }
+
+    const openingBalanceCell = XLSX.utils.encode_cell({ r: 1, c: 8 });
+    if (!ws[openingBalanceCell]) {
+      ws[openingBalanceCell] = { v: openingBalanceValue };
+    }
+    ws[openingBalanceCell].s = {
+      font: { bold: true }
+    };
+    ws[openingBalanceCell].z = '#,##0.00';
+
     // Style totals row
-    const totalsRowIndex = excelData.length - 1;
+    const totalsRowIndex = aoa.length - 1;
     const totalsStyle = {
       font: { bold: true },
       fill: { fgColor: { rgb: "F0F8FF" } }

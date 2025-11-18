@@ -494,15 +494,32 @@ const CustomerDashboard = () => {
           Dashboard Stats
         </h2>
         
-        <div className="grid grid-cols-2 gap-4">
+        {/* First Row: Total Purchase | Total Birds / Total Weight | Total Amount */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div className="bg-blue-50 p-4 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Purchases</p>
+                <p className="text-sm text-gray-600">Total Purchase</p>
                 <p className="text-2xl font-bold text-gray-900">{stats.totalPurchases}</p>
               </div>
               <div className="p-3 bg-blue-100 rounded-lg">
                 <ShoppingCart className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-purple-50 p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Total Birds / Total Weight</p>
+                <div className="flex items-baseline gap-2">
+                  <p className="text-2xl font-bold text-purple-600">{stats.totalBirds.toLocaleString()}</p>
+                  <span className="text-sm text-gray-500">/</span>
+                  <p className="text-lg font-semibold text-gray-700">{stats.totalWeight.toFixed(2)} kg</p>
+                </div>
+              </div>
+              <div className="p-3 bg-purple-100 rounded-lg">
+                <Package className="w-6 h-6 text-purple-600" />
               </div>
             </div>
           </div>
@@ -518,17 +535,30 @@ const CustomerDashboard = () => {
               </div>
             </div>
           </div>
+        </div>
 
-          <div className="bg-purple-50 p-4 rounded-lg">
+        {/* Second Row: Total Receipt | Outstanding Balance */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-emerald-50 p-4 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Birds/Weight</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.totalBirds} / {stats.totalWeight.toFixed(2)} Kg
-                </p>
+                <p className="text-sm text-gray-600">Total Receipt</p>
+                <p className="text-2xl font-bold text-gray-900">₹{(stats.totalPaid || 0).toLocaleString()}</p>
               </div>
-              <div className="p-3 bg-purple-100 rounded-lg">
-                <Package className="w-6 h-6 text-purple-600" />
+              <div className="p-3 bg-emerald-100 rounded-lg">
+                <Receipt className="w-6 h-6 text-emerald-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-orange-50 p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Outstanding Balance</p>
+                <p className="text-2xl font-bold text-gray-900">₹{(stats.outstandingBalance || 0).toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-orange-100 rounded-lg">
+                <CreditCard className="w-6 h-6 text-orange-600" />
               </div>
             </div>
           </div>

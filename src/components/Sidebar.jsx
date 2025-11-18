@@ -16,6 +16,8 @@ import {
   Receipt,
   FolderTree,
   BookOpen,
+  Fuel,
+  FileText as FileTextIcon
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -26,7 +28,7 @@ const getMenuItems = (userRole) => {
   const baseItems = [
     { name: 'Users', path: '/users', icon: UserCheck },
     { name: 'Customer Payments', path: '/customer-payments', icon: CreditCard },
-    { name: 'Vouchers', path: '/vouchers', icon: Receipt },
+    { name: 'Balance Sheet', path: '/balance-sheet', icon: FileTextIcon },
     {
       name: 'Create And Alter',
       icon: Settings,
@@ -35,8 +37,10 @@ const getMenuItems = (userRole) => {
         { name: 'Customers', path: '/customers', icon: Store },
         { name: 'Vehicles', path: '/vehicles', icon: Car },
         { name: 'Vendors', path: '/vendors', icon: UsersIcon },
+        { name: 'Diesel Stations', path: '/diesel-stations', icon: Fuel },
         
         // Add Accounting section for Groups and Ledgers
+        { name: 'Vouchers', path: '/vouchers', icon: Receipt },
         { name: 'Groups', path: '/groups', icon: FolderTree },
         { name: 'Ledgers', path: '/ledgers', icon: BookOpen },
         ,

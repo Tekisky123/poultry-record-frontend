@@ -39,28 +39,46 @@ const getTypeColor = (type) => {
   return colors[type] || 'bg-gray-100 text-gray-800';
 };
 
-// Build hierarchical tree structure
-const buildTree = (groups) => {
-  const groupMap = new Map();
-  const rootGroups = [];
+// Build hierarchical tree structure organized by type
+const buildTreeByType = (groups) => {
+  const typeOrder = ['Assets', 'Liability', 'Expenses', 'Income'];
+  const typeGroups = {
+    Assets: [],
+    Liability: [],
+    Expenses: [],
+    Income: []
+  };
 
   // First pass: create map of all groups
+  const groupMap = new Map();
   groups.forEach(group => {
     groupMap.set(group.id, { ...group, children: [] });
   });
 
-  // Second pass: build tree
+  // Second pass: build tree within each type
   groups.forEach(group => {
     const node = groupMap.get(group.id);
     if (group.parentGroup && groupMap.has(group.parentGroup.id)) {
       const parent = groupMap.get(group.parentGroup.id);
       parent.children.push(node);
     } else {
-      rootGroups.push(node);
+      // Root group - add to its type category
+      if (typeGroups[group.type]) {
+        typeGroups[group.type].push(node);
+      }
     }
   });
 
-  return rootGroups;
+  // Sort groups within each type by name
+  Object.keys(typeGroups).forEach(type => {
+    typeGroups[type].sort((a, b) => a.name.localeCompare(b.name));
+  });
+
+  // Return organized by type order
+  return typeOrder.map(type => ({
+    type,
+    groups: typeGroups[type]
+  })).filter(section => section.groups.length > 0);
 };
 
 // Render tree node component
@@ -83,9 +101,6 @@ const TreeNode = ({ group, level = 0, onEdit, onDelete, expanded, onToggle, getL
         )}
         <FolderTree size={16} className="text-blue-600" />
         <span className="flex-1 font-medium">{group.name}</span>
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getTypeColor(group.type)}`}>
-          {group.type}
-        </span>
         {getLedgersCount && (
           <span className="text-sm text-gray-500">
             ({getLedgersCount(group.id)} ledgers)
@@ -117,6 +132,70 @@ const TreeNode = ({ group, level = 0, onEdit, onDelete, expanded, onToggle, getL
               key={child.id}
               group={child}
               level={level + 1}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              expanded={expanded}
+              onToggle={onToggle}
+              getLedgersCount={getLedgersCount}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Render type section component
+const TypeSection = ({ typeSection, onEdit, onDelete, expanded, onToggle, getLedgersCount, searchTerm }) => {
+  const typeExpandedKey = `type_${typeSection.type}`;
+  const isTypeExpanded = expanded[typeExpandedKey] !== false; // Default to expanded
+
+  // Filter groups within this type section based on search
+  const filteredGroups = typeSection.groups.filter(group => {
+    const matchesSearch = group.name.toLowerCase().includes(searchTerm.toLowerCase());
+    if (!matchesSearch) {
+      // Also check children recursively
+      const hasMatchingChild = (g) => {
+        if (g.name.toLowerCase().includes(searchTerm.toLowerCase())) return true;
+        return g.children && g.children.some(child => hasMatchingChild(child));
+      };
+      return hasMatchingChild(group);
+    }
+    return true;
+  });
+
+  if (filteredGroups.length === 0) return null;
+
+  const typeColorClass = getTypeColor(typeSection.type);
+  const textColorClass = typeColorClass.split(' ')[1]; // Extract text color class
+
+  return (
+    <div className="mb-6">
+      {/* Type Header */}
+      <div 
+        className={`flex items-center gap-2 p-3 mb-2 rounded-lg cursor-pointer ${typeColorClass} hover:opacity-90 transition-opacity`}
+        onClick={() => onToggle(typeExpandedKey)}
+      >
+        <button className="p-1 hover:bg-white hover:bg-opacity-50 rounded">
+          {isTypeExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+        </button>
+        <Tag size={18} className={textColorClass} />
+        <h3 className={`text-lg font-semibold ${textColorClass}`}>
+          {typeSection.type}
+        </h3>
+        <span className={`text-sm ${textColorClass} opacity-75`}>
+          ({filteredGroups.length} {filteredGroups.length === 1 ? 'group' : 'groups'})
+        </span>
+      </div>
+
+      {/* Groups under this type */}
+      {isTypeExpanded && (
+        <div className="ml-6 space-y-1">
+          {filteredGroups.map(group => (
+            <TreeNode
+              key={group.id}
+              group={group}
+              level={0}
               onEdit={onEdit}
               onDelete={onDelete}
               expanded={expanded}
@@ -164,7 +243,7 @@ export default function Groups() {
       setIsLoading(true);
       const { data } = await api.get('/group');
       setGroups(data.data || []);
-      const tree = buildTree(data.data || []);
+      const tree = buildTreeByType(data.data || []);
       setTreeGroups(tree);
       setIsError(false);
       
@@ -292,11 +371,10 @@ export default function Groups() {
     setError('');
   };
 
-  // Filter groups
-  const filteredTree = treeGroups.filter(group => {
-    const matchesSearch = group.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === 'all' || group.type === typeFilter;
-    return matchesSearch && matchesType;
+  // Filter type sections
+  const filteredTree = treeGroups.filter(typeSection => {
+    const matchesType = typeFilter === 'all' || typeSection.type === typeFilter;
+    return matchesType;
   });
 
   // Get available parent groups (filter by type and exclude current group and its descendants)
@@ -397,15 +475,16 @@ export default function Groups() {
           <p className="text-gray-500 text-center py-8">No groups found</p>
         ) : (
           <div className="space-y-1">
-            {filteredTree.map(group => (
-              <TreeNode
-                key={group.id}
-                group={group}
+            {filteredTree.map(typeSection => (
+              <TypeSection
+                key={typeSection.type}
+                typeSection={typeSection}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 expanded={expanded}
                 onToggle={toggleExpanded}
                 getLedgersCount={(id) => ledgersCount[id] || 0}
+                searchTerm={searchTerm}
               />
             ))}
           </div>
