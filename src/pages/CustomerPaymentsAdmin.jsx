@@ -522,32 +522,15 @@ const CustomerPaymentsAdmin = () => {
                   )}
                 </div>
 
-                {/* Verification Details */}
-                <h4 className="font-semibold text-gray-900">Verification Details</h4>
-                <div className="bg-yellow-50 rounded-lg p-4 space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Transaction ID:</span>
-                    <span className="font-mono text-sm">{selectedPayment.verificationDetails?.transactionId || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Reference:</span>
-                    <span className="font-mono text-sm">{selectedPayment.verificationDetails?.referenceNumber || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Bank:</span>
-                    <span>{selectedPayment.verificationDetails?.bankName || 'N/A'}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Payment Date:</span>
-                    <span>{selectedPayment.verificationDetails?.paymentDate ? new Date(selectedPayment.verificationDetails.paymentDate).toLocaleDateString() : 'N/A'}</span>
-                  </div>
-                  {selectedPayment.verificationDetails?.notes && (
-                    <div>
-                      <span className="text-gray-600 block mb-1">Notes:</span>
+                {/* Additional Notes */}
+                {selectedPayment.verificationDetails?.notes && (
+                  <>
+                    <h4 className="font-semibold text-gray-900">Additional Notes</h4>
+                    <div className="bg-yellow-50 rounded-lg p-4">
                       <p className="text-sm bg-white p-2 rounded border">{selectedPayment.verificationDetails.notes}</p>
                     </div>
-                  )}
-                </div>
+                  </>
+                )}
               </div>
             </div>
 

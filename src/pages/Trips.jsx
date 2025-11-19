@@ -75,6 +75,10 @@ export default function Trips() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [vehicleFilter, setVehicleFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState({
+    startDate: '',
+    endDate: ''
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState('');
@@ -303,8 +307,45 @@ export default function Trips() {
                          trip.supervisor?.name?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || trip.status === statusFilter;
     const matchesVehicle = vehicleFilter === 'all' || trip.vehicle?.id === vehicleFilter;
-    return matchesSearch && matchesStatus && matchesVehicle;
+    
+    // Date filter logic
+    let matchesDate = true;
+    if (dateFilter.startDate || dateFilter.endDate) {
+      if (!trip?.date) {
+        matchesDate = false;
+      } else {
+        const tripDate = new Date(trip.date);
+        if (Number.isNaN(tripDate.getTime())) {
+          matchesDate = false;
+        } else {
+          if (dateFilter.startDate) {
+            const start = new Date(dateFilter.startDate);
+            if (tripDate < start) {
+              matchesDate = false;
+            }
+          }
+          if (dateFilter.endDate) {
+            const end = new Date(dateFilter.endDate);
+            end.setHours(23, 59, 59, 999);
+            if (tripDate > end) {
+              matchesDate = false;
+            }
+          }
+        }
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesVehicle && matchesDate;
   });
+
+  const handleClearDateFilter = () => {
+    setDateFilter({
+      startDate: '',
+      endDate: ''
+    });
+  };
+
+  const isDateFilterActive = dateFilter.startDate || dateFilter.endDate;
 
   if (isLoading) {
     return (
@@ -381,6 +422,7 @@ export default function Trips() {
 
       {/* Filters */}
       <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+        <div className="flex flex-col gap-4">
         <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1">
             <div className="relative">
@@ -417,10 +459,43 @@ export default function Trips() {
                 </option>
               ))}
             </select>
-            <button className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2">
-              <Filter size={16} />
-              More Filters
+            </div>
+          </div>
+
+          {/* Date Filter */}
+          <div className="flex flex-col md:flex-row md:items-end gap-3 pt-3 border-t border-gray-200">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input
+                type="date"
+                value={dateFilter.startDate}
+                onChange={(e) => setDateFilter((prev) => ({ ...prev, startDate: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input
+                type="date"
+                value={dateFilter.endDate}
+                onChange={(e) => setDateFilter((prev) => ({ ...prev, endDate: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleClearDateFilter}
+                disabled={!isDateFilterActive}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Clear Date Filter
             </button>
+              {isDateFilterActive && (
+                <div className="px-4 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg bg-gray-50">
+                  Showing: {filteredTrips.length} trips
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

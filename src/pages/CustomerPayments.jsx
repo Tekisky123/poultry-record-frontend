@@ -100,10 +100,18 @@ const CustomerPayments = () => {
 
     try {
       setIsSubmitting(true);
-      const response = await api.post('/payment/submit', {
+      // Add +91 prefix to payer mobile number if it exists
+      const submitData = {
         saleId: selectedSale._id,
-        ...paymentForm
-      });
+        ...paymentForm,
+        thirdPartyPayer: {
+          ...paymentForm.thirdPartyPayer,
+          mobileNumber: paymentForm.thirdPartyPayer.mobileNumber 
+            ? `+91${paymentForm.thirdPartyPayer.mobileNumber}` 
+            : paymentForm.thirdPartyPayer.mobileNumber
+        }
+      };
+      const response = await api.post('/payment/submit', submitData);
 
       if (response.data.success) {
         alert('Payment submitted successfully! Admin will verify your payment.');
@@ -419,52 +427,7 @@ const CustomerPayments = () => {
                 </select>
               </div>
 
-              {/* Customer Details */}
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-3">Your Details</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                    <input
-                      type="text"
-                      value={paymentForm.customerDetails.name}
-                      onChange={(e) => setPaymentForm(prev => ({ 
-                        ...prev, 
-                        customerDetails: { ...prev.customerDetails, name: e.target.value }
-                      }))}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
-                    <input
-                      type="tel"
-                      value={paymentForm.customerDetails.mobileNumber}
-                      onChange={(e) => setPaymentForm(prev => ({ 
-                        ...prev, 
-                        customerDetails: { ...prev.customerDetails, mobileNumber: e.target.value }
-                      }))}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email (Optional)</label>
-                    <input
-                      type="email"
-                      value={paymentForm.customerDetails.email}
-                      onChange={(e) => setPaymentForm(prev => ({ 
-                        ...prev, 
-                        customerDetails: { ...prev.customerDetails, email: e.target.value }
-                      }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Third Party Payer */}
+              {/* Payment Made By */}
               <div>
                 <h4 className="font-semibold text-gray-900 mb-3">Payment Made By</h4>
                 <div className="space-y-4">
@@ -472,10 +435,19 @@ const CustomerPayments = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Relationship</label>
                     <select
                       value={paymentForm.thirdPartyPayer.relationship}
-                      onChange={(e) => setPaymentForm(prev => ({ 
-                        ...prev, 
-                        thirdPartyPayer: { ...prev.thirdPartyPayer, relationship: e.target.value }
-                      }))}
+                      onChange={(e) => {
+                        const relationship = e.target.value;
+                        setPaymentForm(prev => ({
+                          ...prev,
+                          thirdPartyPayer: { ...prev.thirdPartyPayer, relationship },
+                          // Always auto-populate customerDetails from logged-in user
+                          customerDetails: {
+                            name: user?.name || '',
+                            mobileNumber: user?.mobileNumber || '',
+                            email: user?.email || ''
+                          }
+                        }));
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="self">Self</option>
@@ -502,96 +474,50 @@ const CustomerPayments = () => {
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Payer Mobile Number</label>
-                        <input
-                          type="tel"
-                          value={paymentForm.thirdPartyPayer.mobileNumber}
-                          onChange={(e) => setPaymentForm(prev => ({ 
-                            ...prev, 
-                            thirdPartyPayer: { ...prev.thirdPartyPayer, mobileNumber: e.target.value }
-                          }))}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
+                        <div className="flex">
+                          <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
+                            +91
+                          </span>
+                          <input
+                            type="tel"
+                            value={paymentForm.thirdPartyPayer.mobileNumber || ''}
+                            onChange={(e) => {
+                              // Only allow digits, max 10 digits
+                              const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                              setPaymentForm(prev => ({ 
+                                ...prev, 
+                                thirdPartyPayer: { ...prev.thirdPartyPayer, mobileNumber: value }
+                              }));
+                            }}
+                            placeholder="Enter 10 digit mobile number"
+                            maxLength={10}
+                            className="flex-1 px-3 py-2 rounded-r-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                        {paymentForm.thirdPartyPayer.mobileNumber && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Full number: +91{paymentForm.thirdPartyPayer.mobileNumber}
+                          </p>
+                        )}
                       </div>
                     </>
                   )}
                 </div>
               </div>
 
-              {/* Verification Details */}
+              {/* Additional Notes */}
               <div>
-                <h4 className="font-semibold text-gray-900 mb-3">Payment Verification Details</h4>
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Transaction ID</label>
-                      <input
-                        type="text"
-                        value={paymentForm.verificationDetails.transactionId}
-                        onChange={(e) => setPaymentForm(prev => ({ 
-                          ...prev, 
-                          verificationDetails: { ...prev.verificationDetails, transactionId: e.target.value }
-                        }))}
-                        placeholder="Enter transaction ID"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Reference Number</label>
-                      <input
-                        type="text"
-                        value={paymentForm.verificationDetails.referenceNumber}
-                        onChange={(e) => setPaymentForm(prev => ({ 
-                          ...prev, 
-                          verificationDetails: { ...prev.verificationDetails, referenceNumber: e.target.value }
-                        }))}
-                        placeholder="Enter reference number"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Bank Name</label>
-                      <input
-                        type="text"
-                        value={paymentForm.verificationDetails.bankName}
-                        onChange={(e) => setPaymentForm(prev => ({ 
-                          ...prev, 
-                          verificationDetails: { ...prev.verificationDetails, bankName: e.target.value }
-                        }))}
-                        placeholder="Enter bank name"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Payment Date</label>
-                      <input
-                        type="date"
-                        value={paymentForm.verificationDetails.paymentDate}
-                        onChange={(e) => setPaymentForm(prev => ({ 
-                          ...prev, 
-                          verificationDetails: { ...prev.verificationDetails, paymentDate: e.target.value }
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Additional Notes</label>
-                    <textarea
-                      value={paymentForm.verificationDetails.notes}
-                      onChange={(e) => setPaymentForm(prev => ({ 
-                        ...prev, 
-                        verificationDetails: { ...prev.verificationDetails, notes: e.target.value }
-                      }))}
-                      placeholder="Any additional information about the payment..."
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                </div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Additional Notes</label>
+                <textarea
+                  value={paymentForm.verificationDetails.notes}
+                  onChange={(e) => setPaymentForm(prev => ({ 
+                    ...prev, 
+                    verificationDetails: { ...prev.verificationDetails, notes: e.target.value }
+                  }))}
+                  placeholder="Any additional information about the payment..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
 
               {/* Submit Button */}
