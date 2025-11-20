@@ -29,18 +29,20 @@ const getMenuItems = (userRole) => {
     { name: 'Users', path: '/users', icon: UserCheck },
     { name: 'Customer Payments', path: '/customer-payments', icon: CreditCard },
     { name: 'Balance Sheet', path: '/balance-sheet', icon: FileTextIcon },
+    { name: 'Vouchers', path: '/vouchers', icon: Receipt },
     {
       name: 'Create And Alter',
       icon: Settings,
       isParent: true,
       children: [
-        { name: 'Customers', path: '/customers', icon: Store },
+        { name: 'Customers', path: '/customers', icon: Store},
+        { name: '+ Add Customer', path: '/add-customer', icon: Store },
         { name: 'Vehicles', path: '/vehicles', icon: Car },
         { name: 'Vendors', path: '/vendors', icon: UsersIcon },
         { name: 'Diesel Stations', path: '/diesel-stations', icon: Fuel },
         
         // Add Accounting section for Groups and Ledgers
-        { name: 'Vouchers', path: '/vouchers', icon: Receipt },
+        
         { name: 'Groups', path: '/groups', icon: FolderTree },
         { name: 'Ledgers', path: '/ledgers', icon: BookOpen },
         ,

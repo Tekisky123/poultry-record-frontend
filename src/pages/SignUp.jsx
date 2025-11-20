@@ -194,7 +194,7 @@ const SignUp = () => {
               {/* Name Input */}
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                  Full Name *
+                  Full Name <span className='text-red-500'>*</span>
                 </label>
                 <input
                   id="name"
@@ -212,7 +212,7 @@ const SignUp = () => {
               {/* Role Selection */}
               <div>
                 <label htmlFor="role" className="block text-sm font-medium text-gray-700">
-                  Role *
+                  Role <span className='text-red-500'>*</span>
                 </label>
                 <select
                   id="role"
@@ -231,7 +231,7 @@ const SignUp = () => {
               {/* Email Input */}
               <div>
                 <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                  Email Address *
+                  Email Address <span className='text-red-500'>*</span>
                 </label>
                 <input
                   id="email"
@@ -249,7 +249,7 @@ const SignUp = () => {
               {/* Mobile Number Input */}
               <div>
                 <label htmlFor="mobileNumber" className="block text-sm font-medium text-gray-700">
-                  Mobile Number *
+                  Mobile Number <span className='text-red-500'>*</span>
                 </label>
                 <div className="mt-1 relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -298,7 +298,7 @@ const SignUp = () => {
               {formData.role === 'customer' && (
                 <div>
                   <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700">
-                    Date of Birth (DOB) *
+                    Date of Birth (DOB) <span className='text-red-500'>*</span>
                   </label>
                   <input
                     id="dateOfBirth"
@@ -336,7 +336,7 @@ const SignUp = () => {
               {formData.role === 'customer' && (
                 <div>
                   <label htmlFor="gstOrPanNumber" className="block text-sm font-medium text-gray-700">
-                    GST/PAN Number *
+                    GST/PAN Number <span className='text-red-500'>*</span>
                   </label>
                   <input
                     id="gstOrPanNumber"
@@ -358,7 +358,7 @@ const SignUp = () => {
               {formData.role === 'customer' && (
                 <div>
                   <label htmlFor="place" className="block text-sm font-medium text-gray-700">
-                    Place *
+                    Place <span className='text-red-500'>*</span>
                   </label>
                   <input
                     id="place"
@@ -379,7 +379,7 @@ const SignUp = () => {
               {/* Password Input */}
               <div>
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                  Password *
+                  Password <span className='text-red-500'>*</span>
                 </label>
                 <div className="mt-1 relative">
                   <input
@@ -410,7 +410,7 @@ const SignUp = () => {
               {/* Confirm Password Input */}
               <div>
                 <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
-                  Confirm Password *
+                  Confirm Password <span className='text-red-500'>*</span>
                 </label>
                 <div className="mt-1 relative">
                   <input

@@ -210,6 +210,10 @@ export default function TripDetails() {
     return (weight * ratePerKg).toFixed(2);
   };
 
+  const getDieselStationName = (station = {}) => {
+    return station.name || station.stationName || station.station_name || 'N/A';
+  };
+
   // Edit handlers
   const handleEditPurchase = async (e) => {
     e.preventDefault();
@@ -726,7 +730,7 @@ export default function TripDetails() {
     // Add diesel data
     if (trip.diesel?.stations) {
         trip.diesel.stations.forEach(station => {
-            worksheet.getCell(`A${currentRow}`).value = station.name || '';
+            worksheet.getCell(`A${currentRow}`).value = getDieselStationName(station);
             worksheet.getCell(`A${currentRow}`).style = { alignment: { horizontal: 'left' } };
 
             worksheet.getCell(`B${currentRow}`).value = station.volume || 0;
@@ -1094,6 +1098,14 @@ const downloadExcel2 = () => {
       </div>
     );
   }
+
+  const isTripCompleted = trip.status === 'completed';
+  const naturalWeightLossAmount = isTripCompleted
+    ? (trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)
+    : 0;
+  const totalWeightLossKg =
+    (trip.summary?.totalWeightLost || 0) + (isTripCompleted ? (trip.summary?.birdWeightLoss || 0) : 0);
+  const mortalityAndWeightLossAmount = (trip.summary?.totalLosses || 0) + naturalWeightLossAmount;
 
   return (
     <div className="space-y-6">
@@ -1544,7 +1556,7 @@ const downloadExcel2 = () => {
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">NATURAL WEIGHT LOSS</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">-</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">
-                              {trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'}
+                              {isTripCompleted ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'}
                             </td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">
                               {trip.summary?.totalBirdsPurchased > 0 ? ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00'}
@@ -1553,7 +1565,7 @@ const downloadExcel2 = () => {
                               ₹{trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00'}
                             </td>
                             <td className="px-3 py-2 text-sm font-semibold text-gray-900">
-                              ₹{trip.status === 'completed' ? 
+                              ₹{isTripCompleted ? 
                                 ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)).toFixed(2) : '0.00'}
                             </td>
                           </tr>
@@ -1561,15 +1573,14 @@ const downloadExcel2 = () => {
                             <td className="px-3 py-2 border-r">TOTAL W LOSS</td>
                             <td className="px-3 py-2 border-r">{trip.summary?.totalBirdsLost || 0}</td>
                             <td className="px-3 py-2 border-r">
-                              {((trip.summary?.totalWeightLost || 0) + (trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0) : 0)).toFixed(2)}
+                              {totalWeightLossKg.toFixed(2)}
                             </td>
                             <td className="px-3 py-2 border-r">
                               -
                             </td>
                             <td className="px-3 py-2 border-r">₹{trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00'}</td>
                             <td className="px-3 py-2">
-                              ₹{((trip.summary?.totalLosses || 0) + (trip.status === 'completed' ? 
-                                ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)) : 0)).toFixed(2)}
+                              ₹{mortalityAndWeightLossAmount.toFixed(2)}
                             </td>
                           </tr>
                         </tbody>
@@ -1592,7 +1603,7 @@ const downloadExcel2 = () => {
                           {
                             trip.diesel?.stations && trip.diesel.stations.map((station, index) => (
                               <tr key={index} className="border-b">
-                                <td className="px-3 py-2 text-sm text-gray-900 border-r">{station.name}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900 border-r">{getDieselStationName(station)}</td>
                                 <td className="px-3 py-2 text-sm text-gray-900 border-r">{(station.volume || 0).toFixed(2)}</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">₹{(station.rate || 0).toFixed(2)}</td>
                             <td className="px-3 py-2 text-sm font-semibold text-gray-900">₹{(station.amount || 0).toFixed(2)}</td>
@@ -1703,9 +1714,9 @@ const downloadExcel2 = () => {
                         <span className="text-sm text-gray-600">GROSS RENT:</span>
                         <span className="font-semibold">₹{(trip.vehicleReadings?.totalDistance ? (trip.vehicleReadings.totalDistance * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between bg-orange-100 px-3 py-2 rounded">
-                        <span className="text-sm text-gray-600">MORTALITY & WEIGHT LOSS:</span>
-                        <span className="font-semibold">₹{(trip.summary?.totalLosses || 0).toFixed(2)}</span>
+                      <div className="flex justify-between  px-3 py-2 rounded">
+                        <span className="text-sm ">MORTALITY & WEIGHT LOSS:</span>
+                        <span className="font-semibold">₹{mortalityAndWeightLossAmount.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between bg-gray-700 text-white px-3 py-2 rounded">
                         <span className="text-sm font-semibold">BIRDS PROFIT:</span>
@@ -1753,7 +1764,7 @@ const downloadExcel2 = () => {
           {/* Overview Tab */}
           {activeTab === 'overview' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Trip Summary</h3>
+              {/* <h3 className="text-lg font-semibold text-gray-900">Trip Summary</h3> */}
               <div className={`grid grid-cols-1 ${user.role !== 'admin' && user.role !== 'superadmin' ? 'lg:grid-cols-2' : ''} gap-4 sm:gap-6`}>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -1782,13 +1793,11 @@ const downloadExcel2 = () => {
                       <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
                       <span className="text-sm text-gray-600 truncate">Driver: {trip.driver}</span>
                     </div>
-                    <div className="flex items-start gap-3">
-                      <Users className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-                      <div className="text-sm text-gray-600">
-                        <span className="block">Labours:</span>
-                        <span className="block mt-1">{trip.labour || 'N/A'}</span>
-                </div>
-              </div>
+                    <div className="flex items-center gap-3">
+                      <Users className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-600 truncate">Labours: {trip.labour || 'N/A'}</span>
+                    </div>
+                    
 
                     {trip.vehicleReadings?.opening && (
                       <div className="flex items-center gap-3">
@@ -1846,7 +1855,7 @@ const downloadExcel2 = () => {
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-gray-600">Mortality & Weight Loss :</span>
-                        <span className="font-medium text-red-600 text-right">₹{trip.summary?.totalLosses?.toFixed(2) || '0.00'}</span>
+                        <span className="font-medium text-red-600 text-right">₹{mortalityAndWeightLossAmount.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between items-center border-t pt-3 mt-3">
                         <span className="text-sm font-medium text-gray-900">Net Profit:</span>
@@ -2172,7 +2181,7 @@ const downloadExcel2 = () => {
                     <div key={index} className="p-4 border border-gray-200 rounded-lg">
                       <div className="flex justify-between items-start">
                         <div>
-                          <h4 className="font-medium text-gray-900">{station.name}</h4>
+                          <h4 className="font-medium text-gray-900">{getDieselStationName(station)}</h4>
                           <p className="text-sm text-gray-600">Receipt: {station.receipt}</p>
                         </div>
                         <div className="text-right">
@@ -2183,7 +2192,7 @@ const downloadExcel2 = () => {
                             <button
                               onClick={() => {
                                 setDieselData({
-                                  stationName: station.name || '',
+                                  stationName: getDieselStationName(station),
                                   volume: station.volume || 0,
                                   rate: station.rate || 0,
                                   amount: station.amount || 0,
@@ -2450,7 +2459,7 @@ const downloadExcel2 = () => {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-600">Mortality & Weight Loss :</span>
-                      <span className="font-medium">₹{(trip.summary?.totalLosses || 0).toFixed(2)}</span>
+                      <span className="font-medium">₹{mortalityAndWeightLossAmount.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>

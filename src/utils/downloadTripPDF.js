@@ -117,7 +117,8 @@ export const downloadTripPDF = (trip) => {
     yPosition += 8;
     
     trip.diesel.stations.forEach((station, index) => {
-      addTableRow(`Station ${index + 1}:`, `${station.name} - ${station.volume}L @ ₹${station.rate}`, yPosition);
+      const stationName = station.name || station.stationName || station.station_name || `Station ${index + 1}`;
+      addTableRow(`Station ${index + 1}:`, `${stationName} - ${station.volume}L @ ₹${station.rate}`, yPosition);
       yPosition += lineHeight;
       if (yPosition > 250) {
         doc.addPage();
@@ -175,9 +176,15 @@ export const downloadTripPDF = (trip) => {
   yPosition += lineHeight;
   addTableRow('Total Expenses:', `₹${trip.summary?.totalExpenses?.toLocaleString() || '0'}`, yPosition);
   yPosition += lineHeight;
+  const isTripCompleted = trip.status === 'completed';
+  const naturalWeightLossAmount = isTripCompleted
+    ? (trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)
+    : 0;
+  const mortalityAndWeightLossAmount = (trip.summary?.totalLosses || 0) + naturalWeightLossAmount;
+
   addTableRow('Total Diesel Amount:', `₹${trip.summary?.totalDieselAmount?.toLocaleString() || '0'}`, yPosition);
   yPosition += lineHeight;
-  addTableRow('Total Losses:', `₹${trip.summary?.totalLosses?.toLocaleString() || '0'}`, yPosition);
+  addTableRow('Total Losses:', `₹${mortalityAndWeightLossAmount.toLocaleString()}`, yPosition);
   yPosition += lineHeight;
   addTableRow('Net Profit:', `₹${trip.summary?.netProfit?.toLocaleString() || '0'}`, yPosition);
   yPosition += lineHeight;
@@ -213,7 +220,7 @@ export const downloadTripPDF = (trip) => {
   yPosition += lineHeight;
   addTableRow('Total Weight Loss:', `${((trip.summary?.totalWeightLost || 0) + (trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0) : 0)).toFixed(2)} kg`, yPosition);
   yPosition += lineHeight;
-  addTableRow('Total Loss Amount:', `₹${((trip.summary?.totalLosses || 0) + (trip.status === 'completed' ? ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)) : 0)).toFixed(2)}`, yPosition, { valueBold: true });
+  addTableRow('Total Loss Amount:', `₹${mortalityAndWeightLossAmount.toFixed(2)}`, yPosition, { valueBold: true });
   yPosition += 10;
 
   // Completion Details (if completed)

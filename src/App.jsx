@@ -6,6 +6,7 @@ import Trips from './pages/Trips';
 import TripDetails from './pages/TripDetails';
 import Vendors from './pages/Vendors';
 import Customers from './pages/Customers';
+import AddCustomer from './pages/AddCustomer';
 import CustomerDetails from './pages/CustomerDetails';
 import CustomerPaymentsAdmin from './pages/CustomerPaymentsAdmin';
 import Vehicles from './pages/Vehicles';
@@ -135,6 +136,7 @@ const AppContent = () => {
                 <Route path="/trips/:id" element={<TripDetails />} />
                 <Route path="/vendors" element={<Vendors />} />
                 <Route path="/customers" element={<Customers />} />
+                <Route path="/add-customer" element={<AddCustomer />} />
                 <Route path="/customers/:id" element={<CustomerDetails />} />
                 <Route path="/customer-payments" element={<CustomerPaymentsAdmin />} />
                 <Route path="/vehicles" element={<Vehicles />} />

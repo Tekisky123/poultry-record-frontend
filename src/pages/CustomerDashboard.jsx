@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { 
   TrendingUp, 
   TrendingDown, 
@@ -13,6 +13,7 @@ import {
   Calendar,
   Download,
   ChevronLeft,
+  ChevronDown,
   ChevronRight,
   X,
   Smartphone,
@@ -74,6 +75,9 @@ const CustomerDashboard = () => {
     endDate: ''
   });
   const [showPaymentTable, setShowPaymentTable] = useState(false);
+  const [showDownloadOptions, setShowDownloadOptions] = useState(false);
+  const [isDownloadingLedger, setIsDownloadingLedger] = useState(false);
+  const downloadDropdownRef = useRef(null);
   
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -109,6 +113,32 @@ const CustomerDashboard = () => {
       fetchDashboardData();
     }
   }, [user]);
+
+  useEffect(() => {
+    if (!showDownloadOptions) {
+      return;
+    }
+
+    const handleClickOutside = (event) => {
+      if (downloadDropdownRef.current && !downloadDropdownRef.current.contains(event.target)) {
+        setShowDownloadOptions(false);
+      }
+    };
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setShowDownloadOptions(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [showDownloadOptions]);
 
   const fetchDashboardData = async () => {
     try {
@@ -295,17 +325,63 @@ const CustomerDashboard = () => {
     }
   };
 
-  const handleDownloadExcel = () => {
-    if (purchaseLedger.length === 0) {
-      alert('No data available to download');
+  const handleDownloadExcel = async (type) => {
+    if (!type) {
+      setShowDownloadOptions(false);
       return;
     }
-    
-    const success = downloadCustomerLedgerExcel(purchaseLedger, user?.name || 'Customer');
-    if (success) {
-      alert('Excel file downloaded successfully!');
-    } else {
+
+    if (type === 'current' && displayedPurchaseLedger.length === 0) {
+      alert('No purchase data available on this page to download.');
+      setShowDownloadOptions(false);
+      return;
+    }
+
+    if (type === 'all' && ledgerPagination.totalItems === 0) {
+      alert('No purchase data available to download.');
+      setShowDownloadOptions(false);
+      return;
+    }
+
+    setIsDownloadingLedger(true);
+
+    try {
+      if (type === 'current') {
+        const success = downloadCustomerLedgerExcel(displayedPurchaseLedger, user?.name || 'Customer');
+        alert(success ? 'Excel file downloaded successfully!' : 'Failed to download Excel file. Please try again.');
+        return;
+      }
+
+      const userId = user?._id || user?.id;
+      if (!userId) {
+        alert('Unable to identify the user. Please try again.');
+        return;
+      }
+
+      const limit = Math.max(ledgerPagination.totalItems || 0, ledgerPagination.itemsPerPage);
+      const response = await api.get(`/customer/panel/${userId}/purchase-ledger?page=1&limit=${limit}`);
+
+      if (!response.data.success) {
+        alert('Failed to prepare Excel file. Please try again.');
+        return;
+      }
+
+      let allLedger = response.data.data?.ledger || [];
+      allLedger = filterLedgerByDate(allLedger, dateFilter);
+
+      if (allLedger.length === 0) {
+        alert('No records available to download for the selected filters.');
+        return;
+      }
+
+      const success = downloadCustomerLedgerExcel(allLedger, user?.name || 'Customer');
+      alert(success ? 'Excel file downloaded successfully!' : 'Failed to download Excel file. Please try again.');
+    } catch (error) {
+      console.error('Failed to download purchase ledger:', error);
       alert('Failed to download Excel file. Please try again.');
+    } finally {
+      setIsDownloadingLedger(false);
+      setShowDownloadOptions(false);
     }
   };
 
@@ -433,6 +509,35 @@ const CustomerDashboard = () => {
     }
   };
 
+  const filterLedgerByDate = (ledgerData = [], filter = {}) => {
+    if (!filter.startDate && !filter.endDate) {
+      return ledgerData;
+    }
+
+    return ledgerData.filter((entry) => {
+      if (!entry?.date) return false;
+      const entryDate = new Date(entry.date);
+      if (Number.isNaN(entryDate.getTime())) return false;
+
+      if (filter.startDate) {
+        const start = new Date(filter.startDate);
+        if (entryDate < start) {
+          return false;
+        }
+      }
+
+      if (filter.endDate) {
+        const end = new Date(filter.endDate);
+        end.setHours(23, 59, 59, 999);
+        if (entryDate > end) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
   const getPaymentStatusColor = (outstandingBalance) => {
     if (outstandingBalance === 0) return 'text-green-600 bg-green-100';
     if (outstandingBalance > 0) return 'text-yellow-600 bg-yellow-100';
@@ -445,31 +550,8 @@ const CustomerDashboard = () => {
     return 'Overpaid';
   };
 
-  const isDateFilterActive = dateFilter.startDate || dateFilter.endDate;
-  const filteredPurchaseLedger = purchaseLedger.filter((entry) => {
-    if (!entry?.date) return false;
-    const entryDate = new Date(entry.date);
-    if (Number.isNaN(entryDate.getTime())) return false;
-
-    if (dateFilter.startDate) {
-      const start = new Date(dateFilter.startDate);
-      if (entryDate < start) {
-        return false;
-      }
-    }
-
-    if (dateFilter.endDate) {
-      const end = new Date(dateFilter.endDate);
-      // Include the entire end date (set to end of day)
-      end.setHours(23, 59, 59, 999);
-      if (entryDate > end) {
-        return false;
-      }
-    }
-
-    return true;
-  });
-
+  const isDateFilterActive = Boolean(dateFilter.startDate || dateFilter.endDate);
+  const filteredPurchaseLedger = filterLedgerByDate(purchaseLedger, dateFilter);
   const displayedPurchaseLedger = isDateFilterActive ? filteredPurchaseLedger : purchaseLedger;
 
   const handleClearDateFilter = () => {
@@ -522,8 +604,8 @@ const CustomerDashboard = () => {
                 <p className="text-sm text-gray-600">Total Birds / Total Weight</p>
                 <div className="flex items-baseline gap-2">
                   <p className="text-2xl font-bold text-purple-600">{stats.totalBirds.toLocaleString()}</p>
-                  <span className="text-sm text-gray-500">/</span>
-                  <p className="text-lg font-semibold text-gray-700">{stats.totalWeight.toFixed(2)} kg</p>
+                  <span className="text-2xl text-gray-500">/</span>
+                  <p className="text-2xl font-semibold text-gray-700">{stats.totalWeight.toFixed(2)} kg</p>
                 </div>
               </div>
               <div className="p-3 bg-purple-100 rounded-lg">
@@ -766,14 +848,43 @@ const CustomerDashboard = () => {
               <RefreshCw className={`w-4 h-4 ${refreshingPurchases ? 'animate-spin' : ''}`} />
               {refreshingPurchases ? 'Refreshing...' : 'Refresh'}
             </button>
-            <button
-              onClick={handleDownloadExcel}
-              disabled={purchaseLedger.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Download className="w-4 h-4" />
-              Download Excel
-            </button>
+            <div className="relative" ref={downloadDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setShowDownloadOptions((prev) => !prev)}
+                disabled={ledgerPagination.totalItems === 0 || isDownloadingLedger}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download className="w-4 h-4" />
+                {isDownloadingLedger ? 'Preparing...' : 'Download Excel'}
+                <ChevronDown className={`w-4 h-4 transition-transform ${showDownloadOptions ? 'rotate-180' : ''}`} />
+              </button>
+              {showDownloadOptions && (
+                <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadExcel('current')}
+                    className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex flex-col"
+                  >
+                    <span className="font-medium text-gray-900">Download current page</span>
+                    <span className="text-xs text-gray-500">{displayedPurchaseLedger.length} record(s)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDownloadExcel('all')}
+                    disabled={isDownloadingLedger}
+                    className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex flex-col border-t border-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <span className="font-medium text-gray-900">
+                      {isDownloadingLedger ? 'Preparing all records…' : 'Download all records'}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {ledgerPagination.totalItems || 0} total record(s)
+                    </span>
+                  </button>
+                </div>
+              )}
+            </div>
             </div>
           </div>
 

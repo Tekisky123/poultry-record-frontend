@@ -1344,7 +1344,7 @@ const SupervisorTripDetails = () => {
                 <Fuel size={16} />
                 Add Diesel
               </button>
-              <button
+              {/* <button
                 onClick={() => {
                   setEditingStockIndex(null);
                   setStockData({ 
@@ -1361,7 +1361,7 @@ const SupervisorTripDetails = () => {
               >
                 <Plus size={16} />
                 Add to Stock
-              </button>
+              </button> */}
               {/* Transfer Trip Button - Only show if there are remaining birds */}
               {(() => {
                 const remainingBirds = (trip.summary?.totalBirdsPurchased || 0) - 
@@ -1431,7 +1431,8 @@ const SupervisorTripDetails = () => {
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="border-b border-gray-200">
           <nav className="flex overflow-x-auto scrollbar-hide px-6">
-            {['overview', 'purchases', 'sales', 'receipts', 'stock', 'expenses', 'diesel', 'losses', 'financials', 'transfers'].map((tab) => (
+          {/* 'stock' is removed */}
+            {['overview', 'purchases', 'sales', 'receipts', 'expenses' , 'diesel', 'losses', 'financials', 'transfers'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}

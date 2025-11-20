@@ -445,7 +445,7 @@ export default function Customers() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Place</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -473,8 +473,8 @@ export default function Customers() {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {customer.contact}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {customer.place || 'N/A'}
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {customer.address || 'N/A'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
@@ -556,7 +556,7 @@ export default function Customers() {
                     </div>
                     <div className="flex items-center gap-1 text-xs text-gray-600">
                       <MapPin className="w-3 h-3" />
-                      <span className="truncate">{customer.place || 'No place'}</span>
+                      <span className="truncate">{customer.address || 'No address'}</span>
                     </div>
                   </div>
                   <div className="flex items-center justify-between">
@@ -637,9 +637,9 @@ export default function Customers() {
                 {/* Shop Type and Credit Info */}
                 <div className="space-y-3 mb-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Place:</span>
+                    <span className="text-sm text-gray-500">Address:</span>
                     <span className="text-sm font-medium text-gray-900">
-                      {customer.place || 'Not specified'}
+                      {customer.address || 'Not specified'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
