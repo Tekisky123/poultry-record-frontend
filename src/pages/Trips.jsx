@@ -1,5 +1,5 @@
 // src/pages/Trips.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -22,10 +22,14 @@ import {
   Fuel,
   Receipt,
   ShoppingCart,
-  TrendingUp
+  TrendingUp,
+  ChevronDown,
+  ChevronUp,
+  Download
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
+import { downloadTripsExcel } from '../utils/downloadTripsExcel';
 
 // Zod Schema for Trip validation - will be updated dynamically based on user role
 const createTripSchema = (userRole) => z.object({
@@ -66,6 +70,282 @@ const getStatusText = (status) => {
   return texts[status] || status;
 };
 
+const formatDateDisplay = (value) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric'
+  });
+};
+
+const formatCurrency = (value) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return '-';
+  }
+  return `₹${Number(value).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+};
+
+const formatNumber = (value, decimals = 2) => {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return '-';
+  }
+  return Number(value).toFixed(decimals);
+};
+
+const getProductName = (trip) => {
+  const vendorSet = new Set();
+
+  // Extract vendors from a list of purchases
+  const collectVendors = (purchases = []) => {
+    purchases.forEach((purchase) => {
+      const vendorName =
+        purchase?.supplier?.vendorName ||
+        purchase?.vendorName ||
+        purchase?.supplierName ||
+        '';
+
+      if (vendorName?.trim()) {
+        vendorSet.add(vendorName.trim());
+      }
+    });
+  };
+
+  // Extract vendors from purchaseVendors array if exists
+  const collectVendorNames = (vendorNames = []) => {
+    vendorNames.forEach((name) => {
+      if (name?.trim()) vendorSet.add(name.trim());
+    });
+  };
+
+  // 🔥 Recursive function to find all vendors from nested transferred trips
+  const resolveTripVendors = (currentTrip) => {
+    if (!currentTrip) return;
+
+    // 1. Collect vendors from purchases
+    collectVendors(currentTrip?.purchases);
+    collectVendors(currentTrip?.originalPurchases);
+
+    // 2. Collect vendor list (if any)
+    if (Array.isArray(currentTrip?.purchaseVendors)) {
+      collectVendorNames(currentTrip.purchaseVendors);
+    }
+
+    // 3. If still no vendors found & trip is transferred → go deeper
+    if (
+      vendorSet.size === 0 &&
+      currentTrip?.type === "transferred" &&
+      currentTrip?.transferredFrom
+    ) {
+      resolveTripVendors(currentTrip.transferredFrom);
+    }
+  };
+
+  // Start with initial trip
+  resolveTripVendors(trip);
+
+  // Final result
+  if (vendorSet.size === 0) {
+    return "N/A";
+  }
+
+  return Array.from(vendorSet).join(", ");
+};
+
+
+const getVehicleMiscExpenses = (trip) => {
+  if (!trip?.expenses?.length) return null;
+  return trip.expenses.reduce((sum, expense) => sum + (expense.amount || 0), 0);
+};
+
+const getColumnValue = (value, formatter = (val) => val ?? '-') => formatter(value);
+
+const REPORT_COLUMNS = [
+  {
+    key: 'deliveryDate',
+    label: 'Delivery Date',
+    locked: true,
+    defaultSelected: true,
+    render: (trip) => formatDateDisplay(trip?.date)
+  },
+  {
+    key: 'vehicleNo',
+    label: 'Vehicle No',
+    locked: true,
+    defaultSelected: true,
+    render: (trip) => trip?.vehicle?.vehicleNumber || 'N/A'
+  },
+  {
+    key: 'driverName',
+    label: 'Driver Name',
+    locked: true,
+    defaultSelected: true,
+    render: (trip) => trip?.driver || 'N/A'
+  },
+  {
+    key: 'supervisor',
+    label: 'Supervisor',
+    locked: true,
+    defaultSelected: true,
+    render: (trip) => trip?.supervisor?.name || 'N/A'
+  },
+  {
+    key: 'productName',
+    label: 'Products',
+    locked: true,
+    defaultSelected: true,
+    render: (trip) => getProductName(trip)
+  },
+  {
+    key: 'profitAmount',
+    label: 'Profit',
+    locked: true,
+    defaultSelected: true,
+    render: (trip) => formatCurrency(trip?.summary?.netProfit)
+  },
+  {
+    key: 'rentAmount',
+    label: 'Rent',
+    locked: true,
+    defaultSelected: true,
+    render: (trip) => formatCurrency(trip?.summary?.grossRent)
+  },
+  {
+    key: 'margin',
+    label: 'Margin',
+    locked: true,
+    defaultSelected: true,
+    render: (trip) => formatNumber(trip?.summary?.profitPerKg ?? trip?.summary?.margin ?? null, 1)
+  },
+  {
+    key: 'route',
+    label: 'Route',
+    locked: true,
+    defaultSelected: true,
+    render: (trip) => {
+      const from = trip?.route?.from || 'N/A';
+      const to = trip?.route?.to || 'N/A';
+      return `${from} → ${to}`;
+    }
+  },
+  {
+    key: 'liftingDate',
+    label: 'Lifting Date',
+    render: (trip) => formatDateDisplay(trip?.liftingDate || trip?.createdAt)
+  },
+  {
+    key: 'startEndPoint',
+    label: 'Start & End Point',
+    render: (trip) => {
+      const from = trip?.route?.from || 'N/A';
+      const to = trip?.route?.to || 'N/A';
+      return `${from} → ${to}`;
+    }
+  },
+  {
+    key: 'birdsTotal',
+    label: 'No of Birds (Total)',
+    render: (trip) => getColumnValue(trip?.summary?.totalBirdsPurchased, (val) => val?.toLocaleString('en-IN') || '-')
+  },
+  {
+    key: 'quantityWeight',
+    label: 'Quantity (Weight)',
+    render: (trip) => getColumnValue(trip?.summary?.totalWeightPurchased, (val) => `${formatNumber(val, 2)} kg`)
+  },
+  {
+    key: 'birdsAverage',
+    label: 'Birds Average',
+    render: (trip) => {
+      if (!trip?.summary?.totalBirdsPurchased || !trip?.summary?.totalWeightPurchased) return '-';
+      const avg = trip.summary.totalWeightPurchased / trip.summary.totalBirdsPurchased;
+      return formatNumber(avg, 2);
+    }
+  },
+  {
+    key: 'rate',
+    label: 'Rate',
+    render: (trip) => formatCurrency(trip?.summary?.avgPurchaseRate)
+  },
+  {
+    key: 'purchaseAmount',
+    label: 'Purchase Amount',
+    render: (trip) => formatCurrency(trip?.summary?.totalPurchaseAmount)
+  },
+  {
+    key: 'receivableAmount',
+    label: 'Receivable Amount',
+    render: (trip) => formatCurrency(trip?.summary?.totalReceivedAmount)
+  },
+  {
+    key: 'cashReceiptAmount',
+    label: 'Cash Receipt Amount',
+    render: (trip) => formatCurrency(trip?.summary?.totalCashPaid)
+  },
+  {
+    key: 'bankReceiptAmount',
+    label: 'Bank Receipt Amount',
+    render: (trip) => formatCurrency(trip?.summary?.totalOnlinePaid)
+  },
+  {
+    key: 'noDeathBirds',
+    label: 'No Death Birds',
+    render: (trip) => getColumnValue(trip?.summary?.totalBirdsLost, (val) => val?.toLocaleString('en-IN') || '-')
+  },
+  {
+    key: 'amountDeathBirds',
+    label: 'Amount of Death Birds',
+    render: (trip) => formatCurrency(trip?.summary?.totalLosses)
+  },
+  {
+    key: 'weightLossQty',
+    label: 'Weight Loss Qty',
+    render: (trip) => getColumnValue(trip?.summary?.birdWeightLoss, (val) => `${formatNumber(val, 2)} kg`)
+  },
+  {
+    key: 'weightLossAmount',
+    label: 'Weight Loss Amount',
+    render: (trip) => {
+      const lossQty = trip?.summary?.birdWeightLoss || 0;
+      const rate = trip?.summary?.avgPurchaseRate || 0;
+      const amount = lossQty * rate;
+      return amount ? formatCurrency(amount) : '-';
+    }
+  },
+  {
+    key: 'vehicleMiscAmount',
+    label: 'Vehicle Misc Amount',
+    render: (trip) => {
+      const misc = getVehicleMiscExpenses(trip);
+      return misc ? formatCurrency(misc) : '-';
+    }
+  },
+  {
+    key: 'dieselAmount',
+    label: 'Diesel Amount',
+    render: (trip) => formatCurrency(trip?.diesel?.totalAmount)
+  },
+  {
+    key: 'vehicleRunningKm',
+    label: 'Vehicle Running KM',
+    render: (trip) => getColumnValue(trip?.vehicleReadings?.totalDistance, (val) => `${formatNumber(val, 0)} km`)
+  },
+  {
+    key: 'dieselVolume',
+    label: 'Diesel Vol',
+    render: (trip) => getColumnValue(trip?.diesel?.totalVolume, (val) => `${formatNumber(val, 2)} L`)
+  },
+  {
+    key: 'vehicleAvg',
+    label: 'Vehicle Avg',
+    render: (trip) => getColumnValue(trip?.summary?.fuelEfficiency, (val) => `${formatNumber(val, 2)} km/L`)
+  }
+];
+
+const DEFAULT_SELECTED_COLUMNS = REPORT_COLUMNS.filter((col) => col.defaultSelected).map((col) => col.key);
+const LOCKED_COLUMN_KEYS = new Set(REPORT_COLUMNS.filter((col) => col.locked).map((col) => col.key));
+
 export default function Trips() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -79,12 +359,24 @@ export default function Trips() {
     startDate: '',
     endDate: ''
   });
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 10
+  });
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingTrip, setEditingTrip] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedColumns, setSelectedColumns] = useState(DEFAULT_SELECTED_COLUMNS);
+  const [isReportFilterOpen, setIsReportFilterOpen] = useState(false);
+  const reportFilterRef = useRef(null);
+  const [isDownloadDropdownOpen, setIsDownloadDropdownOpen] = useState(false);
+  const downloadDropdownRef = useRef(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   // Debug user information
   useEffect(() => {
@@ -118,14 +410,39 @@ export default function Trips() {
     }
   });
 
-  // Fetch trips
+  // Fetch trips with pagination and filters
   const fetchTrips = async () => {
     try {
       setIsLoading(true);
       console.log('Fetching trips...');
-      const { data } = await api.get('/trip');
-      // console.log('Trips response:', data);
-      setTrips(data.data?.trips || data.data || data.trips || []);
+      
+      // Build query parameters
+      const params = new URLSearchParams({
+        page: pagination.currentPage,
+        limit: pagination.itemsPerPage,
+        ...(statusFilter && statusFilter !== 'all' && { status: statusFilter }),
+        ...(vehicleFilter && vehicleFilter !== 'all' && { vehicle: vehicleFilter }),
+        ...(dateFilter.startDate && { startDate: dateFilter.startDate }),
+        ...(dateFilter.endDate && { endDate: dateFilter.endDate })
+      });
+
+      const { data } = await api.get(`/trip?${params}`);
+      
+      // Handle response structure - backend returns trips and pagination at root level
+      if (data.success) {
+        setTrips(data.trips || []);
+        if (data.pagination) {
+          setPagination({
+            currentPage: data.pagination.page || pagination.currentPage,
+            totalPages: data.pagination.pages || 1,
+            totalItems: data.pagination.total || 0,
+            itemsPerPage: pagination.itemsPerPage
+          });
+        }
+      } else {
+        // Fallback for different response structures
+        setTrips(data.data?.trips || data.data || data.trips || []);
+      }
       setIsError(false);
     } catch (err) {
       console.error('Error fetching trips:', err);
@@ -156,9 +473,14 @@ export default function Trips() {
   };
 
   useEffect(() => {
-    fetchTrips();
     fetchFormData();
   }, [user?.role]);
+
+  // Fetch trips when pagination or filters change
+  useEffect(() => {
+    fetchTrips();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagination.currentPage, statusFilter, vehicleFilter, dateFilter.startDate, dateFilter.endDate, user?.role]);
 
   // Update form when user changes
   useEffect(() => {
@@ -176,6 +498,33 @@ export default function Trips() {
     }
   }, [user?.role, user?.id, reset]);
 
+  useEffect(() => {
+    if (!isReportFilterOpen) return;
+    const handleClickOutside = (event) => {
+      if (reportFilterRef.current && !reportFilterRef.current.contains(event.target)) {
+        setIsReportFilterOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isReportFilterOpen]);
+
+  // Handle click outside for download dropdown
+  useEffect(() => {
+    if (!isDownloadDropdownOpen) return;
+    const handleClickOutside = (event) => {
+      if (downloadDropdownRef.current && !downloadDropdownRef.current.contains(event.target)) {
+        setIsDownloadDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDownloadDropdownOpen]);
+
   // CRUD operations
   const addTrip = async (tripData) => {
     try {
@@ -185,11 +534,12 @@ export default function Trips() {
       console.log('Supervisor field type:', typeof tripData.supervisor);
       const { data } = await api.post('/trip', tripData);
       console.log('Add trip response:', data);
-      setTrips(prev => [...prev, data.data]);
       setShowAddModal(false);
       setEditingTrip(null);
       reset();
       alert('Trip created successfully!');
+      // Refetch trips to get updated list with pagination
+      await fetchTrips();
     } catch (err) {
       console.error('Error adding trip:', err);
       setError(err.message);
@@ -205,11 +555,12 @@ export default function Trips() {
       console.log('Updating trip:', { id, ...tripData });
       const { data } = await api.put(`/trip/${id}`, tripData);
       console.log('Update trip response:', data);
-      setTrips(prev => prev.map(t => t.id === id ? data.data : t));
       setShowAddModal(false);
       setEditingTrip(null);
       reset();
       alert('Trip updated successfully!');
+      // Refetch trips to get updated list with pagination
+      await fetchTrips();
     } catch (err) {
       console.error('Error updating trip:', err);
       setError(err.message);
@@ -224,8 +575,9 @@ export default function Trips() {
       console.log('Deleting trip:', id);
       await api.delete(`/trip/${id}`);
       console.log('Trip deleted successfully');
-      setTrips(prev => prev.filter(t => t.id !== id));
       alert('Trip deleted successfully!');
+      // Refetch trips to get updated list with pagination
+      await fetchTrips();
     } catch (err) {
       console.error('Error deleting trip:', err);
       setError(err.message);
@@ -301,51 +653,150 @@ export default function Trips() {
     setError('');
   };
 
+  // Client-side search filter (only for search term, other filters are server-side)
   const filteredTrips = trips.filter(trip => {
-    const matchesSearch = trip.tripId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         trip.vehicle?.vehicleNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         trip.supervisor?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || trip.status === statusFilter;
-    const matchesVehicle = vehicleFilter === 'all' || trip.vehicle?.id === vehicleFilter;
-    
-    // Date filter logic
-    let matchesDate = true;
-    if (dateFilter.startDate || dateFilter.endDate) {
-      if (!trip?.date) {
-        matchesDate = false;
-      } else {
-        const tripDate = new Date(trip.date);
-        if (Number.isNaN(tripDate.getTime())) {
-          matchesDate = false;
-        } else {
-          if (dateFilter.startDate) {
-            const start = new Date(dateFilter.startDate);
-            if (tripDate < start) {
-              matchesDate = false;
-            }
-          }
-          if (dateFilter.endDate) {
-            const end = new Date(dateFilter.endDate);
-            end.setHours(23, 59, 59, 999);
-            if (tripDate > end) {
-              matchesDate = false;
-            }
-          }
-        }
-      }
-    }
-    
-    return matchesSearch && matchesStatus && matchesVehicle && matchesDate;
+    if (!searchTerm) return true;
+    const searchLower = searchTerm.toLowerCase();
+    return trip.tripId?.toLowerCase().includes(searchLower) ||
+           trip.vehicle?.vehicleNumber?.toLowerCase().includes(searchLower) ||
+           trip.supervisor?.name?.toLowerCase().includes(searchLower) ||
+           trip.driver?.toLowerCase().includes(searchLower);
   });
+
+  // Reset to page 1 when filters change
+  const handleStatusFilterChange = (value) => {
+    setStatusFilter(value);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
+
+  const handleVehicleFilterChange = (value) => {
+    setVehicleFilter(value);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
+
+  const handleDateFilterChange = (field, value) => {
+    setDateFilter(prev => ({ ...prev, [field]: value }));
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
 
   const handleClearDateFilter = () => {
     setDateFilter({
       startDate: '',
       endDate: ''
     });
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  };
+
+  // Fetch all trips for download (without pagination)
+  const fetchAllTrips = async () => {
+    try {
+      // Build query parameters (same filters, but no pagination)
+      const params = new URLSearchParams({
+        page: 1,
+        limit: 10000, // Large limit to get all records
+        ...(statusFilter && statusFilter !== 'all' && { status: statusFilter }),
+        ...(vehicleFilter && vehicleFilter !== 'all' && { vehicle: vehicleFilter }),
+        ...(dateFilter.startDate && { startDate: dateFilter.startDate }),
+        ...(dateFilter.endDate && { endDate: dateFilter.endDate })
+      });
+
+      const { data } = await api.get(`/trip?${params}`);
+      
+      if (data.success && data.trips) {
+        return data.trips;
+      } else {
+        return data.data?.trips || data.data || data.trips || [];
+      }
+    } catch (err) {
+      console.error('Error fetching all trips:', err);
+      throw err;
+    }
+  };
+
+  // Download current page trips
+  const handleDownloadCurrentPage = async () => {
+    try {
+      setIsDownloading(true);
+      setIsDownloadDropdownOpen(false);
+      
+      // Use currently displayed trips (already filtered by search)
+      const tripsToDownload = filteredTrips.length > 0 ? filteredTrips : trips;
+      
+      // Get active columns (selected columns)
+      const columnsToExport = REPORT_COLUMNS.filter(col => selectedColumns.includes(col.key));
+      
+      if (tripsToDownload.length === 0) {
+        alert('No trips available to download');
+        return;
+      }
+
+      if (columnsToExport.length === 0) {
+        alert('No columns selected for export');
+        return;
+      }
+
+      downloadTripsExcel(tripsToDownload, columnsToExport, 'trips_current_page');
+    } catch (err) {
+      console.error('Error downloading trips:', err);
+      alert('Error downloading trips. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  // Download all trips
+  const handleDownloadAllRecords = async () => {
+    try {
+      setIsDownloading(true);
+      setIsDownloadDropdownOpen(false);
+      
+      // Fetch all trips with current filters
+      const allTrips = await fetchAllTrips();
+      
+      if (allTrips.length === 0) {
+        alert('No trips available to download');
+        return;
+      }
+
+      // Apply client-side search filter if search term exists
+      const filteredAllTrips = searchTerm 
+        ? allTrips.filter(trip => {
+            const searchLower = searchTerm.toLowerCase();
+            return trip.tripId?.toLowerCase().includes(searchLower) ||
+                   trip.vehicle?.vehicleNumber?.toLowerCase().includes(searchLower) ||
+                   trip.supervisor?.name?.toLowerCase().includes(searchLower) ||
+                   trip.driver?.toLowerCase().includes(searchLower);
+          })
+        : allTrips;
+
+      // Get active columns (selected columns)
+      const columnsToExport = REPORT_COLUMNS.filter(col => selectedColumns.includes(col.key));
+      
+      if (columnsToExport.length === 0) {
+        alert('No columns selected for export');
+        return;
+      }
+      
+      downloadTripsExcel(filteredAllTrips, columnsToExport, 'trips_all_records');
+    } catch (err) {
+      console.error('Error downloading all trips:', err);
+      alert('Error downloading trips. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const isDateFilterActive = dateFilter.startDate || dateFilter.endDate;
+  const activeColumns = REPORT_COLUMNS.filter((column) => selectedColumns.includes(column.key));
+
+  const toggleColumnSelection = (key) => {
+    if (LOCKED_COLUMN_KEYS.has(key)) {
+      return;
+    }
+    setSelectedColumns((prev) =>
+      prev.includes(key) ? prev.filter((colKey) => colKey !== key) : [...prev, key]
+    );
+  };
 
   if (isLoading) {
     return (
@@ -390,34 +841,68 @@ export default function Trips() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                 <div>
-           <h1 className="text-3xl font-bold text-gray-900">Trips Management</h1>
-           <p className="text-gray-600 mt-1">
-             {isSupervisor 
-               ? 'Create and manage your poultry transportation trips' 
-               : 'View and track all poultry transportation trips (read-only access)'
-             }
-           </p>
-           
-           {/* Access level info */}
-           {isAdmin && !isSupervisor && (
-             <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-lg">
-               <p className="text-sm text-blue-700">
-                 <strong>Note:</strong> As an admin, you can view and manage trip details but cannot create new trips. 
-                 Only supervisors can create new trips.
-               </p>
-             </div>
-           )}
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Trips Management</h1>
+          <p className="text-gray-600 mt-1">
+            {isSupervisor 
+              ? 'Create and manage your poultry transportation trips' 
+              : 'View and track all poultry transportation trips (read-only access)'
+            }
+          </p>
         </div>
-                 {canCreateTrip && (
-           <button 
-             onClick={handleAddNew}
-             className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-           >
-             <Plus size={20} />
-             New Trip
-           </button>
-         )}
+        <div className="mt-4 sm:mt-0 flex items-center gap-3">
+          {/* Download Button with Dropdown */}
+          <div className="relative" ref={downloadDropdownRef}>
+            <button
+              onClick={() => setIsDownloadDropdownOpen(!isDownloadDropdownOpen)}
+              disabled={isDownloading || trips.length === 0}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDownloading ? (
+                <>
+                  <Loader2 size={20} className="animate-spin" />
+                  Downloading...
+                </>
+              ) : (
+                <>
+                  <Download size={20} />
+                  Download Report
+                </>
+              )}
+              <ChevronDown size={16} />
+            </button>
+            
+            {isDownloadDropdownOpen && (
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50 overflow-hidden">
+                <button
+                  onClick={handleDownloadCurrentPage}
+                  className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+                >
+                  <Download size={16} />
+                  Download Current Page ({filteredTrips.length} records)
+                </button>
+                <button
+                  onClick={handleDownloadAllRecords}
+                  className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2 border-t border-gray-200"
+                >
+                  <Download size={16} />
+                  Download All Records
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* New Trip Button */}
+          {canCreateTrip && (
+            <button 
+              onClick={handleAddNew}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <Plus size={20} />
+              New Trip
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Filters */}
@@ -439,7 +924,7 @@ export default function Trips() {
           <div className="flex gap-2">
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => handleStatusFilterChange(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">All Status</option>
@@ -449,7 +934,7 @@ export default function Trips() {
             </select>
             <select
               value={vehicleFilter}
-              onChange={(e) => setVehicleFilter(e.target.value)}
+              onChange={(e) => handleVehicleFilterChange(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="all">All Vehicles</option>
@@ -459,6 +944,84 @@ export default function Trips() {
                 </option>
               ))}
             </select>
+            <div className="relative" ref={reportFilterRef}>
+              <button
+                type="button"
+                onClick={() => setIsReportFilterOpen((prev) => !prev)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 border ${
+                  isReportFilterOpen
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                }`}
+              >
+                <Filter size={16} />
+                <span>Reports Filter</span>
+                {isReportFilterOpen ? (
+                  <ChevronUp size={16} />
+                ) : (
+                  <ChevronDown size={16} />
+                )}
+              </button>
+              {isReportFilterOpen && (
+                <div className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 overflow-hidden">
+                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
+                    <h3 className="text-sm font-semibold">Choose Columns to Display</h3>
+                    <p className="text-xs text-blue-100 mt-1">
+                      Yellow highlighted items are default and cannot be deselected
+                    </p>
+                  </div>
+                  <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                    {REPORT_COLUMNS.map((option) => {
+                      const isChecked = selectedColumns.includes(option.key);
+                      return (
+                        <label
+                          key={option.key}
+                          className={`flex items-center justify-between gap-3 px-4 py-3 text-sm cursor-pointer transition-colors ${
+                            option.locked 
+                              ? 'bg-yellow-50 hover:bg-yellow-100 border-l-4 border-yellow-400' 
+                              : 'hover:bg-gray-50 border-l-4 border-transparent'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 flex-1">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              disabled={option.locked}
+                              onChange={() => toggleColumnSelection(option.key)}
+                              className={`h-4 w-4 rounded border-gray-300 focus:ring-2 focus:ring-blue-500 ${
+                                option.locked 
+                                  ? 'text-yellow-600 cursor-not-allowed' 
+                                  : 'text-blue-600 cursor-pointer'
+                              }`}
+                            />
+                            <span className={`flex-1 ${option.locked ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
+                              {option.label}
+                            </span>
+                          </div>
+                          {option.locked && (
+                            <span className="px-2 py-0.5 text-xs font-medium bg-yellow-200 text-yellow-800 rounded-full">
+                              Default
+                            </span>
+                          )}
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                    <span className="text-xs text-gray-600">
+                      {selectedColumns.length} of {REPORT_COLUMNS.length} columns selected
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsReportFilterOpen(false)}
+                      className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
             </div>
           </div>
 
@@ -469,7 +1032,7 @@ export default function Trips() {
               <input
                 type="date"
                 value={dateFilter.startDate}
-                onChange={(e) => setDateFilter((prev) => ({ ...prev, startDate: e.target.value }))}
+                onChange={(e) => handleDateFilterChange('startDate', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -478,7 +1041,7 @@ export default function Trips() {
               <input
                 type="date"
                 value={dateFilter.endDate}
-                onChange={(e) => setDateFilter((prev) => ({ ...prev, endDate: e.target.value }))}
+                onChange={(e) => handleDateFilterChange('endDate', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -492,131 +1055,137 @@ export default function Trips() {
             </button>
               {isDateFilterActive && (
                 <div className="px-4 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg bg-gray-50">
-                  Showing: {filteredTrips.length} trips
+                  Showing: {pagination.totalItems} trips
                 </div>
               )}
             </div>
           </div>
+
         </div>
       </div>
 
       {/* Trips Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto relative">
+        <table className="min-w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              {/* Fixed SL NO Column */}
+              <th className="sticky left-0 z-20 bg-gray-50 px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-r-2 border-gray-300">
+                SL NO
+              </th>
+              {/* Scrollable Columns */}
+              {activeColumns.map((column) => (
+                <th
+                  key={column.key}
+                  className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider"
+                >
+                  {column.label}
+                </th>
+              ))}
+              {/* Fixed STATUS Column */}
+              <th className="sticky right-[130px] z-20 bg-gray-50 px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-l-2 border-gray-300" style={{ width: '110px', minWidth: '110px', maxWidth: '110px' }}>
+                STATUS
+              </th>
+              {/* Fixed ACTIONS Column */}
+              <th className="sticky right-0 z-20 bg-gray-50 px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-gray-300" style={{ width: '130px', minWidth: '130px', maxWidth: '130px' }}>
+                ACTIONS
+              </th>
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {filteredTrips.length === 0 ? (
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Trip Details
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Route
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Team
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Financial Summary
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
+                <td colSpan={activeColumns.length + 3} className="px-6 py-10 text-center text-gray-500">
+                  No trips found matching your criteria.
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredTrips.length === 0 ? (
-                <tr>
-                  <td colSpan="6" className="px-6 py-10 text-center text-gray-500">
-                    No trips found matching your criteria.
+            ) : (
+              filteredTrips.map((trip, index) => (
+                <tr key={trip.id} className="group">
+                  {/* Fixed SL NO Column */}
+                  <td className="sticky left-0 z-10 bg-white group-hover:bg-gray-50 px-4 py-4 text-sm text-gray-900 border-r-2 border-gray-300 transition-colors">
+                    {(pagination.currentPage - 1) * pagination.itemsPerPage + index + 1}
+                  </td>
+                  {/* Scrollable Columns */}
+                  {activeColumns.map((column) => (
+                    <td key={column.key} className="px-4 py-4 text-sm text-gray-900 whitespace-nowrap group-hover:bg-gray-50 transition-colors">
+                      {column.render(trip, index)}
+                    </td>
+                  ))}
+                  {/* Fixed STATUS Column */}
+                  <td className="sticky right-[130px] z-10 bg-white group-hover:bg-gray-50 px-4 py-4 border-l-2  border-gray-300 transition-colors" style={{ width: '110px', minWidth: '110px', maxWidth: '110px' }}>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trip.status)}`}>
+                      {getStatusText(trip.status)}
+                    </span>
+                  </td>
+                  {/* Fixed ACTIONS Column */}
+                  <td className="sticky right-0 z-10 bg-white group-hover:bg-gray-50 px-4 py-4 border-gray-300 transition-colors" style={{ width: '130px', minWidth: '130px', maxWidth: '130px' }}>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleView(trip)}
+                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="View trip details"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleEdit(trip)}
+                          className="p-1 text-gray-400 hover:text-green-600 transition-colors"
+                          title="Edit trip (Admin only)"
+                        >
+                          <Edit size={16} />
+                        </button>
+                      )}
+                      {isAdmin && (
+                        <button
+                          onClick={() => handleDelete(trip)}
+                          className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                          title="Delete trip (Admin only)"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                filteredTrips.map((trip) => (
-                  <tr key={trip.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                          <Truck className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <div className="text-sm font-semibold text-blue-600">
-                            {new Date(trip.date).toLocaleDateString()}
-                          </div>
-                          <div className="text-sm font-medium text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</div>
-                          <div className="text-sm text-gray-500">{trip.tripId}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4 text-gray-400" />
-                        <div className="text-sm">
-                          <div className="text-gray-900 font-medium">
-                            {trip.route?.from || trip.place || 'N/A'} → {trip.route?.to || trip.place || 'N/A'}
-                          </div>
-                          {trip.place && (
-                            <div className="text-gray-500 text-xs">{trip.place}</div>
-                          )}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm">
-                        <div className="text-gray-900">Sup: {trip.supervisor?.name || 'N/A'}</div>
-                        <div className="text-gray-500">Driver: {trip.driver}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm">
-                        <div className="text-gray-900 font-semibold text-base">
-                          ₹{trip.summary?.netProfit?.toLocaleString() || '0'}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(trip.status)}`}>
-                        {getStatusText(trip.status)}
-                      </span>
-                    </td>
-                                         <td className="px-6 py-4">
-                       <div className="flex items-center gap-2">
-                         <button 
-                           onClick={() => handleView(trip)}
-                           className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                           title="View trip details"
-                         >
-                           <Eye size={16} />
-                         </button>
-                         {isAdmin && (
-                           <button 
-                             onClick={() => handleEdit(trip)}
-                             className="p-1 text-gray-400 hover:text-green-600 transition-colors"
-                             title="Edit trip (Admin only)"
-                           >
-                             <Edit size={16} />
-                           </button>
-                         )}
-                         {isAdmin && (
-                           <button 
-                             onClick={() => handleDelete(trip)}
-                             className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                             title="Delete trip (Admin only)"
-                           >
-                             <Trash2 size={16} />
-                           </button>
-                         )}
-                       </div>
-                     </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
+
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-gray-700">
+              Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
+              {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
+              {pagination.totalItems} trips
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
+                disabled={pagination.currentPage === 1 || isLoading}
+                className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              >
+                Previous
+              </button>
+              <span className="px-3 py-1 text-sm text-gray-700">
+                Page {pagination.currentPage} of {pagination.totalPages}
+              </span>
+              <button
+                onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
+                disabled={pagination.currentPage === pagination.totalPages || isLoading}
+                className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Summary Stats */}
       {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
