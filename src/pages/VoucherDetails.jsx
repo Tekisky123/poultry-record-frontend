@@ -129,20 +129,20 @@ const VoucherDetails = () => {
             <Download size={16} />
             Print PDF
           </button>
-          <Link
+          {/* <Link
             to={`/vouchers/${voucher._id}/edit`}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             <Edit size={16} />
             Edit
-          </Link>
-          <button
+          </Link> */}
+          {/* <button
             onClick={handleDelete}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             <Trash2 size={16} />
             Delete
-          </button>
+          </button> */}
         </div>
       </div>
 

@@ -11,45 +11,18 @@ import {
   Trash2,
   Loader2,
   X,
-  Tag,
-  Users,
-  Store
+  Tag
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 
 // Zod Schema for Ledger validation
 const ledgerSchema = z.object({
-  name: z.string().optional(),
+  name: z.string().min(1, 'Ledger name is required'),
   group: z.string().min(1, 'Group is required'),
-  ledgerType: z.enum(['vendor', 'customer', 'other'], {
-    required_error: 'Ledger type is required',
-  }),
-  vendor: z.string().optional().nullable(),
-  customer: z.string().optional().nullable(),
-}).refine((data) => {
-  if (data.ledgerType === 'vendor' && !data.vendor) {
-    return false;
-  }
-  if (data.ledgerType === 'customer' && !data.customer) {
-    return false;
-  }
-  if (data.ledgerType === 'other' && !data.name) {
-    return false;
-  }
-  return true;
-}, {
-  message: 'Name or vendor/customer selection is required based on ledger type',
+  openingBalance: z.number().optional().default(0),
 });
 
-const getLedgerTypeColor = (type) => {
-  const colors = {
-    vendor: 'bg-blue-100 text-blue-800',
-    customer: 'bg-green-100 text-green-800',
-    other: 'bg-gray-100 text-gray-800'
-  };
-  return colors[type] || 'bg-gray-100 text-gray-800';
-};
 
 // Build flat list of groups for dropdown (with hierarchy indication)
 const flattenGroups = (groups, level = 0, prefix = '') => {
@@ -69,11 +42,8 @@ export default function Ledgers() {
   const [ledgers, setLedgers] = useState([]);
   const [groups, setGroups] = useState([]);
   const [flatGroups, setFlatGroups] = useState([]);
-  const [vendors, setVendors] = useState([]);
-  const [customers, setCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [groupFilter, setGroupFilter] = useState('all');
-  const [typeFilter, setTypeFilter] = useState('all');
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState('');
@@ -83,18 +53,14 @@ export default function Ledgers() {
 
   const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
 
-  const { register, handleSubmit, reset, formState: { errors }, setValue, watch } = useForm({
+  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm({
     resolver: zodResolver(ledgerSchema),
     defaultValues: {
       name: '',
       group: '',
-      ledgerType: 'other',
-      vendor: null,
-      customer: null
+      openingBalance: 0
     }
   });
-
-  const selectedLedgerType = watch('ledgerType');
 
   // Fetch all data
   const fetchData = async () => {
@@ -128,14 +94,6 @@ export default function Ledgers() {
       const ledgersRes = await api.get('/ledger');
       setLedgers(ledgersRes.data.data || []);
       
-      // Fetch vendors
-      const vendorsRes = await api.get('/vendor');
-      setVendors(vendorsRes.data.data || []);
-      
-      // Fetch customers
-      const customersRes = await api.get('/customer');
-      setCustomers(customersRes.data.data || []);
-      
       setIsError(false);
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -156,10 +114,9 @@ export default function Ledgers() {
     try {
       setIsSubmitting(true);
       const payload = {
-        ...ledgerData,
-        vendor: ledgerData.ledgerType === 'vendor' ? ledgerData.vendor : null,
-        customer: ledgerData.ledgerType === 'customer' ? ledgerData.customer : null,
-        name: ledgerData.ledgerType === 'other' ? ledgerData.name : undefined
+        name: ledgerData.name,
+        group: ledgerData.group,
+        openingBalance: ledgerData.openingBalance || 0
       };
       const { data } = await api.post('/ledger', payload);
       setShowAddModal(false);
@@ -180,10 +137,9 @@ export default function Ledgers() {
     try {
       setIsSubmitting(true);
       const payload = {
-        ...ledgerData,
-        vendor: ledgerData.ledgerType === 'vendor' ? ledgerData.vendor : null,
-        customer: ledgerData.ledgerType === 'customer' ? ledgerData.customer : null,
-        name: ledgerData.ledgerType === 'other' ? ledgerData.name : undefined
+        name: ledgerData.name,
+        group: ledgerData.group,
+        openingBalance: ledgerData.openingBalance || 0
       };
       const { data } = await api.put(`/ledger/${id}`, payload);
       setShowAddModal(false);
@@ -216,9 +172,7 @@ export default function Ledgers() {
     setEditingLedger(ledger);
     setValue('name', ledger.name || '');
     setValue('group', ledger.group?.id || '');
-    setValue('ledgerType', ledger.ledgerType || 'other');
-    setValue('vendor', ledger.vendor?.id || null);
-    setValue('customer', ledger.customer?.id || null);
+    setValue('openingBalance', ledger.openingBalance || 0);
     setShowAddModal(true);
   };
 
@@ -254,8 +208,7 @@ export default function Ledgers() {
     const matchesSearch = ledger.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          ledger.group?.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGroup = groupFilter === 'all' || ledger.group?.id === groupFilter;
-    const matchesType = typeFilter === 'all' || ledger.ledgerType === typeFilter;
-    return matchesSearch && matchesGroup && matchesType;
+    return matchesSearch && matchesGroup;
   });
 
   if (isLoading) {
@@ -336,16 +289,6 @@ export default function Ledgers() {
                 </option>
               ))}
             </select>
-            <select
-              value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Types</option>
-              <option value="vendor">Vendor</option>
-              <option value="customer">Customer</option>
-              <option value="other">Other</option>
-            </select>
           </div>
         </div>
       </div>
@@ -358,15 +301,14 @@ export default function Ledgers() {
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Linked Entity</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opening Balance</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredLedgers.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
                     No ledgers found
                   </td>
                 </tr>
@@ -386,26 +328,9 @@ export default function Ledgers() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getLedgerTypeColor(ledger.ledgerType)}`}>
-                        {ledger.ledgerType.charAt(0).toUpperCase() + ledger.ledgerType.slice(1)}
+                      <span className="text-gray-700">
+                        ₹{Number(ledger.openingBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {ledger.vendor && (
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Users size={14} className="mr-1" />
-                          {ledger.vendor.vendorName}
-                        </div>
-                      )}
-                      {ledger.customer && (
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Store size={14} className="mr-1" />
-                          {ledger.customer.shopName}
-                        </div>
-                      )}
-                      {!ledger.vendor && !ledger.customer && (
-                        <span className="text-gray-400 text-sm">—</span>
-                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
@@ -452,72 +377,16 @@ export default function Ledgers() {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Ledger Type *
-                </label>
-                <select
-                  {...register('ledgerType')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="other">Other</option>
-                  <option value="vendor">Vendor</option>
-                  <option value="customer">Customer</option>
-                </select>
-                {errors.ledgerType && <p className="text-red-500 text-xs mt-1">{errors.ledgerType.message}</p>}
-              </div>
-
-              {selectedLedgerType === 'vendor' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Vendor *
-                  </label>
-                  <select
-                    {...register('vendor')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select a vendor</option>
-                    {vendors.map(vendor => (
-                      <option key={vendor.id} value={vendor.id}>
-                        {vendor.vendorName}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.vendor && <p className="text-red-500 text-xs mt-1">{errors.vendor.message}</p>}
-                </div>
-              )}
-
-              {selectedLedgerType === 'customer' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Customer *
-                  </label>
-                  <select
-                    {...register('customer')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select a customer</option>
-                    {customers.map(customer => (
-                      <option key={customer.id} value={customer.id}>
-                        {customer.shopName}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.customer && <p className="text-red-500 text-xs mt-1">{errors.customer.message}</p>}
-                </div>
-              )}
-
-              {selectedLedgerType === 'other' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Ledger Name *
                   </label>
                   <input
                     type="text"
                     {...register('name')}
+                  placeholder="Enter ledger name"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
                 </div>
-              )}
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -535,6 +404,22 @@ export default function Ledgers() {
                   ))}
                 </select>
                 {errors.group && <p className="text-red-500 text-xs mt-1">{errors.group.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Opening Balance (optional)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  {...register('openingBalance', { valueAsNumber: true })}
+                  placeholder="0.00"
+                  defaultValue={0}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {errors.openingBalance && <p className="text-red-500 text-xs mt-1">{errors.openingBalance.message}</p>}
+                <p className="text-xs text-gray-500 mt-1">Default: 0.00</p>
               </div>
 
               <div className="flex justify-end gap-3 pt-4">

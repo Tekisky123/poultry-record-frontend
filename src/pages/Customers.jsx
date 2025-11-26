@@ -51,6 +51,7 @@ const customerSchema = z.object({
   openingBalance: z.number()
     .min(0, 'Opening balance cannot be negative')
     .optional(),
+  group: z.string().min(1, 'Group is required'),
   // Login credentials fields
   email: z.string()
     .email('Invalid email format')
@@ -95,6 +96,8 @@ export default function Customers() {
   const [isEdit, setIsEdit] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [flatGroups, setFlatGroups] = useState([]);
 
   // Debug user information
   // useEffect(() => {
@@ -108,7 +111,7 @@ export default function Customers() {
   // React Hook Form with Zod validation
   const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm({
     resolver: zodResolver(customerSchema),
-    defaultValues: {
+      defaultValues: {
       shopName: '',
       ownerName: '',
       contact: '',
@@ -118,18 +121,113 @@ export default function Customers() {
       openingBalance: 0,
       email: '',
       password: '',
-      tdsApplicable: false
+      tdsApplicable: false,
+      group: ''
     }
   });
 
-  // Fetch customers
+  // Helper function to flatten groups with hierarchy
+  const flattenGroups = (groups, level = 0, prefix = '') => {
+    let result = [];
+    groups.forEach(group => {
+      const displayName = prefix + group.name;
+      result.push({ ...group, displayName, level });
+      if (group.children && group.children.length > 0) {
+        result = result.concat(flattenGroups(group.children, level + 1, prefix + '  '));
+      }
+    });
+    return result;
+  };
+
+  // Helper function to get all descendants of a group
+  const getGroupDescendants = (allGroups, parentGroupName) => {
+    // Build tree structure
+    const groupMap = new Map();
+    const rootGroups = [];
+    allGroups.forEach(g => groupMap.set(g.id, { ...g, children: [] }));
+    allGroups.forEach(g => {
+      const node = groupMap.get(g.id);
+      if (g.parentGroup && groupMap.has(g.parentGroup.id)) {
+        groupMap.get(g.parentGroup.id).children.push(node);
+      } else {
+        rootGroups.push(node);
+      }
+    });
+
+    // Find the parent group by name
+    const findGroupByName = (groups, name) => {
+      for (const group of groups) {
+        if (group.name === name) {
+          return group;
+        }
+        if (group.children && group.children.length > 0) {
+          const found = findGroupByName(group.children, name);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const parentGroup = findGroupByName(rootGroups, parentGroupName);
+    if (!parentGroup) {
+      return [];
+    }
+
+    // Get all descendants including the parent itself
+    const getAllDescendants = (group) => {
+      let result = [group];
+      if (group.children && group.children.length > 0) {
+        group.children.forEach(child => {
+          result = result.concat(getAllDescendants(child));
+        });
+      }
+      return result;
+    };
+
+    return getAllDescendants(parentGroup);
+  };
+
+  // Fetch customers and groups
   const fetchCustomers = async () => {
     try {
       setIsLoading(true);
       console.log('Fetching customers...');
       const { data } = await api.get('/customer');
-      // console.log('Customers response:', data);
       setCustomers(data.data || []);
+
+      // Fetch groups
+      const groupsRes = await api.get('/group');
+      const groupsData = groupsRes.data.data || [];
+      setGroups(groupsData);
+
+      // Filter groups to show only "Sundry Debtors" and its descendants
+      const sundryDebtorsGroups = getGroupDescendants(groupsData, 'Sundry Debtors');
+      
+      // Build tree for filtered groups
+      const buildTree = (groups) => {
+        const groupMap = new Map();
+        const rootGroups = [];
+        groups.forEach(g => groupMap.set(g.id, { ...g, children: [] }));
+        groups.forEach(g => {
+          const node = groupMap.get(g.id);
+          if (g.parentGroup && groupMap.has(g.parentGroup.id)) {
+            groupMap.get(g.parentGroup.id).children.push(node);
+          } else {
+            rootGroups.push(node);
+          }
+        });
+        return rootGroups;
+      };
+
+      // Filter to only include Sundry Debtors hierarchy
+      const filteredGroups = groupsData.filter(g => {
+        const allDescendants = sundryDebtorsGroups.map(gr => gr.id);
+        return allDescendants.includes(g.id);
+      });
+
+      const treeGroups = buildTree(filteredGroups);
+      setFlatGroups(flattenGroups(treeGroups));
+
       setIsError(false);
     } catch (err) {
       console.error('Error fetching customers:', err);
@@ -223,10 +321,11 @@ export default function Customers() {
       : customer.contact || '';
     setValue('contact', contactNumber);
     setValue('address', customer.address || '');
-    setValue('place', customer.place || '');
+    setValue('place', customer.place || customer.area || '');
     setValue('gstOrPanNumber', customer.gstOrPanNumber || '');
     setValue('openingBalance', customer.openingBalance || 0);
     setValue('tdsApplicable', customer.tdsApplicable || false);
+    setValue('group', customer.group?.id || '');
     // Pre-fill user credentials if available
     if (customer.user) {
       setValue('email', customer.user.email || '');
@@ -804,7 +903,7 @@ export default function Customers() {
                 </div>
                 
                 {/* Show Opening Balance field only when creating new customer, not when editing */}
-                {!isEdit && (
+                {/* {!isEdit && ( */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Opening Balance (₹)
@@ -822,7 +921,23 @@ export default function Customers() {
                       Customer's initial opening balance
                   </p>
                 </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Group *
+                  </label>
+                  <select
+                    {...register('group')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select a group</option>
+                    {flatGroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.displayName}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.group && <p className="text-red-500 text-xs mt-1">{errors.group.message}</p>}
+                </div>
                 
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">

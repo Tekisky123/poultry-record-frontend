@@ -4,38 +4,77 @@ import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 
-// Render group tree node
+// Render group tree node with hierarchy
 const GroupNode = ({ group, level = 0, expanded, onToggle }) => {
   const hasChildren = group.children && group.children.length > 0;
-  const isExpanded = expanded[group.id] || false;
+  const groupId = group.id || group._id;
+  const isExpanded = expanded[groupId] !== false; // Default to expanded
   const balance = Math.abs(group.balance || 0);
+  const opening = group.openingBalance || 0;
+  const outstanding = group.outstandingBalance || 0;
+  const showExtra = !!(opening || outstanding);
+
+  // Calculate indentation for hierarchy - clear spacing like Tally
+  const indentWidth = 24;
+  const leftPadding = level * indentWidth;
 
   return (
     <div className="select-none">
       <div 
-        className={`flex items-center gap-2 py-1 ${level > 0 ? 'ml-4' : ''}`}
-        style={{ paddingLeft: `${level * 20 + 4}px` }}
+        className="flex items-center gap-2 py-1 hover:bg-gray-50"
+        style={{ 
+          paddingLeft: `${leftPadding}px`
+        }}
       >
+        {/* Expand/Collapse button - only show if has children */}
         {hasChildren ? (
           <button 
-            onClick={() => onToggle(group.id)} 
-            className="p-1 hover:bg-gray-100 rounded"
+            onClick={() => onToggle(groupId)} 
+            className="p-0.5 hover:bg-gray-200 rounded flex-shrink-0"
           >
-            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+            {isExpanded ? (
+              <ChevronDown size={14} className="text-gray-600" />
+            ) : (
+              <ChevronRight size={14} className="text-gray-600" />
+            )}
           </button>
         ) : (
-          <span className="w-5" />
+          <span className="w-5 flex-shrink-0" />
         )}
-        <span className="flex-1 text-sm font-medium">{group.name}</span>
-        <span className="text-sm font-semibold text-right w-32">
+
+        {/* Group name with level-based styling */}
+        <span 
+          className={`flex-1 ${
+            level === 0 ? 'text-sm font-semibold text-gray-900' : 
+            'text-sm text-gray-700'
+          }`}
+        >
+          {group.name}
+        </span>
+
+        {/* Balance */}
+        <span className="text-sm text-right w-32 flex-shrink-0 font-medium">
           {balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
       </div>
+
+      {/* Opening and Outstanding Balance */}
+      {showExtra && (
+        <div 
+          className="flex items-center text-xs text-gray-500 mb-0.5"
+          style={{ paddingLeft: `${leftPadding + 24}px` }}
+        >
+          <span className="mr-4">Opening: ₹{opening.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <span>Outstanding: ₹{outstanding.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        </div>
+      )}
+
+      {/* Children - always show if expanded */}
       {hasChildren && isExpanded && (
         <div>
-          {group.children.map(child => (
+          {group.children.map((child) => (
             <GroupNode
-              key={child.id}
+              key={child.id || child._id}
               group={child}
               level={level + 1}
               expanded={expanded}
@@ -79,7 +118,10 @@ export default function BalanceSheet() {
         const expandedMap = {};
         const traverse = (groupList) => {
           groupList.forEach(group => {
-            expandedMap[group.id] = true;
+            const groupId = group.id || group._id?.toString() || group._id;
+            if (groupId) {
+              expandedMap[groupId] = true;
+            }
             if (group.children && group.children.length > 0) {
               traverse(group.children);
             }
@@ -275,12 +317,12 @@ export default function BalanceSheet() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Assets Side */}
           <div className="border-r border-gray-200 pr-8">
-            <div className="mb-4">
+              <div className="mb-4">
               <h3 className="text-lg font-bold text-blue-700 mb-3">ASSETS</h3>
               <div className="space-y-1">
-                {balanceSheet.assets.groups.map(group => (
+                {balanceSheet.assets.groups.map((group) => (
                   <GroupNode
-                    key={group.id}
+                    key={group.id || group._id}
                     group={group}
                     level={0}
                     expanded={expanded}
@@ -311,9 +353,9 @@ export default function BalanceSheet() {
               <div className="mb-4">
                 <h4 className="text-md font-semibold text-purple-600 mb-2">LIABILITIES</h4>
                 <div className="space-y-1">
-                  {balanceSheet.liabilities.groups.map(group => (
+                  {balanceSheet.liabilities.groups.map((group) => (
                     <GroupNode
-                      key={group.id}
+                      key={group.id || group._id}
                       group={group}
                       level={0}
                       expanded={expanded}

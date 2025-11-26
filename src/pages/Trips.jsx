@@ -441,7 +441,7 @@ export default function Trips() {
         }
       } else {
         // Fallback for different response structures
-        setTrips(data.data?.trips || data.data || data.trips || []);
+      setTrips(data.data?.trips || data.data || data.trips || []);
       }
       setIsError(false);
     } catch (err) {
@@ -728,7 +728,7 @@ export default function Trips() {
       if (tripsToDownload.length === 0) {
         alert('No trips available to download');
         return;
-      }
+            }
 
       if (columnsToExport.length === 0) {
         alert('No columns selected for export');
@@ -841,14 +841,14 @@ export default function Trips() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Trips Management</h1>
-          <p className="text-gray-600 mt-1">
-            {isSupervisor 
-              ? 'Create and manage your poultry transportation trips' 
-              : 'View and track all poultry transportation trips (read-only access)'
-            }
-          </p>
+                 <div>
+           <h1 className="text-3xl font-bold text-gray-900">Trips Management</h1>
+           <p className="text-gray-600 mt-1">
+             {isSupervisor 
+               ? 'Create and manage your poultry transportation trips' 
+               : 'View and track all poultry transportation trips (read-only access)'
+             }
+           </p>
         </div>
         <div className="mt-4 sm:mt-0 flex items-center gap-3">
           {/* Download Button with Dropdown */}
@@ -888,20 +888,20 @@ export default function Trips() {
                   <Download size={16} />
                   Download All Records
                 </button>
-              </div>
+             </div>
             )}
-          </div>
+        </div>
 
           {/* New Trip Button */}
-          {canCreateTrip && (
-            <button 
-              onClick={handleAddNew}
+                 {canCreateTrip && (
+           <button 
+             onClick={handleAddNew}
               className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-            >
-              <Plus size={20} />
-              New Trip
-            </button>
-          )}
+           >
+             <Plus size={20} />
+             New Trip
+           </button>
+         )}
         </div>
       </div>
 

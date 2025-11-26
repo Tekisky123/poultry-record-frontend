@@ -141,13 +141,13 @@ const VoucherList = () => {
             <Download size={16} />
             Export Excel
           </button>
-          <button
+          {/* <button
             onClick={() => handleExport('pdf')}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             <Download size={16} />
             Export PDF
-          </button>
+          </button> */}
           <Link
             to="/vouchers/add"
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
@@ -159,7 +159,7 @@ const VoucherList = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+      {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
@@ -206,10 +206,10 @@ const VoucherList = () => {
             />
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Totals */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -245,7 +245,7 @@ const VoucherList = () => {
             </div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Vouchers Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">

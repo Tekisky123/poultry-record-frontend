@@ -49,17 +49,37 @@ const buildTreeByType = (groups) => {
     Income: []
   };
 
+  // Helper to get group ID (handles both id and _id)
+  const getGroupId = (group) => {
+    return group.id || group._id?.toString() || group._id;
+  };
+
+  // Helper to get parent group ID
+  const getParentGroupId = (parentGroup) => {
+    if (!parentGroup) return null;
+    return parentGroup.id || parentGroup._id?.toString() || parentGroup._id;
+  };
+
   // First pass: create map of all groups
   const groupMap = new Map();
   groups.forEach(group => {
-    groupMap.set(group.id, { ...group, children: [] });
+    const groupId = getGroupId(group);
+    if (groupId) {
+      groupMap.set(groupId, { ...group, id: groupId, children: [] });
+    }
   });
 
   // Second pass: build tree within each type
   groups.forEach(group => {
-    const node = groupMap.get(group.id);
-    if (group.parentGroup && groupMap.has(group.parentGroup.id)) {
-      const parent = groupMap.get(group.parentGroup.id);
+    const groupId = getGroupId(group);
+    if (!groupId) return;
+    
+    const node = groupMap.get(groupId);
+    if (!node) return;
+
+    const parentGroupId = getParentGroupId(group.parentGroup);
+    if (parentGroupId && groupMap.has(parentGroupId)) {
+      const parent = groupMap.get(parentGroupId);
       parent.children.push(node);
     } else {
       // Root group - add to its type category
@@ -242,21 +262,17 @@ export default function Groups() {
     try {
       setIsLoading(true);
       const { data } = await api.get('/group');
-      setGroups(data.data || []);
-      const tree = buildTreeByType(data.data || []);
+      const groupsData = data.data || [];
+      setGroups(groupsData);
+      const tree = buildTreeByType(groupsData);
       setTreeGroups(tree);
       setIsError(false);
       
-      // Fetch ledgers count for each group
+      // Extract ledger counts from groups (already included in backend response)
       const counts = {};
-      for (const group of data.data || []) {
-        try {
-          const ledgerRes = await api.get(`/ledger?group=${group.id}`);
-          counts[group.id] = ledgerRes.data.data?.length || 0;
-        } catch (err) {
-          counts[group.id] = 0;
-        }
-      }
+      groupsData.forEach(group => {
+        counts[group.id || group._id] = group.ledgerCount || 0;
+      });
       setLedgersCount(counts);
     } catch (err) {
       console.error('Error fetching groups:', err);

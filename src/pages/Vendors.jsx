@@ -58,6 +58,7 @@ const vendorSchema = z.object({
   defaultPaymentMode: z.enum(['cash', 'credit', 'advance'], {
     required_error: 'Payment mode is required',
   }).default('cash'),
+  group: z.string().min(1, 'Group is required'),
   tdsApplicable: z.boolean().default(false)
 });
 
@@ -86,6 +87,8 @@ export default function Vendors() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingVendor, setEditingVendor] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [flatGroups, setFlatGroups] = useState([]);
 
   // Debug user information
   useEffect(() => {
@@ -99,7 +102,7 @@ export default function Vendors() {
   // React Hook Form with Zod validation
   const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm({
     resolver: zodResolver(vendorSchema),
-    defaultValues: {
+      defaultValues: {
       vendorName: '',
       companyName: '',
       gstNumber: '',
@@ -111,18 +114,113 @@ export default function Vendors() {
       postalCode: '',
       country: '',
       defaultPaymentMode: 'cash',
-      tdsApplicable: false
+      tdsApplicable: false,
+      group: ''
     }
   });
 
-  // Fetch vendors
+  // Helper function to flatten groups with hierarchy
+  const flattenGroups = (groups, level = 0, prefix = '') => {
+    let result = [];
+    groups.forEach(group => {
+      const displayName = prefix + group.name;
+      result.push({ ...group, displayName, level });
+      if (group.children && group.children.length > 0) {
+        result = result.concat(flattenGroups(group.children, level + 1, prefix + '  '));
+      }
+    });
+    return result;
+  };
+
+  // Helper function to get all descendants of a group
+  const getGroupDescendants = (allGroups, parentGroupName) => {
+    // Build tree structure
+    const groupMap = new Map();
+    const rootGroups = [];
+    allGroups.forEach(g => groupMap.set(g.id, { ...g, children: [] }));
+    allGroups.forEach(g => {
+      const node = groupMap.get(g.id);
+      if (g.parentGroup && groupMap.has(g.parentGroup.id)) {
+        groupMap.get(g.parentGroup.id).children.push(node);
+      } else {
+        rootGroups.push(node);
+      }
+    });
+
+    // Find the parent group by name
+    const findGroupByName = (groups, name) => {
+      for (const group of groups) {
+        if (group.name === name) {
+          return group;
+        }
+        if (group.children && group.children.length > 0) {
+          const found = findGroupByName(group.children, name);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const parentGroup = findGroupByName(rootGroups, parentGroupName);
+    if (!parentGroup) {
+      return [];
+    }
+
+    // Get all descendants including the parent itself
+    const getAllDescendants = (group) => {
+      let result = [group];
+      if (group.children && group.children.length > 0) {
+        group.children.forEach(child => {
+          result = result.concat(getAllDescendants(child));
+        });
+      }
+      return result;
+    };
+
+    return getAllDescendants(parentGroup);
+  };
+
+  // Fetch vendors and groups
   const fetchVendors = async () => {
     try {
       setIsLoading(true);
       console.log('Fetching vendors...');
       const { data } = await api.get('/vendor');
-      console.log('Vendors response:', data);
       setVendors(data.data || []);
+
+      // Fetch groups
+      const groupsRes = await api.get('/group');
+      const groupsData = groupsRes.data.data || [];
+      setGroups(groupsData);
+
+      // Filter groups to show only "Sundry Creditors" and its descendants
+      const sundryCreditorsGroups = getGroupDescendants(groupsData, 'Sundry Creditors');
+      
+      // Build tree for filtered groups
+      const buildTree = (groups) => {
+        const groupMap = new Map();
+        const rootGroups = [];
+        groups.forEach(g => groupMap.set(g.id, { ...g, children: [] }));
+        groups.forEach(g => {
+          const node = groupMap.get(g.id);
+          if (g.parentGroup && groupMap.has(g.parentGroup.id)) {
+            groupMap.get(g.parentGroup.id).children.push(node);
+          } else {
+            rootGroups.push(node);
+          }
+        });
+        return rootGroups;
+      };
+
+      // Filter to only include Sundry Creditors hierarchy
+      const filteredGroups = groupsData.filter(g => {
+        const allDescendants = sundryCreditorsGroups.map(gr => gr.id);
+        return allDescendants.includes(g.id);
+      });
+
+      const treeGroups = buildTree(filteredGroups);
+      setFlatGroups(flattenGroups(treeGroups));
+
       setIsError(false);
     } catch (err) {
       console.error('Error fetching vendors:', err);
@@ -220,6 +318,7 @@ export default function Vendors() {
     setValue('country', vendor.country || '');
     setValue('defaultPaymentMode', vendor.defaultPaymentMode || 'cash');
     setValue('tdsApplicable', vendor.tdsApplicable || false);
+    setValue('group', vendor.group?.id || '');
     setShowAddModal(true);
   };
 
@@ -549,6 +648,23 @@ export default function Vendors() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Group *
+                  </label>
+                  <select
+                    {...register('group')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select a group</option>
+                    {flatGroups.map((group) => (
+                      <option key={group.id} value={group.id}>
+                        {group.displayName}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.group && <p className="text-red-500 text-xs mt-1">{errors.group.message}</p>}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

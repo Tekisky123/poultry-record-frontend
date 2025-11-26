@@ -29,13 +29,15 @@ export const useUsers = (currentUser) => {
         }
     };
 
-    const approveUser = async (userId) => {
+    const approveUser = async (userId, customerData = null) => {
         try {
-            await api.patch(`/user/${userId}/approve`);
+            const payload = customerData ? { group: customerData.group, openingBalance: customerData.openingBalance || 0 } : {};
+            await api.patch(`/user/${userId}/approve`, payload);
             setPendingUsers((prev) => prev.filter((u) => u._id !== userId));
             fetchUsers();
         } catch (err) {
             setError(err.message || 'Failed to approve user');
+            throw err;
         }
     };
 

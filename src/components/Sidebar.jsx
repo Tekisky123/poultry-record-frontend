@@ -17,7 +17,8 @@ import {
   FolderTree,
   BookOpen,
   Fuel,
-  FileText as FileTextIcon
+  FileText as FileTextIcon,
+  Home
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -26,6 +27,8 @@ import chickenLogo from '../assets/chicken-logo.png';
 
 const getMenuItems = (userRole) => {
   const baseItems = [
+    { name: 'Dashboard', path: '/', icon: Home },
+    { name: 'Trips', path: '/trips', icon: Truck },
     { name: 'Users', path: '/users', icon: UserCheck },
     { name: 'Customer Payments', path: '/customer-payments', icon: CreditCard },
     { name: 'Balance Sheet', path: '/balance-sheet', icon: FileTextIcon },
@@ -51,9 +54,9 @@ const getMenuItems = (userRole) => {
   ];
 
   // Only show Trips for admin/superadmin (view only) and supervisor (full access)
-  if (userRole === 'supervisor' || userRole === 'admin' || userRole === 'superadmin') {
-    baseItems.unshift({ name: 'Trips', path: '/trips', icon: Truck });
-  }
+  // if (userRole === 'supervisor' || userRole === 'admin' || userRole === 'superadmin') {
+  //   baseItems.unshift({ name: 'Trips', path: '/trips', icon: Truck });
+  // }
 
   // Only show Indirect Expenses and Indirect Purchase & Sales for admin/superadmin
   if (userRole === 'admin' || userRole === 'superadmin') {
