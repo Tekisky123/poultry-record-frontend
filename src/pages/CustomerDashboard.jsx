@@ -31,7 +31,7 @@ import {
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
-import { downloadCustomerLedgerExcel } from '../utils/downloadCustomerLedgerExcel';
+import { downloadCustomerLedgerExcelCustomer } from '../utils/downloadCustomerLedgerExcelCustomer';
 import { downloadCustomerPaymentExcel } from '../utils/downloadCustomerPaymentExcel';
 
 const CustomerDashboard = () => {
@@ -347,7 +347,7 @@ const CustomerDashboard = () => {
 
     try {
       if (type === 'current') {
-        const success = downloadCustomerLedgerExcel(displayedPurchaseLedger, user?.name || 'Customer');
+        const success = downloadCustomerLedgerExcelCustomer(displayedPurchaseLedger, user?.name || 'Customer');
         alert(success ? 'Excel file downloaded successfully!' : 'Failed to download Excel file. Please try again.');
         return;
       }
@@ -374,7 +374,7 @@ const CustomerDashboard = () => {
         return;
       }
 
-      const success = downloadCustomerLedgerExcel(allLedger, user?.name || 'Customer');
+      const success = downloadCustomerLedgerExcelCustomer(allLedger, user?.name || 'Customer');
       alert(success ? 'Excel file downloaded successfully!' : 'Failed to download Excel file. Please try again.');
     } catch (error) {
       console.error('Failed to download purchase ledger:', error);
@@ -603,9 +603,9 @@ const CustomerDashboard = () => {
               <div>
                 <p className="text-sm text-gray-600">Total Birds / Total Weight</p>
                 <div className="flex items-baseline gap-2">
-                  <p className="text-2xl font-bold text-purple-600">{stats.totalBirds.toLocaleString()}</p>
-                  <span className="text-2xl text-gray-500">/</span>
-                  <p className="text-2xl font-semibold text-gray-700">{stats.totalWeight.toFixed(2)} kg</p>
+                  <p className="text-2xl font-bold">{stats.totalBirds.toLocaleString()}</p>
+                  <span className="text-2xl font-bold">/</span>
+                  <p className="text-2xl font-bold ">{stats.totalWeight.toFixed(2)} kg</p>
                 </div>
               </div>
               <div className="p-3 bg-purple-100 rounded-lg">
@@ -617,7 +617,7 @@ const CustomerDashboard = () => {
           <div className="bg-green-50 p-4 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Amount</p>
+                <p className="text-sm text-gray-600">Total Sales Amount</p>
                 <p className="text-2xl font-bold text-gray-900">₹{stats.totalAmount.toLocaleString()}</p>
               </div>
               <div className="p-3 bg-green-100 rounded-lg">
@@ -953,10 +953,6 @@ const CustomerDashboard = () => {
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Sr. No.</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Date</th>
-                    {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Vehicles No</th>}
-                    {/* {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Driver Name</th>} */}
-                    {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Supervisor</th>}
-                    {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Product</th>}
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Particulars</th>
                     {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Invoice No</th>}
                     {showAllColumns && <th className="px-3 py-3 text-right font-medium text-gray-700">Birds</th>}
@@ -965,6 +961,9 @@ const CustomerDashboard = () => {
                     {showAllColumns && <th className="px-3 py-3 text-right font-medium text-gray-700">Rate</th>}
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Amount</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Balance</th>
+                    {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Product</th>}
+                    {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Supervisor</th>}
+                    {showAllColumns && <th className="px-3 py-3 text-left font-medium text-gray-700">Vehicles No</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -974,10 +973,6 @@ const CustomerDashboard = () => {
                         {(ledgerPagination.currentPage - 1) * ledgerPagination.itemsPerPage + index + 1}
                       </td>
                       <td className="px-3 py-3 text-gray-900">{formatDate(entry.date)}</td>
-                      {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.vehiclesNo || '-'}</td>}
-                      {/* {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.driverName || '-'}</td>} */}
-                      {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.supervisor || '-'}</td>}
-                      {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.product || '-'}</td>}
                       <td className="px-3 py-3">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getParticularsColor(entry.particulars)}`}>
                           {entry.particulars}
@@ -990,6 +985,9 @@ const CustomerDashboard = () => {
                       {showAllColumns && <td className="px-3 py-3 text-right text-gray-900">₹{(entry?.rate || 0).toLocaleString()}</td>}
                       <td className="px-3 py-3 text-right text-gray-900">₹{(entry?.amount || 0).toLocaleString()}</td>
                       <td className="px-3 py-3 text-right text-gray-900">₹{(entry?.outstandingBalance || 0).toLocaleString()}</td>
+                      {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.product || '-'}</td>}
+                      {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.supervisor || '-'}</td>}
+                      {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.vehiclesNo || '-'}</td>}
                     </tr>
                   ))}
                 </tbody>

@@ -17,9 +17,8 @@ const calculateOpeningBalanceValue = (entry) => {
   }
 };
 
-export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
+export const downloadCustomerLedgerExcelCustomer = (ledgerData, customerName) => {
   try {
-    // Prepare data for Excel export
     const excelData = ledgerData.map((entry) => {
       const rowBalance =
         typeof entry.outstandingBalance === 'number' ? entry.outstandingBalance : 0;
@@ -40,7 +39,6 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
         Balance: rowBalance,
         Product: entry.product || '',
         Supervisor: entry.supervisor || '',
-        'Driver Name': entry.driverName || '',
         'Vehicles No': entry.vehiclesNo || ''
       };
     });
@@ -59,32 +57,23 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
       'Balance',
       'Product',
       'Supervisor',
-      'Driver Name',
       'Vehicles No'
     ];
-
-    // Calculate totals
-    const totalBirds = ledgerData.reduce((sum, entry) => sum + (entry.birds || 0), 0);
-    const totalWeight = ledgerData.reduce((sum, entry) => sum + (entry.weight || 0), 0);
-    const totalAmount = ledgerData.reduce((sum, entry) => sum + (entry.amount || 0), 0);
-    const lastBalance =
-      ledgerData.length > 0
-        ? ledgerData[ledgerData.length - 1].outstandingBalance || 0
-        : 0;
 
     const totals = {
       Date: 'TOTAL',
       Particulars: '',
       'Invoice No': '',
-      Birds: totalBirds,
-      Weight: totalWeight,
+      Birds: ledgerData.reduce((sum, entry) => sum + (entry.birds || 0), 0),
+      Weight: ledgerData.reduce((sum, entry) => sum + (entry.weight || 0), 0),
       Avg: '',
       Rate: '',
-      Amount: totalAmount,
-      Balance: lastBalance,
+      Amount: ledgerData.reduce((sum, entry) => sum + (entry.amount || 0), 0),
+      Balance: ledgerData.length > 0
+        ? ledgerData[ledgerData.length - 1].outstandingBalance || 0
+        : 0,
       Product: '',
       Supervisor: '',
-      'Driver Name': '',
       'Vehicles No': ''
     };
 
@@ -104,37 +93,31 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
 
     const aoa = [columnHeaders, openingRow, ...dataRows, totalsRow];
 
-    // Create workbook and worksheet
     const ws = XLSX.utils.aoa_to_sheet(aoa);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Purchase Ledger');
 
-    // Set column widths
-    const colWidths = [
-      { wch: 12 }, // Date
-      { wch: 18 }, // Particulars
-      { wch: 15 }, // Invoice No
-      { wch: 10 }, // Birds
-      { wch: 12 }, // Weight
-      { wch: 8 }, // Avg
-      { wch: 10 }, // Rate
-      { wch: 12 }, // Amount
-      { wch: 12 }, // Balance
-      { wch: 15 }, // Product
-      { wch: 15 }, // Supervisor
-      { wch: 15 }, // Driver Name
-      { wch: 12 } // Vehicles No
+    ws['!cols'] = [
+      { wch: 12 },
+      { wch: 18 },
+      { wch: 15 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 8 },
+      { wch: 10 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 15 },
+      { wch: 15 },
+      { wch: 12 }
     ];
-    ws['!cols'] = colWidths;
 
-    // Style the header row
     const headerStyle = {
       font: { bold: true },
-      fill: { fgColor: { rgb: "E6F3FF" } },
-      alignment: { horizontal: "center" }
+      fill: { fgColor: { rgb: 'E6F3FF' } },
+      alignment: { horizontal: 'center' }
     };
 
-    // Apply header styling
     const range = XLSX.utils.decode_range(ws['!ref']);
     for (let col = range.s.c; col <= range.e.c; col++) {
       const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
@@ -142,14 +125,12 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
       ws[cellAddress].s = headerStyle;
     }
 
-    // Merge Opening Balance label cells (A2:H2)
     ws['!merges'] = ws['!merges'] || [];
     ws['!merges'].push({
       s: { r: 1, c: 0 },
       e: { r: 1, c: 7 }
     });
 
-    // Style Opening Balance row
     const openingLabelCell = XLSX.utils.encode_cell({ r: 1, c: 0 });
     if (ws[openingLabelCell]) {
       ws[openingLabelCell].s = {
@@ -167,11 +148,10 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
     };
     ws[openingBalanceCell].z = '#,##0.00';
 
-    // Style totals row
     const totalsRowIndex = aoa.length - 1;
     const totalsStyle = {
       font: { bold: true },
-      fill: { fgColor: { rgb: "F0F8FF" } }
+      fill: { fgColor: { rgb: 'F0F8FF' } }
     };
 
     for (let col = range.s.c; col <= range.e.c; col++) {
@@ -181,12 +161,10 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
       }
     }
 
-    // Generate filename with current date
     const currentDate = new Date();
     const dateStr = currentDate.toLocaleDateString('en-GB').replace(/\//g, '');
     const filename = `${customerName}_Purchase_Ledger_${dateStr}.xlsx`;
 
-    // Download the file
     XLSX.writeFile(wb, filename);
 
     return true;
@@ -196,7 +174,6 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
   }
 };
 
-// Helper function to format date as DD-MMM-YY
 const formatDate = (dateString) => {
   try {
     const date = new Date(dateString);
@@ -209,3 +186,4 @@ const formatDate = (dateString) => {
     return dateString;
   }
 };
+

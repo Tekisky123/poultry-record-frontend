@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Calendar, Download, Loader2, ChevronDown, ChevronRight, FileText } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,9 +10,6 @@ const GroupNode = ({ group, level = 0, expanded, onToggle }) => {
   const groupId = group.id || group._id;
   const isExpanded = expanded[groupId] !== false; // Default to expanded
   const balance = Math.abs(group.balance || 0);
-  const opening = group.openingBalance || 0;
-  const outstanding = group.outstandingBalance || 0;
-  const showExtra = !!(opening || outstanding);
 
   // Calculate indentation for hierarchy - clear spacing like Tally
   const indentWidth = 24;
@@ -58,17 +55,6 @@ const GroupNode = ({ group, level = 0, expanded, onToggle }) => {
         </span>
       </div>
 
-      {/* Opening and Outstanding Balance */}
-      {showExtra && (
-        <div 
-          className="flex items-center text-xs text-gray-500 mb-0.5"
-          style={{ paddingLeft: `${leftPadding + 24}px` }}
-        >
-          <span className="mr-4">Opening: ₹{opening.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-          <span>Outstanding: ₹{outstanding.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        </div>
-      )}
-
       {/* Children - always show if expanded */}
       {hasChildren && isExpanded && (
         <div>
@@ -97,6 +83,34 @@ export default function BalanceSheet() {
   const [expanded, setExpanded] = useState({});
 
   const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
+  const sortedLiabilityGroups = useMemo(() => {
+    if (!balanceSheet?.liabilities?.groups) return [];
+    const priorityMap = {
+      'Capital Account': 0,
+      'Loans (Liability)': 1,
+      'Current Liabilities': 2
+    };
+    return [...balanceSheet.liabilities.groups].sort((a, b) => {
+      const priorityA = priorityMap[a.name] ?? 99;
+      const priorityB = priorityMap[b.name] ?? 99;
+      if (priorityA === priorityB) return 0;
+      return priorityA < priorityB ? -1 : 1;
+    });
+  }, [balanceSheet]);
+  const sortedAssetGroups = useMemo(() => {
+    if (!balanceSheet?.assets?.groups) return [];
+    const priorityMap = {
+      'Fixed Assets': 0,
+      'Current Assets': 1,
+      'Suspense A/c': 2
+    };
+    return [...balanceSheet.assets.groups].sort((a, b) => {
+      const priorityA = priorityMap[a.name] ?? 99;
+      const priorityB = priorityMap[b.name] ?? 99;
+      if (priorityA === priorityB) return 0;
+      return priorityA < priorityB ? -1 : 1;
+    });
+  }, [balanceSheet]);
 
   useEffect(() => {
     if (hasAdminAccess) {
@@ -176,7 +190,10 @@ export default function BalanceSheet() {
 
     assetsData.push(['ASSETS', '']);
     assetsData.push(['', '']);
-    flattenGroups(balanceSheet.assets.groups).forEach(item => {
+    const assetGroups = sortedAssetGroups.length
+      ? sortedAssetGroups
+      : balanceSheet.assets.groups;
+    flattenGroups(assetGroups).forEach(item => {
       assetsData.push([item.name, item.balance]);
     });
     assetsData.push(['', '']);
@@ -185,7 +202,10 @@ export default function BalanceSheet() {
     liabilitiesData.push(['LIABILITIES & CAPITAL', '']);
     liabilitiesData.push(['', '']);
     liabilitiesData.push(['LIABILITIES', '']);
-    flattenGroups(balanceSheet.liabilities.groups).forEach(item => {
+    const liabilityGroups = sortedLiabilityGroups.length
+      ? sortedLiabilityGroups
+      : balanceSheet.liabilities.groups;
+    flattenGroups(liabilityGroups).forEach(item => {
       liabilitiesData.push([item.name, item.balance]);
     });
     liabilitiesData.push(['', '']);
@@ -315,37 +335,8 @@ export default function BalanceSheet() {
 
         {/* Balance Sheet Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Assets Side */}
-          <div className="border-r border-gray-200 pr-8">
-              <div className="mb-4">
-              <h3 className="text-lg font-bold text-blue-700 mb-3">ASSETS</h3>
-              <div className="space-y-1">
-                {balanceSheet.assets.groups.map((group) => (
-                  <GroupNode
-                    key={group.id || group._id}
-                    group={group}
-                    level={0}
-                    expanded={expanded}
-                    onToggle={toggleExpanded}
-                  />
-                ))}
-              </div>
-              <div className="mt-4 pt-3 border-t-2 border-gray-400">
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-bold">Total Assets</span>
-                  <span className="text-base font-bold text-right w-32">
-                    {balanceSheet.totals.totalAssets.toLocaleString('en-IN', { 
-                      minimumFractionDigits: 2, 
-                      maximumFractionDigits: 2 
-                    })}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
           {/* Liabilities & Capital Side */}
-          <div className="pl-8">
+          <div className="border-r border-gray-200 pr-8">
             <div className="mb-4">
               <h3 className="text-lg font-bold text-purple-700 mb-3">LIABILITIES & CAPITAL</h3>
               
@@ -353,7 +344,7 @@ export default function BalanceSheet() {
               <div className="mb-4">
                 <h4 className="text-md font-semibold text-purple-600 mb-2">LIABILITIES</h4>
                 <div className="space-y-1">
-                  {balanceSheet.liabilities.groups.map((group) => (
+                  {sortedLiabilityGroups.map((group) => (
                     <GroupNode
                       key={group.id || group._id}
                       group={group}
@@ -398,6 +389,35 @@ export default function BalanceSheet() {
                   <span className="text-base font-bold">Total Liabilities & Capital</span>
                   <span className="text-base font-bold text-right w-32">
                     {balanceSheet.totals.totalLiabilitiesAndCapital.toLocaleString('en-IN', { 
+                      minimumFractionDigits: 2, 
+                      maximumFractionDigits: 2 
+                    })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Assets Side */}
+          <div className="pl-8">
+              <div className="mb-4">
+              <h3 className="text-lg font-bold text-blue-700 mb-3">ASSETS</h3>
+              <div className="space-y-1">
+                {(sortedAssetGroups.length ? sortedAssetGroups : balanceSheet.assets.groups).map((group) => (
+                  <GroupNode
+                    key={group.id || group._id}
+                    group={group}
+                    level={0}
+                    expanded={expanded}
+                    onToggle={toggleExpanded}
+                  />
+                ))}
+              </div>
+              <div className="mt-4 pt-3 border-t-2 border-gray-400">
+                <div className="flex items-center justify-between">
+                  <span className="text-base font-bold">Total Assets</span>
+                  <span className="text-base font-bold text-right w-32">
+                    {balanceSheet.totals.totalAssets.toLocaleString('en-IN', { 
                       minimumFractionDigits: 2, 
                       maximumFractionDigits: 2 
                     })}

@@ -102,7 +102,9 @@ const SupervisorTripDetails = () => {
     discount: '',
     balance: 0,
     cashPaid: '',
-    onlinePaid: ''
+    onlinePaid: '',
+    cashLedger: '',
+    onlineLedger: ''
   });
 
   const [expenseData, setExpenseData] = useState({
@@ -122,6 +124,9 @@ const SupervisorTripDetails = () => {
   const [dieselData, setDieselData] = useState(createInitialDieselData());
   const [dieselStations, setDieselStations] = useState([]);
   const [dieselStationsLoading, setDieselStationsLoading] = useState(false);
+  const [bankAccountLedgers, setBankAccountLedgers] = useState([]);
+  const [cashInHandLedgers, setCashInHandLedgers] = useState([]);
+  const [ledgersLoading, setLedgersLoading] = useState(false);
 
   const [stockData, setStockData] = useState({
     birds: '',
@@ -155,6 +160,7 @@ const SupervisorTripDetails = () => {
   useEffect(() => {
     fetchTrip();
     fetchVendorsAndCustomers();
+    fetchLedgers();
   }, [id]);
 
   useEffect(() => {
@@ -329,6 +335,63 @@ const SupervisorTripDetails = () => {
     }
   };
 
+  const fetchLedgers = async () => {
+    try {
+      setLedgersLoading(true);
+      // Fetch all groups to find Bank Accounts and Cash-in-Hand
+      const groupsRes = await api.get('/group');
+      if (!groupsRes.data.success) {
+        console.error('Failed to fetch groups');
+        return;
+      }
+
+      const groups = groupsRes.data.data || [];
+      console.log('Fetched groups:', groups);
+      
+      // Find groups by name (they might be nested, so search through all groups)
+      const bankAccountsGroup = groups.find(g => g.name === 'Bank Accounts');
+      const cashInHandGroup = groups.find(g => g.name === 'Cash-in-Hand');
+
+      console.log('Bank Accounts Group:', bankAccountsGroup);
+      console.log('Cash-in-Hand Group:', cashInHandGroup);
+
+      const promises = [];
+      if (bankAccountsGroup && bankAccountsGroup.id) {
+        promises.push(api.get(`/ledger/group/${bankAccountsGroup.id}`));
+      } else {
+        console.warn('Bank Accounts group not found');
+        promises.push(Promise.resolve({ data: { success: true, data: [] } }));
+      }
+
+      if (cashInHandGroup && cashInHandGroup.id) {
+        promises.push(api.get(`/ledger/group/${cashInHandGroup.id}`));
+      } else {
+        console.warn('Cash-in-Hand group not found');
+        promises.push(Promise.resolve({ data: { success: true, data: [] } }));
+      }
+
+      const [bankLedgersRes, cashLedgersRes] = await Promise.all(promises);
+
+      console.log('Bank Ledgers Response:', bankLedgersRes.data);
+      console.log('Cash Ledgers Response:', cashLedgersRes.data);
+
+      if (bankLedgersRes.data.success) {
+        setBankAccountLedgers(bankLedgersRes.data.data || []);
+        console.log('Set bank account ledgers:', bankLedgersRes.data.data);
+      }
+
+      if (cashLedgersRes.data.success) {
+        setCashInHandLedgers(cashLedgersRes.data.data || []);
+        console.log('Set cash in hand ledgers:', cashLedgersRes.data.data);
+      }
+    } catch (error) {
+      console.error('Error fetching ledgers:', error);
+      console.error('Error details:', error.response?.data);
+    } finally {
+      setLedgersLoading(false);
+    }
+  };
+
   // Auto-calculation functions for purchase
   const calculateAvgWeight = (birds, weight) => {
     if (birds > 0 && weight > 0) {
@@ -389,6 +452,13 @@ const SupervisorTripDetails = () => {
     // Auto-calculate receivedAmount when cashPaid or onlinePaid changes
     if (field === 'cashPaid' || field === 'onlinePaid') {
       newData.receivedAmount = newData.cashPaid + newData.onlinePaid;
+      // Clear ledger selection if amount is cleared
+      if (field === 'cashPaid' && (Number(newData.cashPaid) === 0 || !newData.cashPaid)) {
+        newData.cashLedger = '';
+      }
+      if (field === 'onlinePaid' && (Number(newData.onlinePaid) === 0 || !newData.onlinePaid)) {
+        newData.onlineLedger = '';
+      }
       // Recalculate balance
       if (customerBalance !== null) {
         let balance = Number(customerBalance) + Number(newData.amount) - Number(newData.onlinePaid) - Number(newData.cashPaid) - Number(newData.discount);
@@ -588,6 +658,18 @@ const SupervisorTripDetails = () => {
       const mandatoryFields = ['client', 'birds', 'weight', 'rate'];
       const validationErrors = validateMandatoryFields(saleData, mandatoryFields);
       
+      // Validate ledger selection if payment amounts are entered
+      const cashPaid = Number(saleData.cashPaid) || 0;
+      const onlinePaid = Number(saleData.onlinePaid) || 0;
+      
+      if (cashPaid > 0 && !saleData.cashLedger) {
+        validationErrors.push('Please select a Cash-in-Hand Ledger when entering cash payment');
+      }
+      
+      if (onlinePaid > 0 && !saleData.onlineLedger) {
+        validationErrors.push('Please select a Bank Account Ledger when entering online payment');
+      }
+      
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
         setIsSubmitting(false);
@@ -676,7 +758,7 @@ const SupervisorTripDetails = () => {
           }
           
           setShowSaleModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '' });
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -704,7 +786,7 @@ const SupervisorTripDetails = () => {
           }
           
           setShowSaleModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '' });
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -731,16 +813,26 @@ const SupervisorTripDetails = () => {
       const mandatoryFields = ['client', 'billNumber'];
       const validationErrors = validateMandatoryFields(saleData, mandatoryFields);
       
-      if (validationErrors.length > 0) {
-        alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
-        setIsSubmitting(false);
-        return;
-      }
-
       // Validate that at least some payment is made
       const totalPaid = (saleData.cashPaid || 0) + (saleData.onlinePaid || 0);
       if (totalPaid <= 0) {
-        alert('Please enter at least some payment amount (cash or online)');
+        validationErrors.push('Please enter at least some payment amount (cash or online)');
+      }
+      
+      // Validate ledger selection if payment amounts are entered
+      const cashPaid = Number(saleData.cashPaid) || 0;
+      const onlinePaid = Number(saleData.onlinePaid) || 0;
+      
+      if (cashPaid > 0 && !saleData.cashLedger) {
+        validationErrors.push('Please select a Cash-in-Hand Ledger when entering cash payment');
+      }
+      
+      if (onlinePaid > 0 && !saleData.onlineLedger) {
+        validationErrors.push('Please select a Bank Account Ledger when entering online payment');
+      }
+      
+      if (validationErrors.length > 0) {
+        alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
         setIsSubmitting(false);
         return;
       }
@@ -779,7 +871,7 @@ const SupervisorTripDetails = () => {
           }
           
           setShowReceiptModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '' });
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -806,7 +898,7 @@ const SupervisorTripDetails = () => {
           }
           
           setShowReceiptModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '' });
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -1300,7 +1392,7 @@ const SupervisorTripDetails = () => {
               )}
               <button
                 onClick={() => {
-                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '' });
+                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
                   setSelectedCustomer(null);
                   setCustomerSearchTerm('');
                   setShowCustomerDropdown(false);
@@ -1314,7 +1406,7 @@ const SupervisorTripDetails = () => {
               </button>
               <button
                 onClick={() => {
-                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', isReceipt: true });
+                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', isReceipt: true });
                   setSelectedCustomer(null);
                   setCustomerSearchTerm('');
                   setShowCustomerDropdown(false);
@@ -3263,6 +3355,50 @@ const SupervisorTripDetails = () => {
                     />
                   </div>
                 </div>
+
+                {/* Cash Ledger Dropdown - Show if cashPaid > 0 */}
+                {Number(saleData.cashPaid) > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Cash-in-Hand Ledger *
+                    </label>
+                    <select
+                      value={saleData.cashLedger}
+                      onChange={(e) => handleSaleDataChange('cashLedger', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required={Number(saleData.cashPaid) > 0}
+                    >
+                      <option value="">Select Cash-in-Hand Ledger</option>
+                      {cashInHandLedgers.map(ledger => (
+                        <option key={ledger.id} value={ledger.id}>
+                          {ledger.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Online Ledger Dropdown - Show if onlinePaid > 0 */}
+                {Number(saleData.onlinePaid) > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Bank Account Ledger *
+                    </label>
+                    <select
+                      value={saleData.onlineLedger}
+                      onChange={(e) => handleSaleDataChange('onlineLedger', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required={Number(saleData.onlinePaid) > 0}
+                    >
+                      <option value="">Select Bank Account Ledger</option>
+                      {bankAccountLedgers.map(ledger => (
+                        <option key={ledger.id} value={ledger.id}>
+                          {ledger.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Discount (₹)</label>
@@ -3519,6 +3655,50 @@ const SupervisorTripDetails = () => {
                   </div>
                 </div>
 
+                {/* Cash Ledger Dropdown - Show if cashPaid > 0 */}
+                {Number(saleData.cashPaid) > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Cash-in-Hand Ledger *
+                    </label>
+                    <select
+                      value={saleData.cashLedger}
+                      onChange={(e) => handleSaleDataChange('cashLedger', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required={Number(saleData.cashPaid) > 0}
+                    >
+                      <option value="">Select Cash-in-Hand Ledger</option>
+                      {cashInHandLedgers.map(ledger => (
+                        <option key={ledger.id} value={ledger.id}>
+                          {ledger.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Online Ledger Dropdown - Show if onlinePaid > 0 */}
+                {Number(saleData.onlinePaid) > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Bank Account Ledger *
+                    </label>
+                    <select
+                      value={saleData.onlineLedger}
+                      onChange={(e) => handleSaleDataChange('onlineLedger', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required={Number(saleData.onlinePaid) > 0}
+                    >
+                      <option value="">Select Bank Account Ledger</option>
+                      {bankAccountLedgers.map(ledger => (
+                        <option key={ledger.id} value={ledger.id}>
+                          {ledger.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Outstanding Balance (₹)</label>
                   <input
@@ -3567,7 +3747,7 @@ const SupervisorTripDetails = () => {
                   type="button"
                   onClick={() => {
                     setShowReceiptModal(false);
-                    setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '' });
+                    setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
                     setSelectedCustomer(null);
                     setCustomerSearchTerm('');
                     setShowCustomerDropdown(false);

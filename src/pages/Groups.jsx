@@ -23,7 +23,7 @@ const groupSchema = z.object({
   name: z.string()
     .min(2, 'Group name must be at least 2 characters')
     .max(100, 'Group name cannot exceed 100 characters'),
-  type: z.enum(['Liability', 'Assets', 'Expenses', 'Income'], {
+  type: z.enum(['Liability', 'Assets', 'Expenses', 'Income', 'Others'], {
     required_error: 'Group type is required',
   }),
   parentGroup: z.string().optional().nullable(),
@@ -34,19 +34,21 @@ const getTypeColor = (type) => {
     Assets: 'bg-blue-100 text-blue-800',
     Liability: 'bg-purple-100 text-purple-800',
     Expenses: 'bg-red-100 text-red-800',
-    Income: 'bg-green-100 text-green-800'
+    Income: 'bg-green-100 text-green-800',
+    Others: 'bg-gray-100 text-gray-800'
   };
   return colors[type] || 'bg-gray-100 text-gray-800';
 };
 
 // Build hierarchical tree structure organized by type
 const buildTreeByType = (groups) => {
-  const typeOrder = ['Assets', 'Liability', 'Expenses', 'Income'];
+  const typeOrder = ['Assets', 'Liability', 'Expenses', 'Income', 'Others'];
   const typeGroups = {
     Assets: [],
     Liability: [],
     Expenses: [],
-    Income: []
+    Income: [],
+    Others: []
   };
 
   // Helper to get group ID (handles both id and _id)
@@ -479,6 +481,7 @@ export default function Groups() {
               <option value="Liability">Liability</option>
               <option value="Expenses">Expenses</option>
               <option value="Income">Income</option>
+              <option value="Others">Others</option>
             </select>
           </div>
         </div>
@@ -526,18 +529,6 @@ export default function Groups() {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Group Name *
-                </label>
-                <input
-                  type="text"
-                  {...register('name')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Group Type *
                 </label>
                 <select
@@ -548,6 +539,7 @@ export default function Groups() {
                   <option value="Liability">Liability</option>
                   <option value="Expenses">Expenses</option>
                   <option value="Income">Income</option>
+                  <option value="Others">Others</option>
                 </select>
                 {errors.type && <p className="text-red-500 text-xs mt-1">{errors.type.message}</p>}
               </div>
@@ -568,6 +560,18 @@ export default function Groups() {
                   ))}
                 </select>
                 {errors.parentGroup && <p className="text-red-500 text-xs mt-1">{errors.parentGroup.message}</p>}
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Group Name *
+                </label>
+                <input
+                  type="text"
+                  {...register('name')}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
               </div>
 
               <div className="flex justify-end gap-3 pt-4">

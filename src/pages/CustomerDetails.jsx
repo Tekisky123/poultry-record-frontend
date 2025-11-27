@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
@@ -19,7 +19,8 @@ import {
   Receipt,
   ChevronLeft,
   ChevronRight,
-  RefreshCw
+  RefreshCw,
+  ChevronDown
 } from 'lucide-react';
 import api from '../lib/axios';
 import { downloadCustomerLedgerExcel } from '../utils/downloadCustomerLedgerExcel';
@@ -40,7 +41,25 @@ const CustomerDetails = () => {
   const [ledgerLoading, setLedgerLoading] = useState(true);
   const [loadingPagination, setLoadingPagination] = useState(false);
   const [refreshingPurchases, setRefreshingPurchases] = useState(false);
+  const [showDownloadOptions, setShowDownloadOptions] = useState(false);
+  const [isDownloadingLedger, setIsDownloadingLedger] = useState(false);
   const [error, setError] = useState('');
+  const [initialLedgerLoad, setInitialLedgerLoad] = useState(true);
+  const [dateFilter, setDateFilter] = useState({
+    startDate: '',
+    endDate: ''
+  });
+  const downloadDropdownRef = useRef(null);
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (downloadDropdownRef.current && !downloadDropdownRef.current.contains(event.target)) {
+        setShowDownloadOptions(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
 
   useEffect(() => {
     if (id) {
@@ -71,7 +90,8 @@ const CustomerDetails = () => {
     }
   };
 
-  const fetchPurchaseLedger = async (page = 1, isRefresh = false) => {
+  const fetchPurchaseLedger = async (page = 1, isRefresh = false, options = {}) => {
+    const { skipLastPageCheck = false } = options;
     try {
       if (isRefresh) {
         setRefreshingPurchases(true);
@@ -87,12 +107,22 @@ const CustomerDetails = () => {
       const ledgerResponse = await api.get(`/customer/panel/${customer.user._id}/purchase-ledger?page=${page}&limit=${itemsPerPage}`);
       if (ledgerResponse.data.success) {
         const ledgerData = ledgerResponse.data.data;
+
+        const totalPages = ledgerData.pagination?.totalPages || 1;
+        if (!skipLastPageCheck && initialLedgerLoad && totalPages > 0 && page !== totalPages) {
+          await fetchPurchaseLedger(totalPages, false, { skipLastPageCheck: true });
+          return;
+        }
+
         setPurchaseLedger(ledgerData.ledger || []);
         setLedgerTotals(ledgerData.totals || {});
         
-        // Update pagination state
         if (ledgerData.pagination) {
           setLedgerPagination(ledgerData.pagination);
+        }
+
+        if (initialLedgerLoad) {
+          setInitialLedgerLoad(false);
         }
       }
     } catch (error) {
@@ -135,17 +165,62 @@ const CustomerDetails = () => {
     navigate('/customers');
   };
 
-  const handleDownloadLedger = () => {
-    if (purchaseLedger.length === 0) {
-      alert('No data available to download');
+  const handleDownloadLedger = async (type) => {
+    if (!type) {
+      setShowDownloadOptions(false);
       return;
     }
-    
-    const success = downloadCustomerLedgerExcel(purchaseLedger, customer?.shopName || 'Customer');
-    if (success) {
-      alert('Excel file downloaded successfully!');
-    } else {
+
+    if (type === 'current') {
+      if (displayedPurchaseLedger.length === 0) {
+        alert('No data available on this page to download.');
+        setShowDownloadOptions(false);
+        return;
+      }
+      const success = downloadCustomerLedgerExcel(displayedPurchaseLedger, customer?.shopName || 'Customer');
+      alert(success ? 'Excel file downloaded successfully!' : 'Failed to download Excel file. Please try again.');
+      setShowDownloadOptions(false);
+      return;
+    }
+
+    if (ledgerPagination.totalItems === 0) {
+      alert('No records available to download.');
+      setShowDownloadOptions(false);
+      return;
+    }
+
+    if (!customer?.user?._id) {
+      alert('Unable to identify customer. Please try again.');
+      setShowDownloadOptions(false);
+      return;
+    }
+
+    setIsDownloadingLedger(true);
+    try {
+      const totalItems = ledgerPagination.totalItems || purchaseLedger.length;
+      const limit = Math.max(totalItems, ledgerPagination.itemsPerPage || totalItems || 10);
+      const response = await api.get(`/customer/panel/${customer.user._id}/purchase-ledger?page=1&limit=${limit}`);
+
+      if (!response.data.success) {
+        throw new Error('Failed to fetch ledger records for download.');
+      }
+
+      let allLedger = response.data.data?.ledger || [];
+      allLedger = filterLedgerByDate(allLedger, dateFilter);
+      
+      if (allLedger.length === 0) {
+        alert('No records available to download for the selected filters.');
+        return;
+      }
+
+      const success = downloadCustomerLedgerExcel(allLedger, customer?.shopName || 'Customer');
+      alert(success ? 'Excel file downloaded successfully!' : 'Failed to download Excel file. Please try again.');
+    } catch (error) {
+      console.error('Error downloading ledger:', error);
       alert('Failed to download Excel file. Please try again.');
+    } finally {
+      setIsDownloadingLedger(false);
+      setShowDownloadOptions(false);
     }
   };
 
@@ -178,6 +253,46 @@ const CustomerDetails = () => {
     } catch (error) {
       return dateString;
     }
+  };
+
+  const filterLedgerByDate = (ledgerData = [], filter = {}) => {
+    if (!filter.startDate && !filter.endDate) {
+      return ledgerData;
+    }
+
+    return ledgerData.filter((entry) => {
+      if (!entry?.date) return false;
+      const entryDate = new Date(entry.date);
+      if (Number.isNaN(entryDate.getTime())) return false;
+
+      if (filter.startDate) {
+        const start = new Date(filter.startDate);
+        if (entryDate < start) {
+          return false;
+        }
+      }
+
+      if (filter.endDate) {
+        const end = new Date(filter.endDate);
+        end.setHours(23, 59, 59, 999);
+        if (entryDate > end) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
+  const isDateFilterActive = Boolean(dateFilter.startDate || dateFilter.endDate);
+  const filteredPurchaseLedger = filterLedgerByDate(purchaseLedger, dateFilter);
+  const displayedPurchaseLedger = isDateFilterActive ? filteredPurchaseLedger : purchaseLedger;
+
+  const handleClearDateFilter = () => {
+    setDateFilter({
+      startDate: '',
+      endDate: ''
+    });
   };
 
   if (loading) {
@@ -235,14 +350,43 @@ const CustomerDetails = () => {
             <RefreshCw className={`w-4 h-4 ${refreshingPurchases ? 'animate-spin' : ''}`} />
             {refreshingPurchases ? 'Refreshing...' : 'Refresh'}
           </button>
-          <button
-            onClick={handleDownloadLedger}
-            disabled={purchaseLedger.length === 0}
-            className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            <Download size={16} />
-            Download Excel
-          </button>
+          <div className="relative" ref={downloadDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setShowDownloadOptions(prev => !prev)}
+              disabled={(displayedPurchaseLedger.length === 0 && ledgerPagination.totalItems === 0) || isDownloadingLedger}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Download size={16} />
+              {isDownloadingLedger ? 'Preparing...' : 'Download Excel'}
+              <ChevronDown className={`w-4 h-4 transition-transform ${showDownloadOptions ? 'rotate-180' : ''}`} />
+            </button>
+            {showDownloadOptions && (
+              <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadLedger('current')}
+                  className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex flex-col"
+                >
+                  <span className="font-medium text-gray-900">Download current page</span>
+                  <span className="text-xs text-gray-500">{displayedPurchaseLedger.length} record(s)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleDownloadLedger('all')}
+                  disabled={isDownloadingLedger}
+                  className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex flex-col border-t border-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <span className="font-medium text-gray-900">
+                    {isDownloadingLedger ? 'Preparing all records…' : 'Download all records'}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {ledgerPagination.totalItems} total record(s)
+                  </span>
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -333,8 +477,8 @@ const CustomerDetails = () => {
               <p className="text-sm text-gray-600 mb-2">Total Birds / Total Weight</p>
               <div className="flex items-baseline gap-2">
                 <p className="text-2xl font-bold text-purple-600">{totalBirds.toLocaleString()}</p>
-                <span className="text-sm text-gray-500">/</span>
-                <p className="text-lg font-semibold text-gray-700">{totalWeight.toFixed(2)} kg</p>
+                <span className="text-2xl font-bold text-purple-600">/</span>
+                <p className="text-2xl font-bold text-purple-600">{totalWeight.toFixed(2)} kg</p>
               </div>
             </div>
             <div className="p-3 bg-purple-100 rounded-lg">
@@ -347,7 +491,7 @@ const CustomerDetails = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Amount</p>
+              <p className="text-sm text-gray-600">Total Sales Amount</p>
               <p className="text-2xl font-bold text-blue-600">₹{totalSales.toLocaleString()}</p>
             </div>
             <div className="p-3 bg-blue-100 rounded-lg">
@@ -392,11 +536,47 @@ const CustomerDetails = () => {
           </h2>
         </div>
 
+        {/* Date Filter */}
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex flex-col md:flex-row md:items-end gap-3">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+              <input
+                type="date"
+                value={dateFilter.startDate}
+                onChange={(e) => setDateFilter((prev) => ({ ...prev, startDate: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+              <input
+                type="date"
+                value={dateFilter.endDate}
+                onChange={(e) => setDateFilter((prev) => ({ ...prev, endDate: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleClearDateFilter}
+                disabled={!isDateFilterActive}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Clear Filter
+              </button>
+              <div className="px-4 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg bg-gray-50">
+                Showing: {isDateFilterActive ? `${displayedPurchaseLedger.length} filtered records` : `${purchaseLedger.length} records`}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {ledgerLoading ? (
           <div className="flex items-center justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           </div>
-        ) : purchaseLedger.length > 0 ? (
+        ) : displayedPurchaseLedger.length > 0 || purchaseLedger.length > 0 ? (
           <>
             {/* Loading indicator for pagination */}
             {loadingPagination && (
@@ -413,38 +593,44 @@ const CustomerDetails = () => {
                   <tr className="bg-gray-50 border-b border-gray-200">
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Sr. No.</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Date</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Vehicles No</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Driver Name</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Supervisor</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Product</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Particulars</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Invoice No</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Trip ID</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Birds</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Weight</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Avg</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Rate</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Amount</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Balance</th>
+                    <th className="px-3 py-3 text-left font-medium text-gray-700">Product</th>
+                    <th className="px-3 py-3 text-left font-medium text-gray-700">Supervisor</th>
+                    <th className="px-3 py-3 text-left font-medium text-gray-700">Driver Name</th>
+                    <th className="px-3 py-3 text-left font-medium text-gray-700">Vehicles No</th>
+                    <th className="px-3 py-3 text-left font-medium text-gray-700">Trip ID</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {purchaseLedger.map((entry, index) => (
+                  {displayedPurchaseLedger.map((entry, index) => (
                     <tr key={entry._id || index} className="hover:bg-gray-50">
                       <td className="px-3 py-3 text-gray-900">
                         {(ledgerPagination.currentPage - 1) * ledgerPagination.itemsPerPage + index + 1}
                       </td>
                       <td className="px-3 py-3 text-gray-900">{formatDate(entry.date)}</td>
-                      <td className="px-3 py-3 text-gray-900">{entry.vehiclesNo || '-'}</td>
-                      <td className="px-3 py-3 text-gray-900">{entry.driverName || '-'}</td>
-                      <td className="px-3 py-3 text-gray-900">{entry.supervisor || '-'}</td>
-                      <td className="px-3 py-3 text-gray-900">{entry.product || '-'}</td>
                       <td className="px-3 py-3">
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getParticularsColor(entry.particulars)}`}>
                           {entry.particulars}
                         </span>
                       </td>
                       <td className="px-3 py-3 text-gray-900">{entry.invoiceNo || '-'}</td>
+                      <td className="px-3 py-3 text-right text-gray-900">{entry.birds || 0}</td>
+                      <td className="px-3 py-3 text-right text-gray-900">{(entry.weight || 0).toFixed(2)}</td>
+                      <td className="px-3 py-3 text-right text-gray-900">{(entry.avgWeight || 0).toFixed(2)}</td>
+                      <td className="px-3 py-3 text-right text-gray-900">₹{(entry.rate || 0).toLocaleString()}</td>
+                      <td className="px-3 py-3 text-right text-gray-900">₹{(entry.amount || 0).toLocaleString()}</td>
+                      <td className="px-3 py-3 text-right font-semibold text-gray-900">₹{(entry.outstandingBalance || 0).toLocaleString()}</td>
+                      <td className="px-3 py-3 text-gray-900">{entry.product || '-'}</td>
+                      <td className="px-3 py-3 text-gray-900">{entry.supervisor || '-'}</td>
+                      <td className="px-3 py-3 text-gray-900">{entry.driverName || '-'}</td>
+                      <td className="px-3 py-3 text-gray-900">{entry.vehiclesNo || '-'}</td>
                       <td className="px-3 py-3 text-gray-900">
                         {entry.trip?.tripId ? (
                           <Link 
@@ -458,12 +644,6 @@ const CustomerDetails = () => {
                           '-'
                         )}
                       </td>
-                      <td className="px-3 py-3 text-right text-gray-900">{entry.birds || 0}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">{(entry.weight || 0).toFixed(2)}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">{(entry.avgWeight || 0).toFixed(2)}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">₹{(entry.rate || 0).toLocaleString()}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">₹{(entry.amount || 0).toLocaleString()}</td>
-                      <td className="px-3 py-3 text-right font-semibold text-gray-900">₹{(entry.outstandingBalance || 0).toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -503,7 +683,16 @@ const CustomerDetails = () => {
         ) : (
           <div className="text-center py-8">
             <Package className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-gray-500">No purchase records found for this customer.</p>
+            <p className="text-gray-500">
+              {isDateFilterActive
+                ? 'No purchase records found for the selected date range.'
+                : 'No purchase records found for this customer.'}
+            </p>
+            {isDateFilterActive && (
+              <p className="text-sm text-gray-400 mt-1">
+                Try adjusting the date range or clear the filter.
+              </p>
+            )}
           </div>
         )}
       </div>

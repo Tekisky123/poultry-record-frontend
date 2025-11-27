@@ -302,13 +302,14 @@ export default function Ledgers() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opening Balance</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Outstanding Balance</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredLedgers.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
+                  <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
                     No ledgers found
                   </td>
                 </tr>
@@ -330,6 +331,11 @@ export default function Ledgers() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-gray-700">
                         ₹{Number(ledger.openingBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="text-gray-700 font-medium">
+                        ₹{Number(ledger.outstandingBalance || ledger.openingBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -372,6 +378,21 @@ export default function Ledgers() {
               >
                 <X size={24} />
               </button>
+            </div>
+
+            {/* Note about adding/updating ledgers */}
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-800">
+                {editingLedger ? (
+                  <>
+                    <strong>Note:</strong> Updating a ledger will modify its details. Make sure to select the correct group and verify the opening balance before saving.
+                  </>
+                ) : (
+                  <>
+                    <strong>Note:</strong> When adding a new ledger, select the appropriate group and set the opening balance if required. The ledger will be associated with the selected group for accounting purposes.
+                  </>
+                )}
+              </p>
             </div>
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">

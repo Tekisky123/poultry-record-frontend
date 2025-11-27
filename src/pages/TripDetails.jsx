@@ -973,8 +973,8 @@ export default function TripDetails() {
                         <span className="text-sm text-gray-600">GROSS RENT:</span>
                         <span className="font-semibold">₹{(trip.vehicleReadings?.totalDistance ? (trip.vehicleReadings.totalDistance * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between  px-3 py-2 rounded">
-                        <span className="text-sm ">MORTALITY & WEIGHT LOSS:</span>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">MORTALITY & WEIGHT LOSS:</span>
                         <span className="font-semibold">₹{mortalityAndWeightLossAmount.toFixed(2)}</span>
                       </div>
                       <div className="flex justify-between bg-gray-700 text-white px-3 py-2 rounded">
