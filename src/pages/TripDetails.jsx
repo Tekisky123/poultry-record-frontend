@@ -1003,7 +1003,8 @@ export default function TripDetails() {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
-            {['overview', 'purchases', 'sales', 'stock', 'expenses', 'diesel', 'losses', 'financials'].map((tab) => (
+            {/* removed - 'stock' tab */}
+            {['overview', 'purchases', 'sales', 'expenses', 'diesel', 'losses', 'transfers', 'financials'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -1663,6 +1664,266 @@ export default function TripDetails() {
                 <div className="text-center py-8">
                   <p className="text-gray-500 mb-2">No death birds recorded yet.</p>
                   <p className="text-sm text-gray-400">Losses will appear here when death birds are added to the trip.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Transfers Tab */}
+          {activeTab === 'transfers' && (
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-gray-900">Transfer Trip Information</h3>
+              
+              {/* Transferred From Section */}
+              {trip.transferredFrom && (
+                <div className="bg-orange-50 p-6 rounded-lg border border-orange-200">
+                  <h4 className="font-semibold text-orange-900 mb-4 flex items-center gap-2">
+                    <span className="text-lg">📥</span>
+                    Transferred From
+                  </h4>
+                  <div className="bg-white p-4 rounded-lg border border-orange-300">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Source Trip ID</label>
+                        <div className="mt-1">
+                          {trip.transferredFrom?.tripId ? (
+                            <Link
+                              to={`/trips/${trip.transferredFrom.id || trip.transferredFrom._id}`}
+                              className="text-blue-600 hover:text-blue-800 underline font-semibold"
+                            >
+                              {trip.transferredFrom.tripId}
+                            </Link>
+                          ) : (
+                            <span className="text-gray-900">N/A</span>
+                          )}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Vehicle Number</label>
+                        <div className="mt-1 text-gray-900">
+                          {trip.transferredFrom?.vehicle?.vehicleNumber || 'N/A'}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Supervisor</label>
+                        <div className="mt-1 text-gray-900">
+                          {trip.transferredFrom?.supervisor?.name || 'N/A'}
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-600">Transfer Date</label>
+                        <div className="mt-1 text-gray-900">
+                          {trip.transferredFrom?.date 
+                            ? new Date(trip.transferredFrom.date).toLocaleDateString()
+                            : trip.createdAt 
+                            ? new Date(trip.createdAt).toLocaleDateString()
+                            : 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                    {trip.transferredFrom?.purchases && trip.transferredFrom.purchases.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-orange-200">
+                        <label className="text-sm font-medium text-gray-600 mb-2 block">Transferred Stock Details</label>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-orange-100">
+                              <tr>
+                                <th className="px-3 py-2 text-left border-r">DC Number</th>
+                                <th className="px-3 py-2 text-center border-r">Birds</th>
+                                <th className="px-3 py-2 text-center border-r">Weight (kg)</th>
+                                <th className="px-3 py-2 text-center border-r">Avg Weight</th>
+                                <th className="px-3 py-2 text-center border-r">Rate</th>
+                                <th className="px-3 py-2 text-center">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {trip.transferredFrom.purchases
+                                .filter(p => p.dcNumber?.startsWith('TRANSFER-'))
+                                .map((purchase, idx) => (
+                                <tr key={idx} className="border-b">
+                                  <td className="px-3 py-2 border-r">{purchase.dcNumber || 'N/A'}</td>
+                                  <td className="px-3 py-2 text-center border-r">{purchase.birds || 0}</td>
+                                  <td className="px-3 py-2 text-center border-r">{(purchase.weight || 0).toFixed(2)}</td>
+                                  <td className="px-3 py-2 text-center border-r">
+                                    {purchase.birds && purchase.weight 
+                                      ? (purchase.weight / purchase.birds).toFixed(2) 
+                                      : '0.00'}
+                                  </td>
+                                  <td className="px-3 py-2 text-center border-r">₹{(purchase.rate || 0).toFixed(2)}</td>
+                                  <td className="px-3 py-2 text-center">₹{(purchase.amount || 0).toFixed(2)}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Transferred To Section */}
+              {trip.transfers && trip.transfers.length > 0 && (
+                <div className="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                  <h4 className="font-semibold text-blue-900 mb-4 flex items-center gap-2">
+                    <span className="text-lg">📤</span>
+                    Transferred To ({trip.transfers.length} {trip.transfers.length === 1 ? 'Trip' : 'Trips'})
+                  </h4>
+                  <div className="space-y-4">
+                    {trip.transfers.map((transfer, index) => (
+                      <div key={index} className="bg-white p-4 rounded-lg border border-blue-300">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Destination Trip ID</label>
+                            <div className="mt-1">
+                              {transfer.transferredTo?.tripId ? (
+                                <Link
+                                  to={`/trips/${transfer.transferredTo.id || transfer.transferredTo._id}`}
+                                  className="text-blue-600 hover:text-blue-800 underline font-semibold"
+                                >
+                                  {transfer.transferredTo.tripId}
+                                </Link>
+                              ) : (
+                                <span className="text-gray-900">{transfer.transferredTo || 'N/A'}</span>
+                              )}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Transfer Date</label>
+                            <div className="mt-1 text-gray-900">
+                              {transfer.transferredAt 
+                                ? new Date(transfer.transferredAt).toLocaleDateString()
+                                : 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Vehicle Number</label>
+                            <div className="mt-1 text-gray-900">
+                              {transfer.transferredTo?.vehicle?.vehicleNumber || 'N/A'}
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-600">Supervisor</label>
+                            <div className="mt-1 text-gray-900">
+                              {transfer.transferredToSupervisor?.name || transfer.transferredTo?.supervisor?.name || 'N/A'}
+                            </div>
+                          </div>
+                        </div>
+                        {transfer.transferredStock && (
+                          <div className="mt-4 pt-4 border-t border-blue-200">
+                            <label className="text-sm font-medium text-gray-600 mb-2 block">Transferred Stock Details</label>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div>
+                                <span className="text-gray-600">Birds:</span>
+                                <span className="ml-2 font-semibold text-gray-900">{transfer.transferredStock.birds || 0}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Weight:</span>
+                                <span className="ml-2 font-semibold text-gray-900">{(transfer.transferredStock.weight || 0).toFixed(2)} kg</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Avg Weight:</span>
+                                <span className="ml-2 font-semibold text-gray-900">
+                                  {transfer.transferredStock.avgWeight 
+                                    ? transfer.transferredStock.avgWeight.toFixed(2)
+                                    : transfer.transferredStock.birds && transfer.transferredStock.weight
+                                    ? (transfer.transferredStock.weight / transfer.transferredStock.birds).toFixed(2)
+                                    : '0.00'} kg
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-600">Value:</span>
+                                <span className="ml-2 font-semibold text-blue-600">
+                                  ₹{((transfer.transferredStock.weight || 0) * (transfer.transferredStock.rate || 0)).toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="mt-2 text-sm">
+                              <span className="text-gray-600">Rate:</span>
+                              <span className="ml-2 font-semibold text-gray-900">₹{(transfer.transferredStock.rate || 0).toFixed(2)}/kg</span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    
+                    {/* Transfer Summary */}
+                    <div className="bg-blue-100 p-4 rounded-lg border border-blue-300 mt-4">
+                      <h5 className="font-semibold text-blue-900 mb-3">Transfer Summary</h5>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                        <div>
+                          <span className="text-blue-700">Total Birds Transferred:</span>
+                          <span className="ml-2 font-bold text-blue-900">
+                            {trip.transfers.reduce((sum, transfer) => sum + (transfer.transferredStock?.birds || 0), 0)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-blue-700">Total Weight Transferred:</span>
+                          <span className="ml-2 font-bold text-blue-900">
+                            {(trip.transfers.reduce((sum, transfer) => sum + (transfer.transferredStock?.weight || 0), 0)).toFixed(2)} kg
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-blue-700">Total Value:</span>
+                          <span className="ml-2 font-bold text-blue-900">
+                            ₹{(trip.transfers.reduce((sum, transfer) => sum + ((transfer.transferredStock?.weight || 0) * (transfer.transferredStock?.rate || 0)), 0)).toFixed(2)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-blue-700">Number of Transfers:</span>
+                          <span className="ml-2 font-bold text-blue-900">{trip.transfers.length}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Transfer History Section (if available) */}
+              {trip.transferHistory && trip.transferHistory.length > 0 && (
+                <div className="bg-purple-50 p-6 rounded-lg border border-purple-200">
+                  <h4 className="font-semibold text-purple-900 mb-4 flex items-center gap-2">
+                    <span className="text-lg">📋</span>
+                    Transfer History
+                  </h4>
+                  <div className="space-y-3">
+                    {trip.transferHistory.map((transfer, index) => (
+                      <div key={index} className="bg-white p-4 rounded-lg border border-purple-300">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                          <div>
+                            <span className="text-gray-600">To Trip:</span>
+                            <span className="ml-2 font-semibold text-gray-900">
+                              {transfer.transferredTo?.tripId || transfer.transferredTo || 'N/A'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Date:</span>
+                            <span className="ml-2 font-semibold text-gray-900">
+                              {transfer.transferredAt 
+                                ? new Date(transfer.transferredAt).toLocaleDateString()
+                                : 'N/A'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-gray-600">Stock Value:</span>
+                            <span className="ml-2 font-semibold text-purple-600">
+                              ₹{((transfer.transferredStock?.weight || 0) * (transfer.transferredStock?.rate || 0)).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No Transfer Info Message */}
+              {!trip.transferredFrom && (!trip.transfers || trip.transfers.length === 0) && (!trip.transferHistory || trip.transferHistory.length === 0) && (
+                <div className="bg-gray-50 p-8 rounded-lg border border-gray-200 text-center">
+                  <p className="text-gray-500 text-lg mb-2">No Transfer Information Available</p>
+                  <p className="text-gray-400 text-sm">
+                    This trip has no associated transfers. Transfer information will appear here if this trip receives stock from another trip or transfers stock to other trips.
+                  </p>
                 </div>
               )}
             </div>

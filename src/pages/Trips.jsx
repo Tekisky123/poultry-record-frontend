@@ -387,6 +387,7 @@ export default function Trips() {
   // Check if user has access
   const hasAccess = user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'supervisor';
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const isSuperadmin = user?.role === 'superadmin';
   const isSupervisor = user?.role === 'supervisor';
   const canCreateTrip = user?.role === 'supervisor';
 
@@ -1137,11 +1138,11 @@ export default function Trips() {
                           <Edit size={16} />
                         </button>
                       )}
-                      {isAdmin && (
+                      {isSuperadmin && (
                         <button
                           onClick={() => handleDelete(trip)}
                           className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                          title="Delete trip (Admin only)"
+                          title="Delete trip (Superadmin only)"
                         >
                           <Trash2 size={16} />
                         </button>
