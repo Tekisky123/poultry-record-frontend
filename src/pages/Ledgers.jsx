@@ -21,6 +21,7 @@ const ledgerSchema = z.object({
   name: z.string().min(1, 'Ledger name is required'),
   group: z.string().min(1, 'Group is required'),
   openingBalance: z.number().optional().default(0),
+  openingBalanceType: z.enum(['debit', 'credit']).optional().default('debit'),
 });
 
 
@@ -58,7 +59,8 @@ export default function Ledgers() {
     defaultValues: {
       name: '',
       group: '',
-      openingBalance: 0
+      openingBalance: 0,
+      openingBalanceType: 'debit'
     }
   });
 
@@ -116,7 +118,8 @@ export default function Ledgers() {
       const payload = {
         name: ledgerData.name,
         group: ledgerData.group,
-        openingBalance: ledgerData.openingBalance || 0
+        openingBalance: ledgerData.openingBalance || 0,
+        openingBalanceType: ledgerData.openingBalanceType || 'debit'
       };
       const { data } = await api.post('/ledger', payload);
       setShowAddModal(false);
@@ -139,7 +142,8 @@ export default function Ledgers() {
       const payload = {
         name: ledgerData.name,
         group: ledgerData.group,
-        openingBalance: ledgerData.openingBalance || 0
+        openingBalance: ledgerData.openingBalance || 0,
+        openingBalanceType: ledgerData.openingBalanceType || 'debit'
       };
       const { data } = await api.put(`/ledger/${id}`, payload);
       setShowAddModal(false);
@@ -173,6 +177,7 @@ export default function Ledgers() {
     setValue('name', ledger.name || '');
     setValue('group', ledger.group?.id || '');
     setValue('openingBalance', ledger.openingBalance || 0);
+    setValue('openingBalanceType', ledger.openingBalanceType || 'debit');
     setShowAddModal(true);
   };
 
@@ -335,7 +340,7 @@ export default function Ledgers() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className="text-gray-700 font-medium">
-                        ₹{Number(ledger.outstandingBalance || ledger.openingBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₹{Number(ledger.outstandingBalance || ledger.openingBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {(ledger.outstandingBalanceType || ledger.openingBalanceType || 'debit').toUpperCase()}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
@@ -431,6 +436,7 @@ export default function Ledgers() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Opening Balance (optional)
                 </label>
+                <div className="grid grid-cols-2 gap-3">
                 <input
                   type="number"
                   step="0.01"
@@ -439,8 +445,17 @@ export default function Ledgers() {
                   defaultValue={0}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
+                  <select
+                    {...register('openingBalanceType')}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="debit">Debit</option>
+                    <option value="credit">Credit</option>
+                  </select>
+                </div>
                 {errors.openingBalance && <p className="text-red-500 text-xs mt-1">{errors.openingBalance.message}</p>}
-                <p className="text-xs text-gray-500 mt-1">Default: 0.00</p>
+                {errors.openingBalanceType && <p className="text-red-500 text-xs mt-1">{errors.openingBalanceType.message}</p>}
+                <p className="text-xs text-gray-500 mt-1">Default: 0.00 Debit</p>
               </div>
 
               <div className="flex justify-end gap-3 pt-4">

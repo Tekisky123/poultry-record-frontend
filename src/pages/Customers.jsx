@@ -48,9 +48,8 @@ const customerSchema = z.object({
   gstOrPanNumber: z.string()
     .max(100, 'GST or PAN number cannot exceed 100 characters')
     .optional(),
-  openingBalance: z.number()
-    .min(0, 'Opening balance cannot be negative')
-    .optional(),
+  openingBalance: z.number().optional().default(0),
+  openingBalanceType: z.enum(['debit', 'credit']).optional().default('debit'),
   group: z.string().min(1, 'Group is required'),
   // Login credentials fields
   email: z.string()
@@ -119,6 +118,7 @@ export default function Customers() {
       place: '',
       gstOrPanNumber: '',
       openingBalance: 0,
+      openingBalanceType: 'debit',
       email: '',
       password: '',
       tdsApplicable: false,
@@ -324,6 +324,7 @@ export default function Customers() {
     setValue('place', customer.place || customer.area || '');
     setValue('gstOrPanNumber', customer.gstOrPanNumber || '');
     setValue('openingBalance', customer.openingBalance || 0);
+    setValue('openingBalanceType', customer.openingBalanceType || 'debit');
     setValue('tdsApplicable', customer.tdsApplicable || false);
     setValue('group', customer.group?.id || '');
     // Pre-fill user credentials if available
@@ -908,6 +909,7 @@ export default function Customers() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Opening Balance (₹)
                   </label>
+                  <div className="grid grid-cols-2 gap-3">
                   <input
                     type="number"
                     {...register('openingBalance', { valueAsNumber: true })}
@@ -916,7 +918,16 @@ export default function Customers() {
                     step="0.01"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
+                    <select
+                      {...register('openingBalanceType')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="debit">Debit</option>
+                      <option value="credit">Credit</option>
+                    </select>
+                  </div>
                   {errors.openingBalance && <p className="text-red-500 text-xs mt-1">{errors.openingBalance.message}</p>}
+                  {errors.openingBalanceType && <p className="text-red-500 text-xs mt-1">{errors.openingBalanceType.message}</p>}
                   <p className="text-xs text-gray-500 mt-1">
                       Customer's initial opening balance
                   </p>

@@ -24,8 +24,11 @@ const AddEditVoucher = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [customers, setCustomers] = useState([]);
+  const [customersWithLedgers, setCustomersWithLedgers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [ledgers, setLedgers] = useState([]);
+  const [cashBankLedgers, setCashBankLedgers] = useState([]);
+  const [allParties, setAllParties] = useState([]); // Combined list of customers, ledgers, and vendors
   const [partyBalanceLabel, setPartyBalanceLabel] = useState('');
   
   const [formData, setFormData] = useState({
@@ -34,12 +37,13 @@ const AddEditVoucher = () => {
     date: new Date().toISOString().split('T')[0],
     party: '',
     partyName: '',
+    parties: [], // For Payment/Receipt vouchers - array of { partyId, partyName, partyType, amount, currentBalance, currentBalanceType }
+    account: '', // For Payment/Receipt vouchers - selected Cash/Bank ledger
     entries: [
       { account: '', debitAmount: 0, creditAmount: 0, narration: '', type: 'Dr' },
       { account: '', debitAmount: 0, creditAmount: 0, narration: '', type: 'Cr' }
     ],
-    narration: '',
-    status: 'draft'
+    narration: ''
   });
 
   useEffect(() => {
@@ -50,6 +54,25 @@ const AddEditVoucher = () => {
       fetchNextVoucherNumber();
     }
   }, [id]);
+
+  // Reset parties when voucher type changes
+  useEffect(() => {
+        const isPaymentOrReceiptType = formData.voucherType === 'Payment' || formData.voucherType === 'Receipt';
+        if (isPaymentOrReceiptType && formData.parties.length === 0) {
+          // Initialize with one empty party
+          setFormData(prev => ({
+            ...prev,
+            parties: [{ partyId: '', partyType: '', partyName: '', amount: 0, currentBalance: 0, currentBalanceType: 'debit' }]
+          }));
+        } else if (!isPaymentOrReceiptType && formData.parties.length > 0) {
+          // Clear parties when switching away from Payment/Receipt
+          setFormData(prev => ({
+            ...prev,
+            parties: [],
+            account: ''
+          }));
+        }
+  }, [formData.voucherType, formData.parties.length]);
   const fetchNextVoucherNumber = async () => {
     try {
       const { data } = await api.get('/voucher/next-number');
@@ -73,15 +96,66 @@ const AddEditVoucher = () => {
         api.get('/ledger')
       ]);
       
-      if (customersRes.data.success) {
-        setCustomers(customersRes.data.data);
-      }
-      if (vendorsRes.data.success) {
-        setVendors(vendorsRes.data.data);
-      }
-      if (ledgersRes.data.success) {
-        setLedgers(ledgersRes.data.data || []);
-      }
+      const allCustomers = customersRes.data.success ? customersRes.data.data : [];
+      const allVendors = vendorsRes.data.success ? vendorsRes.data.data : [];
+      const allLedgers = ledgersRes.data.success ? (ledgersRes.data.data || []) : [];
+      
+      // Set individual state
+      setCustomers(allCustomers);
+      setVendors(allVendors);
+      setLedgers(allLedgers);
+      
+      // Filter Cash and Bank Accounts ledgers
+      const cashBankLedgersData = allLedgers.filter(ledger => {
+        const groupName = ledger.group?.name || '';
+        return groupName === 'Cash-in-Hand' || groupName === 'Bank Accounts';
+      });
+      setCashBankLedgers(cashBankLedgersData);
+      
+      // Match customers with ledgers
+      const customersWithLedgersData = allCustomers.filter(customer => {
+        // Check if customer has a ledger
+        return allLedgers.some(ledger => {
+          const ledgerCustomerId = ledger.customer?.id || ledger.customer?._id || ledger.customer;
+          return ledgerCustomerId === customer.id || ledgerCustomerId === customer._id;
+        });
+      });
+      setCustomersWithLedgers(customersWithLedgersData);
+      
+      // Create combined parties list: customers, ledgers, and vendors
+      const partiesList = [];
+      
+      // Add customers
+      allCustomers.forEach(customer => {
+        partiesList.push({
+          id: customer.id || customer._id,
+          name: customer.shopName || customer.ownerName || 'N/A',
+          type: 'customer',
+          data: customer
+        });
+      });
+      
+      // Add ledgers
+      allLedgers.forEach(ledger => {
+        partiesList.push({
+          id: ledger.id || ledger._id,
+          name: ledger.name,
+          type: 'ledger',
+          data: ledger
+        });
+      });
+      
+      // Add vendors
+      allVendors.forEach(vendor => {
+        partiesList.push({
+          id: vendor.id || vendor._id,
+          name: vendor.vendorName || 'N/A',
+          type: 'vendor',
+          data: vendor
+        });
+      });
+      
+      setAllParties(partiesList);
     } catch (error) {
       console.error('Error fetching master data:', error);
     }
@@ -93,26 +167,95 @@ const AddEditVoucher = () => {
       const response = await api.get(`/voucher/${id}`);
       if (response.data.success) {
         const voucher = response.data.data;
-        const normalizedEntries = (voucher.entries.length > 0 ? voucher.entries : [
-          { account: '', debitAmount: 0, creditAmount: 0, narration: '' },
-          { account: '', debitAmount: 0, creditAmount: 0, narration: '' }
-        ]).map(entry => ({
-          ...entry,
-          type: entry.debitAmount > 0 ? 'Dr' : 'Cr'
-        }));
         const resolvedVoucherType = ALLOWED_VOUCHER_TYPES.includes(voucher.voucherType)
           ? voucher.voucherType
           : ALLOWED_VOUCHER_TYPES[0];
-        setFormData({
-          voucherType: resolvedVoucherType,
-          voucherNumber: voucher.voucherNumber || '',
-          date: new Date(voucher.date).toISOString().split('T')[0],
-          party: voucher.party?._id || '',
-          partyName: voucher.partyName || '',
-          entries: normalizedEntries,
-          narration: voucher.narration || '',
-          status: voucher.status
-        });
+        
+        const isPaymentOrReceiptVoucher = resolvedVoucherType === 'Payment' || resolvedVoucherType === 'Receipt';
+        
+        if (isPaymentOrReceiptVoucher && voucher.parties && voucher.parties.length > 0) {
+          // Handle Payment/Receipt voucher structure
+          const partiesData = await Promise.all(
+            voucher.parties.map(async (partyItem) => {
+              const partyType = partyItem.partyType || 'customer'; // Default to customer for backward compatibility
+              let partyName = '';
+              let balance = 0;
+              let balanceType = 'debit';
+              
+              try {
+                if (partyType === 'customer') {
+                  const customerRes = await api.get(`/customer/${partyItem.partyId}`);
+                  if (customerRes.data.success) {
+                    const customer = customerRes.data.data;
+                    partyName = customer.shopName || customer.ownerName || 'N/A';
+                    balance = customer.outstandingBalance || customer.openingBalance || 0;
+                    balanceType = customer.outstandingBalanceType || customer.openingBalanceType || 'debit';
+                  }
+                } else if (partyType === 'ledger') {
+                  const ledgerRes = await api.get(`/ledger/${partyItem.partyId}`);
+                  if (ledgerRes.data.success) {
+                    const ledger = ledgerRes.data.data;
+                    partyName = ledger.name || 'N/A';
+                    balance = ledger.outstandingBalance || ledger.openingBalance || 0;
+                    balanceType = ledger.outstandingBalanceType || ledger.openingBalanceType || 'debit';
+                  }
+                } else if (partyType === 'vendor') {
+                  const vendorRes = await api.get(`/vendor/${partyItem.partyId}`);
+                  if (vendorRes.data.success) {
+                    const vendor = vendorRes.data.data;
+                    partyName = vendor.vendorName || 'N/A';
+                    balance = vendor.outstandingBalance || vendor.openingBalance || 0;
+                    balanceType = vendor.outstandingBalanceType || vendor.openingBalanceType || 'debit';
+                  }
+                }
+              } catch (err) {
+                console.error(`Error fetching ${partyType} ${partyItem.partyId}:`, err);
+              }
+              
+              return {
+                partyId: partyItem.partyId,
+                partyType: partyType,
+                partyName: partyName,
+                amount: partyItem.amount || 0,
+                currentBalance: balance,
+                currentBalanceType: balanceType
+              };
+            })
+          );
+          
+          setFormData({
+            voucherType: resolvedVoucherType,
+            voucherNumber: voucher.voucherNumber || '',
+            date: new Date(voucher.date).toISOString().split('T')[0],
+            party: '',
+            partyName: '',
+            parties: partiesData,
+            account: voucher.account?._id || voucher.account || '',
+            entries: [],
+            narration: voucher.narration || ''
+          });
+        } else {
+          // Handle other voucher types
+          const normalizedEntries = (voucher.entries.length > 0 ? voucher.entries : [
+            { account: '', debitAmount: 0, creditAmount: 0, narration: '' },
+            { account: '', debitAmount: 0, creditAmount: 0, narration: '' }
+          ]).map(entry => ({
+            ...entry,
+            type: entry.debitAmount > 0 ? 'Dr' : 'Cr'
+          }));
+          
+          setFormData({
+            voucherType: resolvedVoucherType,
+            voucherNumber: voucher.voucherNumber || '',
+            date: new Date(voucher.date).toISOString().split('T')[0],
+            party: voucher.party?._id || '',
+            partyName: voucher.partyName || '',
+            parties: [],
+            account: '',
+            entries: normalizedEntries,
+            narration: voucher.narration || ''
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching voucher:', error);
@@ -171,6 +314,125 @@ const AddEditVoucher = () => {
     }
   };
 
+  // Functions for Payment/Receipt voucher parties
+  const addParty = () => {
+    setFormData(prev => ({
+      ...prev,
+      parties: [...prev.parties, { partyId: '', partyType: '', partyName: '', amount: 0, currentBalance: 0, currentBalanceType: 'debit' }]
+    }));
+  };
+
+  const removeParty = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      parties: prev.parties.filter((_, i) => i !== index)
+    }));
+  };
+
+  const handlePartySelect = async (index, partyValue) => {
+    // partyValue format: "type:id" (e.g., "customer:123", "ledger:456", "vendor:789")
+    const [partyType, partyId] = partyValue.split(':');
+    
+    if (!partyType || !partyId) return;
+    
+    let partyName = '';
+    let balance = 0;
+    let balanceType = 'debit';
+    
+    try {
+      if (partyType === 'customer') {
+        const customerRes = await api.get(`/customer/${partyId}`);
+        if (customerRes.data.success) {
+          const customerData = customerRes.data.data;
+          partyName = customerData.shopName || customerData.ownerName || 'N/A';
+          balance = customerData.outstandingBalance || customerData.openingBalance || 0;
+          balanceType = customerData.outstandingBalanceType || customerData.openingBalanceType || 'debit';
+        }
+      } else if (partyType === 'ledger') {
+        const ledgerRes = await api.get(`/ledger/${partyId}`);
+        if (ledgerRes.data.success) {
+          const ledgerData = ledgerRes.data.data;
+          partyName = ledgerData.name || 'N/A';
+          balance = ledgerData.outstandingBalance || ledgerData.openingBalance || 0;
+          balanceType = ledgerData.outstandingBalanceType || ledgerData.openingBalanceType || 'debit';
+        }
+      } else if (partyType === 'vendor') {
+        const vendorRes = await api.get(`/vendor/${partyId}`);
+        if (vendorRes.data.success) {
+          const vendorData = vendorRes.data.data;
+          partyName = vendorData.vendorName || 'N/A';
+          // Vendors might not have outstanding balance, use 0 or check if they have a ledger
+          balance = vendorData.outstandingBalance || vendorData.openingBalance || 0;
+          balanceType = vendorData.outstandingBalanceType || vendorData.openingBalanceType || 'debit';
+        }
+      }
+      
+      setFormData(prev => ({
+        ...prev,
+        parties: prev.parties.map((party, i) => 
+          i === index 
+            ? { 
+                partyId: partyId,
+                partyType: partyType,
+                partyName: partyName, 
+                amount: party.amount,
+                currentBalance: balance,
+                currentBalanceType: balanceType
+              }
+            : party
+        )
+      }));
+    } catch (error) {
+      console.error(`Error fetching ${partyType} balance:`, error);
+      // Fallback to data from list
+      const partyFromList = allParties.find(p => p.id === partyId && p.type === partyType);
+      if (partyFromList) {
+        partyName = partyFromList.name;
+        if (partyType === 'customer') {
+          balance = partyFromList.data.outstandingBalance || partyFromList.data.openingBalance || 0;
+          balanceType = partyFromList.data.outstandingBalanceType || partyFromList.data.openingBalanceType || 'debit';
+        } else if (partyType === 'ledger') {
+          balance = partyFromList.data.outstandingBalance || partyFromList.data.openingBalance || 0;
+          balanceType = partyFromList.data.outstandingBalanceType || partyFromList.data.openingBalanceType || 'debit';
+        } else if (partyType === 'vendor') {
+          balance = partyFromList.data.outstandingBalance || partyFromList.data.openingBalance || 0;
+          balanceType = partyFromList.data.outstandingBalanceType || partyFromList.data.openingBalanceType || 'debit';
+        }
+        
+        setFormData(prev => ({
+          ...prev,
+          parties: prev.parties.map((party, i) => 
+            i === index 
+              ? { 
+                  partyId: partyId,
+                  partyType: partyType,
+                  partyName: partyName, 
+                  amount: party.amount,
+                  currentBalance: balance,
+                  currentBalanceType: balanceType
+                }
+              : party
+          )
+        }));
+      }
+    }
+  };
+
+  const handlePartyAmountChange = (index, amount) => {
+    setFormData(prev => ({
+      ...prev,
+      parties: prev.parties.map((party, i) => 
+        i === index ? { ...party, amount: parseFloat(amount) || 0 } : party
+      )
+    }));
+  };
+
+  const calculateTotalAmount = () => {
+    return formData.parties.reduce((sum, party) => sum + (parseFloat(party.amount) || 0), 0);
+  };
+
+  const isPaymentOrReceipt = formData.voucherType === 'Payment' || formData.voucherType === 'Receipt';
+
   const handlePartyChange = (partyId) => {
     const customer = customers.find(c => c.id === partyId);
     const vendor = vendors.find(v => v._id === partyId);
@@ -192,6 +454,33 @@ const AddEditVoucher = () => {
   };
 
   const validateForm = () => {
+    // Validation for Payment/Receipt vouchers
+    if (isPaymentOrReceipt) {
+      if (formData.parties.length === 0) {
+        setError('At least one party is required');
+        return false;
+      }
+      
+      for (let party of formData.parties) {
+        if (!party.partyId) {
+          setError('All parties must have a selected customer');
+          return false;
+        }
+        if (!party.amount || party.amount <= 0) {
+          setError('All parties must have an amount greater than 0');
+          return false;
+        }
+      }
+      
+      if (!formData.account) {
+        setError('Account (Cash or Bank) is required');
+        return false;
+      }
+      
+      return true;
+    }
+    
+    // Validation for other voucher types
     const { totalDebit, totalCredit } = calculateTotals();
     
     // Check if debit equals credit
@@ -230,12 +519,75 @@ const AddEditVoucher = () => {
       setLoading(true);
       setError('');
       
-      const submitData = {
-        ...formData,
-        entries: formData.entries
-          .filter(entry => entry.account.trim() !== '')
-          .map(({ type, ...rest }) => rest)
-      };
+      let submitData;
+      
+      if (isPaymentOrReceipt) {
+        // For Payment/Receipt vouchers, build entries from parties
+        const totalAmount = calculateTotalAmount();
+        const entries = [];
+        
+        // Add party entries (debit for Payment, credit for Receipt)
+        formData.parties.forEach(party => {
+          if (formData.voucherType === 'Payment') {
+            entries.push({
+              account: party.partyName,
+              debitAmount: party.amount,
+              creditAmount: 0,
+              narration: ''
+            });
+          } else { // Receipt
+            entries.push({
+              account: party.partyName,
+              debitAmount: 0,
+              creditAmount: party.amount,
+              narration: ''
+            });
+          }
+        });
+        
+        // Update parties data to include partyType for backend
+        const partiesData = formData.parties.map(p => ({
+          partyId: p.partyId,
+          partyType: p.partyType,
+          amount: p.amount
+        }));
+        
+        // Add account entry (credit for Payment, debit for Receipt)
+        const accountLedger = cashBankLedgers.find(l => l.id === formData.account);
+        if (accountLedger) {
+          if (formData.voucherType === 'Payment') {
+            entries.push({
+              account: accountLedger.name,
+              debitAmount: 0,
+              creditAmount: totalAmount,
+              narration: ''
+            });
+          } else { // Receipt
+            entries.push({
+              account: accountLedger.name,
+              debitAmount: totalAmount,
+              creditAmount: 0,
+              narration: ''
+            });
+          }
+        }
+        
+        submitData = {
+          voucherType: formData.voucherType,
+          date: formData.date,
+          parties: partiesData,
+          account: formData.account,
+          entries: entries,
+          narration: formData.narration
+        };
+      } else {
+        submitData = {
+          ...formData,
+          entries: formData.entries
+            .filter(entry => entry.account.trim() !== '')
+            .map(({ type, ...rest }) => rest)
+        };
+      }
 
       delete submitData.voucherNumber;
       
@@ -412,50 +764,164 @@ const AddEditVoucher = () => {
             </div>
           </div>
 
-          <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Party</label>
-              <select
-                value={formData.party}
-                onChange={(e) => handlePartyChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select Party</option>
-                <optgroup label="Customers">
-                  {customers.map(customer => (
-                    <option key={customer.id} value={customer.id}>
-                      {customer.shopName} - {customer.ownerName}
+          {/* Show different UI for Payment/Receipt vouchers */}
+          {isPaymentOrReceipt ? (
+            <div className="px-6 py-4 space-y-4">
+              {/* Parties Section */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-semibold text-gray-700 uppercase">Particulars</h3>
+                  <button
+                    type="button"
+                    onClick={addParty}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center gap-1"
+                  >
+                    <Plus size={14} />
+                    ADD party
+                  </button>
+                </div>
+                
+                <div className="space-y-3">
+                  {formData.parties.length === 0 ? (
+                    <p className="text-sm text-gray-500 text-center py-4">No parties added. Click "+ ADD party" to add one.</p>
+                  ) : (
+                    formData.parties.map((party, index) => (
+                      <div key={index} className="grid grid-cols-2 gap-4 items-start p-3 bg-gray-50 rounded-lg">
+                        <div className="space-y-2">
+                          <label className="block text-xs font-medium text-gray-600">Party {index + 1}</label>
+                          <select
+                            value={party.partyId && party.partyType ? `${party.partyType}:${party.partyId}` : ''}
+                            onChange={(e) => handlePartySelect(index, e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            required
+                          >
+                            <option value="">Select Party</option>
+                            {allParties.map(partyItem => (
+                              <option key={`${partyItem.type}:${partyItem.id}`} value={`${partyItem.type}:${partyItem.id}`}>
+                                {partyItem.name}
+                              </option>
+                            ))}
+                          </select>
+                          {party.partyId && (
+                            <p className="text-xs text-gray-500">
+                              curr Bal: {formatAmount(party.currentBalance)} {party.currentBalanceType === 'credit' ? 'Cr' : 'Dr'}
+                            </p>
+                          )}
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-xs font-medium text-gray-600">Amount</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={party.amount}
+                            onChange={(e) => handlePartyAmountChange(index, e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                            placeholder="0.00"
+                            required
+                          />
+                          {formData.parties.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => removeParty(index)}
+                              className="text-red-500 hover:text-red-700 text-xs"
+                            >
+                              <Trash2 size={14} className="inline" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+                
+                {/* Total Amount */}
+                <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
+                  <span className="text-sm font-semibold text-gray-700">Total Auto</span>
+                  <span className="text-sm font-semibold text-gray-900">
+                    {formatAmount(calculateTotalAmount())} {formData.voucherType === 'Payment' ? 'Cr' : 'Dr'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Account Selection */}
+              <div className="border border-gray-200 rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">Account:</label>
+                <select
+                  value={formData.account}
+                  onChange={(e) => handleInputChange('account', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                >
+                  <option value="">Select Account (Cash or Bank)</option>
+                  {cashBankLedgers.map(ledger => (
+                    <option key={ledger.id} value={ledger.id}>
+                      {ledger.name}
                     </option>
                   ))}
-                </optgroup>
-                <optgroup label="Vendors">
-                  {vendors.map(vendor => (
-                    <option key={vendor._id} value={vendor._id}>
-                      {vendor.vendorName}
-                    </option>
-                  ))}
-                </optgroup>
-              </select>
-              {partyBalanceLabel && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Current Balance: {partyBalanceLabel}
-                </p>
-              )}
+                </select>
+                {formData.account && (() => {
+                  const selectedLedger = cashBankLedgers.find(l => l.id === formData.account);
+                  if (selectedLedger) {
+                    const balance = selectedLedger.outstandingBalance || selectedLedger.openingBalance || 0;
+                    const balanceType = selectedLedger.outstandingBalanceType || selectedLedger.openingBalanceType || 'debit';
+                    return (
+                      <p className="text-xs text-gray-500 mt-1">
+                        current balance: {formatAmount(balance)} {balanceType === 'credit' ? 'Cr' : 'Dr'}
+                      </p>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Party Name</label>
-              <input
-                type="text"
-                value={formData.partyName}
-                onChange={(e) => handleInputChange('partyName', e.target.value)}
-                placeholder="Enter party name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+          ) : (
+            <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Party</label>
+                <select
+                  value={formData.party}
+                  onChange={(e) => handlePartyChange(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select Party</option>
+                  <optgroup label="Customers">
+                    {customers.map(customer => (
+                      <option key={customer.id} value={customer.id}>
+                        {customer.shopName} - {customer.ownerName}
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Vendors">
+                    {vendors.map(vendor => (
+                      <option key={vendor._id} value={vendor._id}>
+                        {vendor.vendorName}
+                      </option>
+                    ))}
+                  </optgroup>
+                </select>
+                {partyBalanceLabel && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Current Balance: {partyBalanceLabel}
+                  </p>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Party Name</label>
+                <input
+                  type="text"
+                  value={formData.partyName}
+                  onChange={(e) => handleInputChange('partyName', e.target.value)}
+                  placeholder="Enter party name"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Voucher Entries */}
+        {/* Voucher Entries - Only show for non-Payment/Receipt vouchers */}
+        {!isPaymentOrReceipt && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
             <div>
@@ -574,6 +1040,7 @@ const AddEditVoucher = () => {
             </div>
           </div>
         </div>
+        )}
         {/* Narration */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
           <div className="px-6 py-4 border-b border-gray-200">
@@ -603,7 +1070,7 @@ const AddEditVoucher = () => {
           </Link>
           <button
             type="submit"
-            disabled={loading || !isBalanced}
+            disabled={loading || (!isPaymentOrReceipt && !isBalanced)}
             className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
           >
             <Save size={16} />

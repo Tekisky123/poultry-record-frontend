@@ -5,6 +5,17 @@ const calculateOpeningBalanceValue = (entry) => {
   const balance = Number(entry.outstandingBalance) || 0;
   const amount = Number(entry.amount) || 0;
 
+  // Handle voucher entries
+  if (entry.isVoucher && entry.voucherType) {
+    if (entry.voucherType === 'Payment') {
+      // Payment voucher: customer balance decreases
+      return balance + amount;
+    } else if (entry.voucherType === 'Receipt') {
+      // Receipt voucher: customer balance increases
+      return balance - amount;
+    }
+  }
+
   switch (entry.particulars) {
     case 'SALES':
       return balance - amount;
@@ -12,6 +23,10 @@ const calculateOpeningBalanceValue = (entry) => {
     case 'BY BANK RECEIPT':
     case 'DISCOUNT':
       return balance + amount;
+    case 'RECEIPT':
+    case 'PAYMENT':
+      // These don't change balance in the calculation
+      return balance;
     default:
       return balance;
   }
@@ -23,9 +38,24 @@ export const downloadCustomerLedgerExcelCustomer = (ledgerData, customerName) =>
       const rowBalance =
         typeof entry.outstandingBalance === 'number' ? entry.outstandingBalance : 0;
 
+      // Map voucher particulars for customer portal:
+      // Payment voucher: show "PAYMENT"
+      // Receipt voucher: show "RECEIPT"
+      let particulars = entry.particulars || '';
+      if (entry.isVoucher && entry.voucherType) {
+        if (entry.voucherType === 'Payment') {
+          particulars = 'PAYMENT';
+        } else if (entry.voucherType === 'Receipt') {
+          particulars = 'RECEIPT';
+        }
+      } else if (entry.particulars === 'RECEIPT') {
+        // Map existing "RECEIPT" to "PAYMENT" for customer portal
+        particulars = 'PAYMENT';
+      }
+
       return {
         Date: formatDate(entry.date),
-        Particulars: entry.particulars || '',
+        Particulars: particulars,
         'Invoice No': entry.invoiceNo || '',
         Birds: entry.birds || 0,
         Weight: entry.weight || 0,

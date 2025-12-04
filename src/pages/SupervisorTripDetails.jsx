@@ -335,6 +335,14 @@ const SupervisorTripDetails = () => {
     }
   };
 
+  // Helper function to find "CASH A/C" ledger ID
+  const getCashAcLedgerId = () => {
+    const cashAcLedger = cashInHandLedgers.find(ledger => 
+      ledger.name === 'CASH A/C' || ledger.name === 'CASH A/C' || ledger.name?.toUpperCase() === 'CASH A/C'
+    );
+    return cashAcLedger?.id || cashAcLedger?._id || null;
+  };
+
   const fetchLedgers = async () => {
     try {
       setLedgersLoading(true);
@@ -456,6 +464,13 @@ const SupervisorTripDetails = () => {
       if (field === 'cashPaid' && (Number(newData.cashPaid) === 0 || !newData.cashPaid)) {
         newData.cashLedger = '';
       }
+      // Auto-select "CASH A/C" ledger when cashPaid > 0 and cashLedger is empty
+      if (field === 'cashPaid' && Number(newData.cashPaid) > 0 && !newData.cashLedger) {
+        const cashAcId = getCashAcLedgerId();
+        if (cashAcId) {
+          newData.cashLedger = cashAcId;
+        }
+      }
       if (field === 'onlinePaid' && (Number(newData.onlinePaid) === 0 || !newData.onlinePaid)) {
         newData.onlineLedger = '';
       }
@@ -494,11 +509,26 @@ const SupervisorTripDetails = () => {
 
     try {
       setLoadingBalance(true);
-      // Fetch customer profile to get outstanding balance
-      const response = await api.get(`/customer/panel/${customer.user._id}/profile`);
+      let response;
+      // If customer has user field (from dropdown selection), use panel endpoint
+      if (customer.user) {
+        response = await api.get(`/customer/panel/${customer.user._id || customer.user}/profile`);
+      } 
+      // If customer only has _id (from editing sale), use admin endpoint
+      else if (customer._id) {
+        response = await api.get(`/customer/admin/${customer._id || customer.user}`);
+      } else {
+        setCustomerBalance(null);
+        return;
+      }
       if (response.data.success) {
         const customerData = response.data.data;
-        setCustomerBalance(Number(customerData.outstandingBalance) || 0);
+        // Handle balance: outstandingBalance (number) and outstandingBalanceType ('debit' or 'credit')
+        const balanceAmount = Number(customerData.outstandingBalance) || 0;
+        const balanceType = customerData.outstandingBalanceType || 'debit';
+        // Convert to signed value: debit = positive, credit = negative
+        const signedValue = balanceType === 'credit' ? -balanceAmount : balanceAmount;
+        setCustomerBalance(signedValue);
       }
     } catch (error) {
       console.error('Error fetching customer balance:', error);
@@ -623,22 +653,22 @@ const SupervisorTripDetails = () => {
         // Edit existing purchase
         data = await api.put(`/trip/${id}/purchase/${editingPurchaseIndex}`, cleanedPurchaseData);
         if (data.data.success) {
-          setTrip(data.data.data);
           setShowPurchaseModal(false);
           setPurchaseData({ supplier: '', dcNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0 });
           setEditingPurchaseIndex(null);
+          await handleRefresh();
           alert('Purchase updated successfully!');
         }
       } else {
         // Add new purchase
         data = await api.post(`/trip/${id}/purchase`, cleanedPurchaseData);
         if (data.data.success) {
-          setTrip(data.data.data);
           setShowPurchaseModal(false);
           setPurchaseData({ supplier: '', dcNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0 });
-          alert('Purchase added successfully!');
           // Update status to 'ongoing' when first management activity starts
           await updateTripStatusToOngoing();
+          await handleRefresh();
+          alert('Purchase added successfully!');
         }
       }
     } catch (error) {
@@ -742,8 +772,6 @@ const SupervisorTripDetails = () => {
         // Edit existing sale
         data = await api.put(`/trip/${id}/sale/${editingSaleIndex}`, cleanedSaleData);
         if (data.data.success) {
-          setTrip(data.data.data);
-          
           // Update customer's opening balance if sale has a client
           if (cleanedSaleData.client && cleanedSaleData.balance !== undefined) {
             try {
@@ -764,14 +792,13 @@ const SupervisorTripDetails = () => {
           setShowCustomerDropdown(false);
           setCustomerBalance(null);
           setEditingSaleIndex(null);
+          await handleRefresh();
           alert('Sale updated successfully!');
         }
       } else {
         // Add new sale
         data = await api.post(`/trip/${id}/sale`, cleanedSaleData);
         if (data.data.success) {
-          setTrip(data.data.data);
-          
           // Update customer's opening balance if sale has a client
           if (cleanedSaleData.client && cleanedSaleData.balance !== undefined) {
             try {
@@ -791,9 +818,10 @@ const SupervisorTripDetails = () => {
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
           setCustomerBalance(null);
-          alert('Sale added successfully!');
           // Update status to 'ongoing' when first management activity starts
           await updateTripStatusToOngoing();
+          await handleRefresh();
+          alert('Sale added successfully!');
         }
       }
     } catch (error) {
@@ -855,8 +883,6 @@ const SupervisorTripDetails = () => {
         // Edit existing receipt
         data = await api.put(`/trip/${id}/sale/${editingSaleIndex}`, receiptData);
         if (data.data.success) {
-          setTrip(data.data.data);
-          
           // Update customer's opening balance if receipt has a client and balance
           if (receiptData.client && receiptData.balance !== undefined && receiptData.balance !== 0) {
             try {
@@ -876,14 +902,13 @@ const SupervisorTripDetails = () => {
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
           setEditingSaleIndex(null);
+          await handleRefresh();
           alert('Receipt updated successfully!');
         }
       } else {
         // Add new receipt as a sale
         data = await api.post(`/trip/${id}/sale`, receiptData);
         if (data.data.success) {
-          setTrip(data.data.data);
-          
           // Update customer's opening balance if receipt has a client and balance
           if (receiptData.client && receiptData.balance !== undefined && receiptData.balance !== 0) {
             try {
@@ -902,9 +927,10 @@ const SupervisorTripDetails = () => {
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
-          alert('Receipt added successfully!');
           // Update status to 'ongoing' when first management activity starts
           await updateTripStatusToOngoing();
+          await handleRefresh();
+          alert('Receipt added successfully!');
         }
       }
     } catch (error) {
@@ -932,12 +958,12 @@ const SupervisorTripDetails = () => {
 
       const { data } = await api.put(`/trip/${id}/expenses`, { expenses: [...(trip.expenses || []), expenseData] });
       if (data.success) {
-        setTrip(data.data);
         setShowExpenseModal(false);
         setExpenseData({ category: 'meals', description: '', amount: '' });
-        alert('Expense added successfully!');
         // Update status to 'ongoing' when first management activity starts
         await updateTripStatusToOngoing();
+        await handleRefresh();
+        alert('Expense added successfully!');
       }
     } catch (error) {
       console.error('Error adding expense:', error);
@@ -968,10 +994,10 @@ const SupervisorTripDetails = () => {
         // Edit existing diesel record
         data = await api.put(`/trip/${id}/diesel/${editingDieselIndex}`, payload);
         if (data.data.success) {
-          setTrip(data.data.data);
           setShowDieselModal(false);
           setEditingDieselIndex(null);
           setDieselData(createInitialDieselData());
+          await handleRefresh();
           alert('Diesel record updated successfully!');
         }
       } else {
@@ -980,12 +1006,12 @@ const SupervisorTripDetails = () => {
           stations: [...(trip.diesel?.stations || []), payload]
         });
         if (data.data.success) {
-          setTrip(data.data.data);
           setShowDieselModal(false);
           setDieselData(createInitialDieselData());
-          alert('Diesel record added successfully!');
           // Update status to 'ongoing' when first management activity starts
           await updateTripStatusToOngoing();
+          await handleRefresh();
+          alert('Diesel record added successfully!');
         }
       }
     } catch (error) {
@@ -1056,15 +1082,15 @@ const SupervisorTripDetails = () => {
       }
 
       if (response.data.success) {
-        setTrip(response.data.data);
         setShowStockModal(false);
         setEditingStockIndex(null);
         setStockData({ birds: '', weight: '', avgWeight: 0, rate: '', value: 0, notes: '' });
-        alert(editingStockIndex !== null ? 'Stock updated successfully!' : 'Stock added successfully!');
         // Update status to 'ongoing' when first management activity starts (only for new stock)
         if (editingStockIndex === null) {
           await updateTripStatusToOngoing();
         }
+        await handleRefresh();
+        alert(editingStockIndex !== null ? 'Stock updated successfully!' : 'Stock added successfully!');
       }
     } catch (error) {
       console.error('Error updating stock:', error);
@@ -1082,7 +1108,7 @@ const SupervisorTripDetails = () => {
     try {
       const { data } = await api.delete(`/trip/${id}/stock/${stockIndex}`);
       if (data.success) {
-        setTrip(data.data);
+        await handleRefresh();
         alert('Stock deleted successfully!');
       }
     } catch (error) {
@@ -1215,11 +1241,9 @@ const SupervisorTripDetails = () => {
 
       const { data } = await api.put(`/trip/${id}/complete-details`, updateData);
       if (data.success) {
-        setTrip(data.data);
         setShowCompleteTripDetailsModal(false);
+        await handleRefresh();
         alert('Trip details completed successfully! You can now manage this trip.');
-        // Refresh to get updated data
-        await fetchTrip();
       }
     } catch (error) {
       console.error('Error completing trip details:', error);
@@ -1392,7 +1416,8 @@ const SupervisorTripDetails = () => {
               )}
               <button
                 onClick={() => {
-                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
+                  const cashAcId = getCashAcLedgerId();
+                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: cashAcId || '', onlineLedger: '' });
                   setSelectedCustomer(null);
                   setCustomerSearchTerm('');
                   setShowCustomerDropdown(false);
@@ -1406,7 +1431,8 @@ const SupervisorTripDetails = () => {
               </button>
               <button
                 onClick={() => {
-                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', isReceipt: true });
+                  const cashAcId = getCashAcLedgerId();
+                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: cashAcId || '', onlineLedger: '', isReceipt: true });
                   setSelectedCustomer(null);
                   setCustomerSearchTerm('');
                   setShowCustomerDropdown(false);
@@ -1823,8 +1849,10 @@ const SupervisorTripDetails = () => {
                                       <button
                                         onClick={() => {
                                           if (sale.isReceipt) {
+                                            const cashAcId = getCashAcLedgerId();
+                                            const defaultCashLedger = (sale.cashLedger || (sale.cashPaid > 0 ? cashAcId : '')) || '';
                                             setSaleData({
-                                              client: sale.client?._id || '',
+                                              client: sale.client?._id || sale.client?.id || sale.client?.user?.customer?.id || '',
                                               billNumber: sale.billNumber || generateBillNumber(),
                                               birds: 0,
                                               weight: 0,
@@ -1836,14 +1864,30 @@ const SupervisorTripDetails = () => {
                                               balance: sale.balance || 0,
                                               cashPaid: sale.cashPaid || 0,
                                               onlinePaid: sale.onlinePaid || 0,
+                                              cashLedger: defaultCashLedger,
+                                              onlineLedger: sale.onlineLedger || '',
                                               isReceipt: true
                                             });
                                             setSelectedCustomer(sale.client);
+                            
+                                            setCustomerSearchTerm(sale.client ? `${sale.client.shopName} - ${sale.client.ownerName || 'N/A'}` : '');
+                                            // When editing, use saleOutBalance from the sale record (balance at creation time)
+                                            if (sale.saleOutBalance !== undefined && sale.saleOutBalance !== null) {
+                                              // saleOutBalance is stored as signed value, convert to display value
+                                              setCustomerBalance(sale.saleOutBalance);
+                                            } else if (sale.client) {
+                                              // Fallback: if saleOutBalance doesn't exist (old sales), fetch current balance
+                                              fetchCustomerBalance(sale.client);
+                                            } else {
+                                              setCustomerBalance(null);
+                                            }
                                             setEditingSaleIndex(trip.sales.findIndex(s => s._id === sale._id));
                                             setShowReceiptModal(true);
                                           } else {
+                                          const cashAcId = getCashAcLedgerId();
+                                          const defaultCashLedger = (sale.cashLedger || (sale.cashPaid > 0 ? cashAcId : '')) || '';
                                           setSaleData({
-                                            client: sale.client?._id || '',
+                                            client: sale.client?._id || sale.client?.id || sale.client?.user?.customer?.id || '',
                                             billNumber: sale.billNumber || generateBillNumber(),
                                             birds: sale.birds || 0,
                                             weight: sale.weight || 0,
@@ -1856,9 +1900,23 @@ const SupervisorTripDetails = () => {
                                             discount: sale.discount || 0,
                                             outstandingBalance: sale.outstandingBalance || 0,
                                             cashPaid: sale.cashPaid || 0,
-                                            onlinePaid: sale.onlinePaid || 0
+                                            onlinePaid: sale.onlinePaid || 0,
+                                            cashLedger: defaultCashLedger,
+                                            onlineLedger: sale.onlineLedger || ''
                                           });
                                           setSelectedCustomer(sale.client);
+                                          setCustomerSearchTerm(sale.client ? `${sale.client.shopName} - ${sale.client.ownerName || 'N/A'}` : '');
+                                          // When editing, use saleOutBalance from the sale record (balance at creation time)
+                                          if (sale.saleOutBalance !== undefined && sale.saleOutBalance !== null) {
+                                            // saleOutBalance is stored as signed value, convert to display value
+                                            setCustomerBalance(sale.saleOutBalance);
+                                            console.log("sssssSale", sale)
+                                          } else if (sale.client) {
+                                            // Fallback: if saleOutBalance doesn't exist (old sales), fetch current balance
+                                            fetchCustomerBalance(sale.client);
+                                          } else {
+                                            setCustomerBalance(null);
+                                          }
                                           setEditingSaleIndex(trip.sales.findIndex(s => s._id === sale._id));
                                           setShowSaleModal(true);
                                           }
@@ -2000,6 +2058,8 @@ const SupervisorTripDetails = () => {
                                       {trip.status !== 'completed' && (
                                         <button
                                           onClick={() => {
+                                            const cashAcId = getCashAcLedgerId();
+                                            const defaultCashLedger = (receipt.cashLedger || (receipt.cashPaid > 0 ? cashAcId : '')) || '';
                                             setSaleData({
                                               client: receipt.client?._id || '',
                                               billNumber: receipt.billNumber || generateBillNumber(),
@@ -2013,6 +2073,8 @@ const SupervisorTripDetails = () => {
                                               balance: receipt.balance || 0,
                                               cashPaid: receipt.cashPaid || 0,
                                               onlinePaid: receipt.onlinePaid || 0,
+                                              cashLedger: defaultCashLedger,
+                                              onlineLedger: receipt.onlineLedger || '',
                                               isReceipt: true
                                             });
                                             setSelectedCustomer(receipt.client);
@@ -4332,9 +4394,9 @@ const SupervisorTripDetails = () => {
           onClose={() => setShowTransferModal(false)}
           trip={trip}
           tripId={id}
-          onTransferSuccess={(data) => {
+          onTransferSuccess={async (data) => {
             // Refresh the trip data
-            fetchTrip();
+            await handleRefresh();
             alert(`Trip transferred successfully to ${data.newTrip?.supervisor?.name || 'selected supervisor'}!`);
           }}
         />
@@ -4538,8 +4600,8 @@ const SupervisorTripDetails = () => {
         isOpen={showEditTripModal}
         onClose={() => setShowEditTripModal(false)}
         trip={trip}
-        onSuccess={() => {
-          fetchTrip(); // Refresh trip data
+        onSuccess={async () => {
+          await handleRefresh(); // Refresh trip data
         }}
       />
 

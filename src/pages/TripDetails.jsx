@@ -902,7 +902,50 @@ export default function TripDetails() {
             <div className="border-t">
               <div className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Left Column - Trip Metrics */}
+                  {/* Left Column - Financial Summary */}
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3">FINANCIAL SUMMARY</h4>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">TOTAL SALES:</span>
+                        <span className="font-semibold">₹{(trip.summary?.totalSalesAmount || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">TOTAL PURCHASE:</span>
+                        <span className="font-semibold">₹{(trip.summary?.totalPurchaseAmount || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">GROSS PROFIT:</span>
+                        <span className="font-semibold">₹{(trip.summary?.totalProfitMargin || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">TOTAL EXP:</span>
+                        <span className="font-semibold">₹{(trip.summary?.totalExpenses || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">GROSS RENT:</span>
+                        <span className="font-semibold">₹{(trip.vehicleReadings?.totalDistance ? (trip.vehicleReadings.totalDistance * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-600">MORTALITY & WEIGHT LOSS:</span>
+                        <span className="font-semibold">₹{mortalityAndWeightLossAmount.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between bg-gray-700 text-white px-3 py-2 rounded">
+                        <span className="text-sm font-semibold">BIRDS PROFIT:</span>
+                        <span className="font-semibold">₹{(trip.summary?.birdsProfit || 0).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between bg-black text-white px-3 py-2 rounded">
+                        <span className="text-sm font-bold">MARGIN:</span>
+                        <span className="font-bold">
+                          ₹{(trip.summary?.totalWeightSold && trip.summary?.totalWeightSold > 0) 
+                            ? (trip.summary.netProfit / trip.summary.totalWeightSold).toFixed(2) 
+                            : '0.00'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Right Column - Trip Metrics */}
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-3">TRIP METRICS</h4>
                     <div className="space-y-2">
@@ -948,49 +991,6 @@ export default function TripDetails() {
                       </div>
                     </div>
                   </div>
-                  
-                  {/* Right Column - Financial Summary */}
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">FINANCIAL SUMMARY</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">TOTAL SALES:</span>
-                        <span className="font-semibold">₹{(trip.summary?.totalSalesAmount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">TOTAL PURCHASE:</span>
-                        <span className="font-semibold">₹{(trip.summary?.totalPurchaseAmount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">GROSS PROFIT:</span>
-                        <span className="font-semibold">₹{(trip.summary?.totalProfitMargin || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">TOTAL EXP:</span>
-                        <span className="font-semibold">₹{(trip.summary?.totalExpenses || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">GROSS RENT:</span>
-                        <span className="font-semibold">₹{(trip.vehicleReadings?.totalDistance ? (trip.vehicleReadings.totalDistance * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">MORTALITY & WEIGHT LOSS:</span>
-                        <span className="font-semibold">₹{mortalityAndWeightLossAmount.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between bg-gray-700 text-white px-3 py-2 rounded">
-                        <span className="text-sm font-semibold">BIRDS PROFIT:</span>
-                        <span className="font-semibold">₹{(trip.summary?.birdsProfit || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between bg-black text-white px-3 py-2 rounded">
-                        <span className="text-sm font-bold">MARGIN:</span>
-                        <span className="font-bold">
-                          ₹{(trip.summary?.totalWeightSold && trip.summary?.totalWeightSold > 0) 
-                            ? (trip.summary.netProfit / trip.summary.totalWeightSold).toFixed(2) 
-                            : '0.00'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -1004,7 +1004,7 @@ export default function TripDetails() {
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
             {/* removed - 'stock' tab */}
-            {['overview', 'purchases', 'sales', 'expenses', 'diesel', 'losses', 'transfers', 'financials'].map((tab) => (
+            {['overview', 'purchases', 'sales', 'receipts', 'expenses', 'diesel', 'losses', 'transfers', 'financials'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -1371,6 +1371,168 @@ export default function TripDetails() {
               ) : (
                 <p className="text-gray-500 text-center py-8">No sales recorded yet.</p>
               )}
+            </div>
+          )}
+
+          {/* Receipts Tab */}
+          {activeTab === 'receipts' && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  {isAdmin ? 'Receipt Details' : 'Receipts'}
+                </h3>
+              </div>
+              {(() => {
+                // Filter receipts from sales (where isReceipt is true or birds/weight/amount are 0)
+                const receipts = trip.sales?.filter(sale => 
+                  sale.isReceipt === true || 
+                  ((sale.birds === 0 || !sale.birds) && (sale.weight === 0 || !sale.weight) && (sale.amount === 0 || !sale.amount))
+                ) || [];
+
+                if (receipts.length > 0) {
+                  return isAdmin ? (
+                    // Admin view - Detailed table
+                    <div className="overflow-x-auto">
+                      <table className="w-full border-collapse border border-gray-300">
+                        <thead>
+                          <tr className="bg-gray-50">
+                            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-medium text-gray-700">S.N.</th>
+                            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-medium text-gray-700">Customer</th>
+                            <th className="border border-gray-300 px-4 py-2 text-left text-sm font-medium text-gray-700">Bill No</th>
+                            <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Cash Receipt</th>
+                            <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Online Receipt</th>
+                            <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Discount</th>
+                            <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Balance</th>
+                            {/* Edit column for completed trips - Admin/Superadmin only */}
+                            {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                              <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Actions</th>
+                            )}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {receipts.map((receipt, index) => {
+                            // Find the original index in trip.sales array for editing
+                            const originalIndex = trip.sales?.findIndex(s => 
+                              s._id === receipt._id || 
+                              s.id === receipt.id ||
+                              (s.billNumber === receipt.billNumber && s.isReceipt === true)
+                            ) ?? -1;
+
+                            return (
+                              <tr key={index} className="hover:bg-gray-50">
+                                <td className="border border-gray-300 px-4 py-2 text-sm text-gray-900">{index + 1}</td>
+                                <td className="border border-gray-300 px-4 py-2 text-sm text-gray-900">{receipt.client?.shopName || 'N/A'}</td>
+                                <td className="border border-gray-300 px-4 py-2 text-sm text-gray-900">{receipt.billNumber || 'N/A'}</td>
+                                <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
+                                  ₹{(receipt.cashPaid || 0).toLocaleString()}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
+                                  ₹{(receipt.onlinePaid || 0).toLocaleString()}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
+                                  ₹{(receipt.discount || 0).toLocaleString()}
+                                </td>
+                                <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
+                                  ₹{(receipt.balance || 0).toLocaleString()}
+                                </td>
+                                {/* Edit button for completed trips - Admin/Superadmin only */}
+                                {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && originalIndex >= 0 && (
+                                  <td className="border border-gray-300 px-4 py-2 text-center">
+                                    <button
+                                      onClick={() => {
+                                        // Extract client ID properly - handle both populated and non-populated client fields
+                                        let clientId = '';
+                                        if (typeof receipt.client === 'string') {
+                                          clientId = receipt.client;
+                                        } else if (receipt.client && (receipt.client._id || receipt.client.id)) {
+                                          clientId = receipt.client._id || receipt.client.id;
+                                        }
+                                        
+                                        setSaleData({
+                                          client: clientId,
+                                          billNumber: receipt.billNumber || '',
+                                          birds: receipt.birds || 0,
+                                          weight: receipt.weight || 0,
+                                          avgWeight: receipt.avgWeight || 0,
+                                          rate: receipt.rate || 0,
+                                          amount: receipt.amount || 0,
+                                          receivedAmount: receipt.receivedAmount || 0,
+                                          discount: receipt.discount || 0,
+                                          balance: receipt.balance || 0,
+                                          cashPaid: receipt.cashPaid || 0,
+                                          onlinePaid: receipt.onlinePaid || 0
+                                        });
+                                        setEditingSaleIndex(originalIndex);
+                                        setShowSaleModal(true);
+                                      }}
+                                      className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                                    >
+                                      <Edit size={10} />
+                                      Edit
+                                    </button>
+                                  </td>
+                                )}
+                              </tr>
+                            );
+                          })}
+                          <tr className="bg-gray-100 font-semibold">
+                            <td className="border border-gray-300 px-4 py-2 text-sm text-gray-900" colSpan={trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') ? "3" : "2"}>TOTAL</td>
+                            <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
+                              ₹{receipts.reduce((sum, receipt) => sum + (receipt.cashPaid || 0), 0).toLocaleString()}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
+                              ₹{receipts.reduce((sum, receipt) => sum + (receipt.onlinePaid || 0), 0).toLocaleString()}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
+                              ₹{receipts.reduce((sum, receipt) => sum + (receipt.discount || 0), 0).toLocaleString()}
+                            </td>
+                            <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
+                              ₹{receipts.reduce((sum, receipt) => sum + (receipt.balance || 0), 0).toLocaleString()}
+                            </td>
+                            {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                              <td className="border border-gray-300 px-4 py-2"></td>
+                            )}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    // Supervisor view - Simple cards
+                    <div className="space-y-3">
+                      {receipts.map((receipt, index) => (
+                        <div key={index} className="p-4 border border-gray-200 rounded-lg">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-medium text-gray-900">Bill: {receipt.billNumber}</h4>
+                              <p className="text-sm text-gray-600">Customer: {receipt.client?.shopName || 'N/A'}</p>
+                              <div className="text-sm text-gray-600 mt-2 space-y-1">
+                                {(receipt.cashPaid || 0) > 0 && (
+                                  <p>Cash Receipt: ₹{receipt.cashPaid.toLocaleString()}</p>
+                                )}
+                                {(receipt.onlinePaid || 0) > 0 && (
+                                  <p>Online Receipt: ₹{receipt.onlinePaid.toLocaleString()}</p>
+                                )}
+                                {(receipt.discount || 0) > 0 && (
+                                  <p>Discount: ₹{receipt.discount.toLocaleString()}</p>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-green-600">
+                                ₹{((receipt.cashPaid || 0) + (receipt.onlinePaid || 0)).toLocaleString()}
+                              </p>
+                              <p className="text-sm text-gray-500">Total Receipt</p>
+                              <p className="text-sm text-gray-500 mt-1">Balance: ₹{receipt.balance?.toLocaleString() || '0'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                } else {
+                  return <p className="text-gray-500 text-center py-8">No receipts recorded yet.</p>;
+                }
+              })()}
             </div>
           )}
 

@@ -24,6 +24,7 @@ import Groups from './pages/Groups';
 import Ledgers from './pages/Ledgers';
 import DieselStations from './pages/DieselStations';
 import BalanceSheet from './pages/BalanceSheet';
+import GroupSummary from './pages/GroupSummary';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -152,6 +153,7 @@ const AppContent = () => {
                 <Route path="/ledgers" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Ledgers /></ProtectedRoute>} />
                 <Route path="/diesel-stations" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><DieselStations /></ProtectedRoute>} />
                 <Route path="/balance-sheet" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BalanceSheet /></ProtectedRoute>} />
+                <Route path="/group-summary/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><GroupSummary /></ProtectedRoute>} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
           </main>

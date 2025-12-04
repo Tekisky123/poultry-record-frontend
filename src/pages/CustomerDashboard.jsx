@@ -488,6 +488,8 @@ const CustomerDashboard = () => {
         return 'text-blue-600 bg-blue-100';
       case 'RECEIPT':
         return 'text-green-600 bg-green-100';
+      case 'PAYMENT':
+        return 'text-green-600 bg-green-100';
       case 'DISCOUNT':
         return 'text-orange-600 bg-orange-100';
       case 'OP BAL':
@@ -495,6 +497,25 @@ const CustomerDashboard = () => {
       default:
         return 'text-gray-600 bg-gray-100';
     }
+  };
+
+  // Display function to map particulars in customer portal UI:
+  // Payment voucher: show "PAYMENT"
+  // Receipt voucher: show "RECEIPT"
+  // Existing "RECEIPT": show "PAYMENT"
+  const displayParticulars = (entry) => {
+    if (entry.isVoucher && entry.voucherType) {
+      if (entry.voucherType === 'Payment') {
+        return 'RECEIPT';
+      } else if (entry.voucherType === 'Receipt') {
+        return 'PAYMENT';
+      }
+    }
+    // Map existing "RECEIPT" to "PAYMENT" for customer portal
+    if (entry.particulars === 'RECEIPT') {
+      return 'PAYMENT';
+    }
+    return entry.particulars;
   };
 
   const formatDate = (dateString) => {
@@ -974,8 +995,8 @@ const CustomerDashboard = () => {
                       </td>
                       <td className="px-3 py-3 text-gray-900">{formatDate(entry.date)}</td>
                       <td className="px-3 py-3">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getParticularsColor(entry.particulars)}`}>
-                          {entry.particulars}
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getParticularsColor(displayParticulars(entry))}`}>
+                          {displayParticulars(entry)}
                         </span>
                       </td>
                       {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry?.invoiceNo || '-'}</td>}

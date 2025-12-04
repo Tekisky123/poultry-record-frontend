@@ -230,6 +230,8 @@ const CustomerDetails = () => {
         return 'bg-blue-100 text-blue-800';
       case 'RECEIPT':
         return 'bg-green-100 text-green-800';
+      case 'PAYMENT':
+        return 'bg-green-100 text-green-800';
       case 'BY CASH RECEIPT':
         return 'bg-yellow-100 text-yellow-800';
       case 'BY BANK RECEIPT':
@@ -241,6 +243,20 @@ const CustomerDetails = () => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  // Map voucher particulars for admin panel:
+  // Payment voucher: show "RECEIPT"
+  // Receipt voucher: show "PAYMENT"
+  const displayParticulars = (entry) => {
+    if (entry.isVoucher && entry.voucherType) {
+      if (entry.voucherType === 'Payment') {
+        return 'RECEIPT';
+      } else if (entry.voucherType === 'Receipt') {
+        return 'PAYMENT';
+      }
+    }
+    return entry.particulars;
   };
 
   const formatDate = (dateString) => {
@@ -616,8 +632,8 @@ const CustomerDetails = () => {
                       </td>
                       <td className="px-3 py-3 text-gray-900">{formatDate(entry.date)}</td>
                       <td className="px-3 py-3">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getParticularsColor(entry.particulars)}`}>
-                          {entry.particulars}
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getParticularsColor(displayParticulars(entry))}`}>
+                          {displayParticulars(entry)}
                         </span>
                       </td>
                       <td className="px-3 py-3 text-gray-900">{entry.invoiceNo || '-'}</td>

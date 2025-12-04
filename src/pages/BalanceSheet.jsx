@@ -1,51 +1,70 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, memo, useCallback } from 'react';
 import { Calendar, Download, Loader2, ChevronDown, ChevronRight, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 
-// Render group tree node with hierarchy
-const GroupNode = ({ group, level = 0, expanded, onToggle }) => {
-  const hasChildren = group.children && group.children.length > 0;
-  const groupId = group.id || group._id;
-  const isExpanded = expanded[groupId] !== false; // Default to expanded
-  const balance = Math.abs(group.balance || 0);
+// Memoized balance cache to avoid recalculating
+const balanceCache = new Map();
 
-  // Calculate indentation for hierarchy - clear spacing like Tally
+// Aggregate balances from nested children into parent (optimized with caching)
+const aggregateChildrenBalances = (group) => {
+  const cacheKey = `${group.id || group._id}_${group.balance}`;
+  
+  if (balanceCache.has(cacheKey)) {
+    return balanceCache.get(cacheKey);
+  }
+  
+  let totalBalance = Math.abs(group.balance || 0);
+  
+  // If this group has children, aggregate their balances
+  if (group.children && group.children.length > 0) {
+    group.children.forEach(child => {
+      totalBalance += aggregateChildrenBalances(child);
+    });
+  }
+  
+  balanceCache.set(cacheKey, totalBalance);
+  return totalBalance;
+};
+
+// Clear cache when balance sheet changes
+const clearBalanceCache = () => {
+  balanceCache.clear();
+};
+
+// Render group node with one level of nesting (memoized for performance)
+const GroupNode = memo(({ group, level = 0 }) => {
+  const navigate = useNavigate();
+  const balance = Math.abs(group.balance || 0);
+  const groupId = group.id || group._id;
+  const hasChildren = group.children && group.children.length > 0;
+  
+  // Calculate indentation for hierarchy
   const indentWidth = 24;
   const leftPadding = level * indentWidth;
 
+  const handleGroupClick = useCallback((e) => {
+    e.stopPropagation();
+    navigate(`/group-summary/${groupId}`);
+  }, [navigate, groupId]);
+
   return (
     <div className="select-none">
+      {/* Parent Group */}
       <div 
-        className="flex items-center gap-2 py-1 hover:bg-gray-50"
+        className="flex items-center gap-2 py-1 hover:bg-gray-50 cursor-pointer rounded px-2 transition-colors"
+        onClick={handleGroupClick}
         style={{ 
           paddingLeft: `${leftPadding}px`
         }}
       >
-        {/* Expand/Collapse button - only show if has children */}
-        {hasChildren ? (
-          <button 
-            onClick={() => onToggle(groupId)} 
-            className="p-0.5 hover:bg-gray-200 rounded flex-shrink-0"
-          >
-            {isExpanded ? (
-              <ChevronDown size={14} className="text-gray-600" />
-            ) : (
-              <ChevronRight size={14} className="text-gray-600" />
-            )}
-          </button>
-        ) : (
-          <span className="w-5 flex-shrink-0" />
-        )}
-
-        {/* Group name with level-based styling */}
-        <span 
-          className={`flex-1 ${
-            level === 0 ? 'text-sm font-semibold text-gray-900' : 
-            'text-sm text-gray-700'
-          }`}
-        >
+        {/* Group name */}
+        <span className={`flex-1 ${
+          level === 0 ? 'text-sm font-semibold text-gray-900' : 
+          'text-sm text-gray-700'
+        }`}>
           {group.name}
         </span>
 
@@ -55,23 +74,33 @@ const GroupNode = ({ group, level = 0, expanded, onToggle }) => {
         </span>
       </div>
 
-      {/* Children - always show if expanded */}
-      {hasChildren && isExpanded && (
+      {/* Direct Children (one level only) */}
+      {hasChildren && level === 0 && (
         <div>
-          {group.children.map((child) => (
-            <GroupNode
-              key={child.id || child._id}
-              group={child}
-              level={level + 1}
-              expanded={expanded}
-              onToggle={onToggle}
-            />
-          ))}
+          {group.children.map((child) => {
+            // Aggregate deeper children's balances into this child
+            const aggregatedBalance = aggregateChildrenBalances(child);
+            return (
+              <GroupNode
+                key={child.id || child._id}
+                group={{ ...child, balance: aggregatedBalance }}
+                level={1}
+              />
+            );
+          })}
         </div>
       )}
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  return (
+    prevProps.group.id === nextProps.group.id &&
+    prevProps.group.balance === nextProps.group.balance &&
+    prevProps.level === nextProps.level &&
+    JSON.stringify(prevProps.group.children) === JSON.stringify(nextProps.group.children)
+  );
+});
 
 export default function BalanceSheet() {
   const { user } = useAuth();
@@ -80,7 +109,6 @@ export default function BalanceSheet() {
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState('');
-  const [expanded, setExpanded] = useState({});
 
   const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
   const sortedLiabilityGroups = useMemo(() => {
@@ -122,34 +150,34 @@ export default function BalanceSheet() {
     try {
       setIsLoading(true);
       setIsError(false);
+      
+      // Clear cache before fetching new data
+      clearBalanceCache();
+      
       const { data } = await api.get('/balance-sheet', {
         params: { asOnDate }
       });
-      setBalanceSheet(data.data);
       
-      // Auto-expand all groups by default
-      const expandAll = (groups) => {
-        const expandedMap = {};
-        const traverse = (groupList) => {
-          groupList.forEach(group => {
-            const groupId = group.id || group._id?.toString() || group._id;
-            if (groupId) {
-              expandedMap[groupId] = true;
-            }
-            if (group.children && group.children.length > 0) {
-              traverse(group.children);
-            }
-          });
-        };
-        traverse(groups);
-        return expandedMap;
+      // Filter to show only top-level groups (no parent) and process one level of nesting
+      // Use useMemo pattern for filtering
+      const filterTopLevelGroups = (groups) => {
+        if (!groups || !Array.isArray(groups)) return [];
+        return groups.filter(group => !group.parentGroup);
       };
-      
-      const allExpanded = {
-        ...expandAll(data.data.assets.groups),
-        ...expandAll(data.data.liabilities.groups)
+
+      const filteredData = {
+        ...data.data,
+        assets: {
+          ...data.data.assets,
+          groups: filterTopLevelGroups(data.data.assets.groups || [])
+        },
+        liabilities: {
+          ...data.data.liabilities,
+          groups: filterTopLevelGroups(data.data.liabilities.groups || [])
+        }
       };
-      setExpanded(allExpanded);
+
+      setBalanceSheet(filteredData);
     } catch (err) {
       console.error('Error fetching balance sheet:', err);
       setIsError(true);
@@ -159,41 +187,51 @@ export default function BalanceSheet() {
     }
   };
 
-  const toggleExpanded = (groupId) => {
-    setExpanded(prev => ({
-      ...prev,
-      [groupId]: !prev[groupId]
-    }));
-  };
 
-  const downloadExcel = () => {
-    if (!balanceSheet) return;
-
-    const wb = XLSX.utils.book_new();
+  // Memoize flattened groups for Excel export
+  const flattenedGroupsForExcel = useMemo(() => {
+    if (!balanceSheet) return { assets: [], liabilities: [] };
     
-    // Prepare data
-    const assetsData = [];
-    const liabilitiesData = [];
-
-    const flattenGroups = (groups, level = 0, prefix = '') => {
+    const flattenGroups = (groups, level = 0) => {
       const result = [];
       groups.forEach(group => {
-        const name = prefix + group.name;
-        const balance = Math.abs(group.balance || 0);
+        const name = level === 0 ? group.name : `  ${group.name}`;
+        const balance = aggregateChildrenBalances(group);
         result.push({ name, balance, level });
-        if (group.children && group.children.length > 0) {
-          result.push(...flattenGroups(group.children, level + 1, prefix + '  '));
+        
+        // Include one level of children
+        if (level === 0 && group.children && group.children.length > 0) {
+          group.children.forEach(child => {
+            const childBalance = aggregateChildrenBalances(child);
+            result.push({ 
+              name: `  ${child.name}`, 
+              balance: childBalance, 
+              level: 1 
+            });
+          });
         }
       });
       return result;
     };
+    
+    return {
+      assets: flattenGroups(sortedAssetGroups.length ? sortedAssetGroups : balanceSheet.assets.groups),
+      liabilities: flattenGroups(sortedLiabilityGroups.length ? sortedLiabilityGroups : balanceSheet.liabilities.groups)
+    };
+  }, [balanceSheet, sortedAssetGroups, sortedLiabilityGroups]);
+
+  const downloadExcel = useCallback(() => {
+    if (!balanceSheet) return;
+
+    const wb = XLSX.utils.book_new();
+    
+    // Prepare data using memoized flattened groups
+    const assetsData = [];
+    const liabilitiesData = [];
 
     assetsData.push(['ASSETS', '']);
     assetsData.push(['', '']);
-    const assetGroups = sortedAssetGroups.length
-      ? sortedAssetGroups
-      : balanceSheet.assets.groups;
-    flattenGroups(assetGroups).forEach(item => {
+    flattenedGroupsForExcel.assets.forEach(item => {
       assetsData.push([item.name, item.balance]);
     });
     assetsData.push(['', '']);
@@ -202,10 +240,7 @@ export default function BalanceSheet() {
     liabilitiesData.push(['LIABILITIES & CAPITAL', '']);
     liabilitiesData.push(['', '']);
     liabilitiesData.push(['LIABILITIES', '']);
-    const liabilityGroups = sortedLiabilityGroups.length
-      ? sortedLiabilityGroups
-      : balanceSheet.liabilities.groups;
-    flattenGroups(liabilityGroups).forEach(item => {
+    flattenedGroupsForExcel.liabilities.forEach(item => {
       liabilitiesData.push([item.name, item.balance]);
     });
     liabilitiesData.push(['', '']);
@@ -252,7 +287,7 @@ export default function BalanceSheet() {
     const dateStr = new Date(asOnDate).toLocaleDateString('en-GB').replace(/\//g, '');
     const filename = `Balance_Sheet_${dateStr}.xlsx`;
     XLSX.writeFile(wb, filename);
-  };
+  }, [balanceSheet, asOnDate, flattenedGroupsForExcel]);
 
   if (!hasAdminAccess) {
     return (
@@ -349,8 +384,6 @@ export default function BalanceSheet() {
                       key={group.id || group._id}
                       group={group}
                       level={0}
-                      expanded={expanded}
-                      onToggle={toggleExpanded}
                     />
                   ))}
                 </div>
@@ -408,8 +441,6 @@ export default function BalanceSheet() {
                     key={group.id || group._id}
                     group={group}
                     level={0}
-                    expanded={expanded}
-                    onToggle={toggleExpanded}
                   />
                 ))}
               </div>

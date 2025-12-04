@@ -182,13 +182,13 @@ const VoucherDetails = () => {
                 <span className="text-gray-900">{voucher.partyName || 'N/A'}</span>
               </div>
             </div>
-            <div>
+            {/* <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(voucher.status)}`}>
                 {getStatusIcon(voucher.status)}
                 {voucher.status}
               </span>
-            </div>
+            </div> */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Created By</label>
               <p className="text-gray-900">{voucher.createdBy?.name || 'N/A'}</p>
