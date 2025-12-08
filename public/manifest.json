@@ -1,21 +1,36 @@
 {
-  "name": "Poultry Farm Management System",
-  "short_name": "Poultry Farm",
-  "description": "Comprehensive poultry farm management system for admins and supervisors",
-  "start_url": "/",
+  "name": "RCC AND TRADING COMPANY",
+  "theme_color": "#000000",
+  "background_color": "#000000",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2563eb",
-  "orientation": "portrait-primary",
-  "icons": [
+  "scope": "/",
+  "start_url": "/",
+  "icons":[
     {
-      "src": "/vite.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
+      "src": "maskable.png",
+      "size": "196x196",
+      "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "logo192.png",
+      "size": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo256.png",
+      "size": "256x256",
+      "type": "image/png"
+    },
+    {
+      "src": "logo384.png",
+      "size": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "logo512.png",
+      "size": "512x512",
+      "type": "image/png"
     }
-  ],
-  "categories": ["business", "productivity", "utilities"],
-  "lang": "en",
-  "dir": "ltr"
+  ]
 }
