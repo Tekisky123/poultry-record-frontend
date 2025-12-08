@@ -17,7 +17,10 @@ export default defineConfig({
       icons: [
         { src: "logo192.png", sizes: "192x192", type: "image/png" },
         { src: "logo512.png", sizes: "512x512", type: "image/png" }
-      ]
+      ],
+    },
+    workbox: {
+      maximumFileSizeToCacheInBytes: 10 * 1024 * 1024  // <= FIX (10MB)
     }
   })],
   css: {
