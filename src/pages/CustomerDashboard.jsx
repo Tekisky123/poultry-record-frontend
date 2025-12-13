@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  ShoppingCart, 
+import {
+  TrendingUp,
+  TrendingDown,
+  DollarSign,
+  ShoppingCart,
   CreditCard,
   AlertCircle,
   CheckCircle,
@@ -78,12 +78,12 @@ const CustomerDashboard = () => {
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [isDownloadingLedger, setIsDownloadingLedger] = useState(false);
   const downloadDropdownRef = useRef(null);
-  
+
   // Payment Modal State
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedSale, setSelectedSale] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   // Payment form state
   const [paymentForm, setPaymentForm] = useState({
     amount: '',
@@ -148,13 +148,13 @@ const CustomerDashboard = () => {
         setLoading(false);
         return;
       }
-      
+
       // Fetch dashboard stats
       const statsResponse = await api.get(`/customer/panel/${userId}/dashboard-stats`);
       if (statsResponse.data.success) {
         setStats(statsResponse.data.data);
       }
-      
+
       // Fetch purchase ledger data
       await fetchPurchaseLedger(ledgerPagination.currentPage);
 
@@ -177,7 +177,7 @@ const CustomerDashboard = () => {
       if (isRefresh) {
         setRefreshingPurchases(true);
       }
-      
+
       const userId = user?._id || user?.id;
       if (!userId) return;
 
@@ -190,12 +190,12 @@ const CustomerDashboard = () => {
       const ledgerResponse = await api.get(`/customer/panel/${userId}/purchase-ledger?page=${page}&limit=${ledgerPagination.itemsPerPage}`);
       if (ledgerResponse.data.success) {
         const ledgerData = ledgerResponse.data.data;
-        
+
         // Update pagination state first to get totalPages
         if (ledgerData.pagination) {
           setLedgerPagination(ledgerData.pagination);
         }
-        
+
         // On first load or refresh, if there are multiple pages, load the last page
         if ((isFirstLoad || isRefresh) && !skipLastPageCheck && ledgerData.pagination && ledgerData.pagination.totalPages > 1) {
           const lastPage = ledgerData.pagination.totalPages;
@@ -205,7 +205,7 @@ const CustomerDashboard = () => {
             const lastPageData = lastPageResponse.data.data;
             setPurchaseLedger(lastPageData.ledger || []);
             setLedgerTotals(lastPageData.totals || {});
-            
+
             // Update pagination to show we're on the last page
             if (lastPageData.pagination) {
               setLedgerPagination(lastPageData.pagination);
@@ -216,7 +216,7 @@ const CustomerDashboard = () => {
           setPurchaseLedger(ledgerData.ledger || []);
           setLedgerTotals(ledgerData.totals || {});
         }
-        
+
         // Mark first load as complete only after first successful load (not on refresh)
         if (isFirstLoad && !isRefresh) {
           setIsFirstLoad(false);
@@ -285,7 +285,7 @@ const CustomerDashboard = () => {
       if (isRefresh) {
         setRefreshingPayments(true);
       }
-      
+
       const userId = user?._id || user?.id;
       if (!userId) return;
 
@@ -298,10 +298,10 @@ const CustomerDashboard = () => {
       const paymentResponse = await api.get(`/customer/panel/${userId}/payments?page=${page}&limit=${paymentPagination.itemsPerPage}`);
       if (paymentResponse.data.success) {
         const paymentData = paymentResponse.data.data;
-        
+
         // Ensure we're replacing the data completely
         setPaymentRecords(paymentData.payments || []);
-        
+
         // Update pagination state with new data
         if (paymentData.pagination) {
           setPaymentPagination(paymentData.pagination);
@@ -390,7 +390,7 @@ const CustomerDashboard = () => {
       alert('No payment data available to download');
       return;
     }
-    
+
     const success = downloadCustomerPaymentExcel(paymentRecords, user?.name || 'Customer');
     if (success) {
       alert('Payment Excel file downloaded successfully!');
@@ -412,8 +412,8 @@ const CustomerDashboard = () => {
         ...paymentForm,
         thirdPartyPayer: {
           ...paymentForm.thirdPartyPayer,
-          mobileNumber: paymentForm.thirdPartyPayer.mobileNumber 
-            ? `+91${paymentForm.thirdPartyPayer.mobileNumber}` 
+          mobileNumber: paymentForm.thirdPartyPayer.mobileNumber
+            ? `+91${paymentForm.thirdPartyPayer.mobileNumber}`
             : paymentForm.thirdPartyPayer.mobileNumber
         }
       };
@@ -468,7 +468,7 @@ const CustomerDashboard = () => {
       balance: stats.outstandingBalance,
       timestamp: new Date()
     };
-    
+
     setSelectedSale(mockSale);
     setPaymentForm(prev => ({
       ...prev,
@@ -485,6 +485,8 @@ const CustomerDashboard = () => {
   const getParticularsColor = (particulars) => {
     switch (particulars) {
       case 'SALES':
+        return 'text-blue-600 bg-blue-100';
+      case 'PURCHASE':
         return 'text-blue-600 bg-blue-100';
       case 'RECEIPT':
         return 'text-green-600 bg-green-100';
@@ -514,6 +516,15 @@ const CustomerDashboard = () => {
     // Map existing "RECEIPT" to "PAYMENT" for customer portal
     if (entry.particulars === 'RECEIPT') {
       return 'PAYMENT';
+    }
+    if (entry.particulars === 'BY CASH RECEIPT') {
+      return 'BY CASH PAYMENT';
+    }
+    if (entry.particulars === 'BY BANK RECEIPT') {
+      return 'BY BANK PAYMENT';
+    }
+    if (entry.particulars === 'SALES') {
+      return 'PURCHASE';
     }
     return entry.particulars;
   };
@@ -604,7 +615,7 @@ const CustomerDashboard = () => {
           <TrendingUp className="w-5 h-5 mr-2 text-green-600" />
           Dashboard Stats
         </h2>
-        
+
         {/* First Row: Total Purchase | Total Birds / Total Weight | Total Amount */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
           <div className="bg-blue-50 p-4 rounded-lg">
@@ -719,7 +730,7 @@ const CustomerDashboard = () => {
             </button>
           </div>
         </div>
-        
+
         {/* Opening Balance Display */}
         {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
           <div className="flex items-center justify-between">
@@ -766,78 +777,77 @@ const CustomerDashboard = () => {
         {showPaymentTable && (
           <>
             {paymentRecords.length === 0 ? (
-          <div className="text-center py-8">
-            <CreditCard className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-gray-500">No payment records yet</p>
-            <p className="text-sm text-gray-400 mt-1">Your payment history will appear here</p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Date</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Payment Method</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Amount</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Status</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Transaction ID</th>
-                    <th className="px-3 py-3 text-left font-medium text-gray-700">Notes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {paymentRecords.map((payment, index) => (
-                    <tr key={payment._id || index} className="hover:bg-gray-50">
-                      <td className="px-3 py-3 text-gray-900">{formatDate(payment.createdAt)}</td>
-                      <td className="px-3 py-3 text-gray-900">{payment.paymentMethod}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">₹{payment.amount.toLocaleString()}</td>
-                      <td className="px-3 py-3">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          payment.status === 'verified' ? 'text-green-600 bg-green-100' :
-                          payment.status === 'pending' ? 'text-yellow-600 bg-yellow-100' :
-                          'text-red-600 bg-red-100'
-                        }`}>
-                          {payment.status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-gray-900">{payment.verificationDetails?.transactionId || 'N/A'}</td>
-                      <td className="px-3 py-3 text-gray-900">{payment.verificationDetails?.notes || 'N/A'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Payment Records Pagination */}
-            {paymentPagination.totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4 px-3 py-3 bg-gray-50 border-t border-gray-200">
-                <div className="text-sm text-gray-700">
-                  Showing {((paymentPagination.currentPage - 1) * paymentPagination.itemsPerPage) + 1} to{' '}
-                  {Math.min(paymentPagination.currentPage * paymentPagination.itemsPerPage, paymentPagination.totalItems)} of{' '}
-                  {paymentPagination.totalItems} entries
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handlePaymentPreviousPage}
-                    disabled={paymentPagination.currentPage === 1}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="px-3 py-1 text-sm text-gray-700">
-                    Page {paymentPagination.currentPage} of {paymentPagination.totalPages}
-                  </span>
-                  <button
-                    onClick={handlePaymentNextPage}
-                    disabled={paymentPagination.currentPage === paymentPagination.totalPages}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
+              <div className="text-center py-8">
+                <CreditCard className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                <p className="text-gray-500">No payment records yet</p>
+                <p className="text-sm text-gray-400 mt-1">Your payment history will appear here</p>
               </div>
-            )}
-          </>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="px-3 py-3 text-left font-medium text-gray-700">Date</th>
+                        <th className="px-3 py-3 text-left font-medium text-gray-700">Payment Method</th>
+                        <th className="px-3 py-3 text-left font-medium text-gray-700">Amount</th>
+                        <th className="px-3 py-3 text-left font-medium text-gray-700">Status</th>
+                        <th className="px-3 py-3 text-left font-medium text-gray-700">Transaction ID</th>
+                        <th className="px-3 py-3 text-left font-medium text-gray-700">Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {paymentRecords.map((payment, index) => (
+                        <tr key={payment._id || index} className="hover:bg-gray-50">
+                          <td className="px-3 py-3 text-gray-900">{formatDate(payment.createdAt)}</td>
+                          <td className="px-3 py-3 text-gray-900">{payment.paymentMethod}</td>
+                          <td className="px-3 py-3 text-right text-gray-900">₹{payment.amount.toLocaleString()}</td>
+                          <td className="px-3 py-3">
+                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${payment.status === 'verified' ? 'text-green-600 bg-green-100' :
+                              payment.status === 'pending' ? 'text-yellow-600 bg-yellow-100' :
+                                'text-red-600 bg-red-100'
+                              }`}>
+                              {payment.status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-3 text-gray-900">{payment.verificationDetails?.transactionId || 'N/A'}</td>
+                          <td className="px-3 py-3 text-gray-900">{payment.verificationDetails?.notes || 'N/A'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Payment Records Pagination */}
+                {paymentPagination.totalPages > 1 && (
+                  <div className="flex items-center justify-between mt-4 px-3 py-3 bg-gray-50 border-t border-gray-200">
+                    <div className="text-sm text-gray-700">
+                      Showing {((paymentPagination.currentPage - 1) * paymentPagination.itemsPerPage) + 1} to{' '}
+                      {Math.min(paymentPagination.currentPage * paymentPagination.itemsPerPage, paymentPagination.totalItems)} of{' '}
+                      {paymentPagination.totalItems} entries
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={handlePaymentPreviousPage}
+                        disabled={paymentPagination.currentPage === 1}
+                        className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronLeft className="w-4 h-4" />
+                      </button>
+                      <span className="px-3 py-1 text-sm text-gray-700">
+                        Page {paymentPagination.currentPage} of {paymentPagination.totalPages}
+                      </span>
+                      <button
+                        onClick={handlePaymentNextPage}
+                        disabled={paymentPagination.currentPage === paymentPagination.totalPages}
+                        className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <ChevronRight className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </>
         )}
@@ -852,60 +862,60 @@ const CustomerDashboard = () => {
               Customer Purchases
             </h2>
             <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowAllColumns(!showAllColumns)}
-              className="flex items-center gap-2 px-3 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              title={showAllColumns ? "Hide additional columns" : "Show all columns"}
-            >
-              <Columns className="w-4 h-4" />
-              {showAllColumns ? 'Hide Columns' : 'Show Columns'}
-            </button>
-            <button
-              onClick={() => fetchPurchaseLedger(1, true)}
-              disabled={refreshingPurchases}
-              className="flex items-center gap-2 px-3 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Refresh purchase records"
-            >
-              <RefreshCw className={`w-4 h-4 ${refreshingPurchases ? 'animate-spin' : ''}`} />
-              {refreshingPurchases ? 'Refreshing...' : 'Refresh'}
-            </button>
-            <div className="relative" ref={downloadDropdownRef}>
               <button
-                type="button"
-                onClick={() => setShowDownloadOptions((prev) => !prev)}
-                disabled={ledgerPagination.totalItems === 0 || isDownloadingLedger}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={() => setShowAllColumns(!showAllColumns)}
+                className="flex items-center gap-2 px-3 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                title={showAllColumns ? "Hide additional columns" : "Show all columns"}
               >
-                <Download className="w-4 h-4" />
-                {isDownloadingLedger ? 'Preparing...' : 'Download Excel'}
-                <ChevronDown className={`w-4 h-4 transition-transform ${showDownloadOptions ? 'rotate-180' : ''}`} />
+                <Columns className="w-4 h-4" />
+                {showAllColumns ? 'Hide Columns' : 'Show Columns'}
               </button>
-              {showDownloadOptions && (
-                <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
-                  <button
-                    type="button"
-                    onClick={() => handleDownloadExcel('current')}
-                    className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex flex-col"
-                  >
-                    <span className="font-medium text-gray-900">Download current page</span>
-                    <span className="text-xs text-gray-500">{displayedPurchaseLedger.length} record(s)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleDownloadExcel('all')}
-                    disabled={isDownloadingLedger}
-                    className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex flex-col border-t border-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    <span className="font-medium text-gray-900">
-                      {isDownloadingLedger ? 'Preparing all records…' : 'Download all records'}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {ledgerPagination.totalItems || 0} total record(s)
-                    </span>
-                  </button>
-                </div>
-              )}
-            </div>
+              <button
+                onClick={() => fetchPurchaseLedger(1, true)}
+                disabled={refreshingPurchases}
+                className="flex items-center gap-2 px-3 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh purchase records"
+              >
+                <RefreshCw className={`w-4 h-4 ${refreshingPurchases ? 'animate-spin' : ''}`} />
+                {refreshingPurchases ? 'Refreshing...' : 'Refresh'}
+              </button>
+              <div className="relative" ref={downloadDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowDownloadOptions((prev) => !prev)}
+                  disabled={ledgerPagination.totalItems === 0 || isDownloadingLedger}
+                  className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Download className="w-4 h-4" />
+                  {isDownloadingLedger ? 'Preparing...' : 'Download Excel'}
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showDownloadOptions ? 'rotate-180' : ''}`} />
+                </button>
+                {showDownloadOptions && (
+                  <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-lg shadow-lg z-10">
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadExcel('current')}
+                      className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex flex-col"
+                    >
+                      <span className="font-medium text-gray-900">Download current page</span>
+                      <span className="text-xs text-gray-500">{displayedPurchaseLedger.length} record(s)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadExcel('all')}
+                      disabled={isDownloadingLedger}
+                      className="w-full px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 flex flex-col border-t border-gray-100 disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      <span className="font-medium text-gray-900">
+                        {isDownloadingLedger ? 'Preparing all records…' : 'Download all records'}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        {ledgerPagination.totalItems || 0} total record(s)
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -966,7 +976,7 @@ const CustomerDashboard = () => {
                 <span className="ml-2 text-sm text-gray-600">Loading...</span>
               </div>
             )}
-            
+
             {/* Ledger Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -1054,7 +1064,7 @@ const CustomerDashboard = () => {
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-900">Submit Payment</h3>
-              <button 
+              <button
                 onClick={() => setShowPaymentModal(false)}
                 className="text-gray-500 hover:text-gray-700"
               >
@@ -1130,7 +1140,7 @@ const CustomerDashboard = () => {
                       onChange={(e) => {
                         const relationship = e.target.value;
                         setPaymentForm(prev => ({
-                        ...prev, 
+                          ...prev,
                           thirdPartyPayer: { ...prev.thirdPartyPayer, relationship },
                           // Always auto-populate customerDetails from logged-in user
                           customerDetails: {
@@ -1149,7 +1159,7 @@ const CustomerDashboard = () => {
                       <option value="other">Other</option>
                     </select>
                   </div>
-                  
+
                   {paymentForm.thirdPartyPayer.relationship !== 'self' && (
                     <>
                       <div>
@@ -1157,8 +1167,8 @@ const CustomerDashboard = () => {
                         <input
                           type="text"
                           value={paymentForm.thirdPartyPayer.name}
-                          onChange={(e) => setPaymentForm(prev => ({ 
-                            ...prev, 
+                          onChange={(e) => setPaymentForm(prev => ({
+                            ...prev,
                             thirdPartyPayer: { ...prev.thirdPartyPayer, name: e.target.value }
                           }))}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -1170,21 +1180,21 @@ const CustomerDashboard = () => {
                           <span className="inline-flex items-center px-3 rounded-l-lg border border-r-0 border-gray-300 bg-gray-50 text-gray-500 text-sm">
                             +91
                           </span>
-                        <input
-                          type="tel"
+                          <input
+                            type="tel"
                             value={paymentForm.thirdPartyPayer.mobileNumber || ''}
                             onChange={(e) => {
                               // Only allow digits, max 10 digits
                               const value = e.target.value.replace(/\D/g, '').slice(0, 10);
-                              setPaymentForm(prev => ({ 
-                            ...prev, 
+                              setPaymentForm(prev => ({
+                                ...prev,
                                 thirdPartyPayer: { ...prev.thirdPartyPayer, mobileNumber: value }
                               }));
                             }}
                             placeholder="Enter 10 digit mobile number"
                             maxLength={10}
                             className="flex-1 px-3 py-2 rounded-r-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        />
+                          />
                         </div>
                         {paymentForm.thirdPartyPayer.mobileNumber && (
                           <p className="text-xs text-gray-500 mt-1">
@@ -1200,16 +1210,16 @@ const CustomerDashboard = () => {
               {/* Additional Notes */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Additional Notes</label>
-                    <textarea
-                      value={paymentForm.verificationDetails.notes}
-                      onChange={(e) => setPaymentForm(prev => ({ 
-                        ...prev, 
-                        verificationDetails: { ...prev.verificationDetails, notes: e.target.value }
-                      }))}
-                      placeholder="Any additional information about the payment..."
-                      rows={3}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
+                <textarea
+                  value={paymentForm.verificationDetails.notes}
+                  onChange={(e) => setPaymentForm(prev => ({
+                    ...prev,
+                    verificationDetails: { ...prev.verificationDetails, notes: e.target.value }
+                  }))}
+                  placeholder="Any additional information about the payment..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
               </div>
 
               {/* Submit Button */}

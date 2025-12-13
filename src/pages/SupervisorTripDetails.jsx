@@ -3418,27 +3418,7 @@ const SupervisorTripDetails = () => {
                   </div>
                 </div>
 
-                {/* Cash Ledger Dropdown - Show if cashPaid > 0 */}
-                {Number(saleData.cashPaid) > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Cash-in-Hand Ledger *
-                    </label>
-                    <select
-                      value={saleData.cashLedger}
-                      onChange={(e) => handleSaleDataChange('cashLedger', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required={Number(saleData.cashPaid) > 0}
-                    >
-                      <option value="">Select Cash-in-Hand Ledger</option>
-                      {cashInHandLedgers.map(ledger => (
-                        <option key={ledger.id} value={ledger.id}>
-                          {ledger.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+
 
                 {/* Online Ledger Dropdown - Show if onlinePaid > 0 */}
                 {Number(saleData.onlinePaid) > 0 && (
@@ -3717,27 +3697,7 @@ const SupervisorTripDetails = () => {
                   </div>
                 </div>
 
-                {/* Cash Ledger Dropdown - Show if cashPaid > 0 */}
-                {Number(saleData.cashPaid) > 0 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Cash-in-Hand Ledger *
-                    </label>
-                    <select
-                      value={saleData.cashLedger}
-                      onChange={(e) => handleSaleDataChange('cashLedger', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required={Number(saleData.cashPaid) > 0}
-                    >
-                      <option value="">Select Cash-in-Hand Ledger</option>
-                      {cashInHandLedgers.map(ledger => (
-                        <option key={ledger.id} value={ledger.id}>
-                          {ledger.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+
 
                 {/* Online Ledger Dropdown - Show if onlinePaid > 0 */}
                 {Number(saleData.onlinePaid) > 0 && (

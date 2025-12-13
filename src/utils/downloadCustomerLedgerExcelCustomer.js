@@ -44,13 +44,23 @@ export const downloadCustomerLedgerExcelCustomer = (ledgerData, customerName) =>
       let particulars = entry.particulars || '';
       if (entry.isVoucher && entry.voucherType) {
         if (entry.voucherType === 'Payment') {
-          particulars = 'PAYMENT';
-        } else if (entry.voucherType === 'Receipt') {
           particulars = 'RECEIPT';
+        } else if (entry.voucherType === 'Receipt') {
+          particulars = 'PAYMENT';
         }
-      } else if (entry.particulars === 'RECEIPT') {
+      }
+      if (entry.particulars === 'RECEIPT') {
         // Map existing "RECEIPT" to "PAYMENT" for customer portal
         particulars = 'PAYMENT';
+      }
+      if (entry.particulars === 'BY CASH RECEIPT') {
+        particulars = 'BY CASH PAYMENT';
+      }
+      if (entry.particulars === 'BY BANK RECEIPT') {
+        particulars = 'BY BANK PAYMENT';
+      }
+      if (entry.particulars === 'SALES') {
+        particulars = 'PURCHASE';
       }
 
       return {

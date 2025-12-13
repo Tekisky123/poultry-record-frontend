@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { 
-  ArrowLeft, 
-  User, 
-  Phone, 
-  Mail, 
-  MapPin, 
-  CreditCard, 
+import {
+  ArrowLeft,
+  User,
+  Phone,
+  Mail,
+  MapPin,
+  CreditCard,
   Calendar,
   Package,
   DollarSign,
@@ -98,11 +98,11 @@ const CustomerDetails = () => {
       } else {
         setLedgerLoading(true);
       }
-      
+
       if (!customer?.user?._id) return;
 
       const itemsPerPage = ledgerPagination.itemsPerPage || 10;
-      
+
       // Fetch purchase ledger data
       const ledgerResponse = await api.get(`/customer/panel/${customer.user._id}/purchase-ledger?page=${page}&limit=${itemsPerPage}`);
       if (ledgerResponse.data.success) {
@@ -116,7 +116,7 @@ const CustomerDetails = () => {
 
         setPurchaseLedger(ledgerData.ledger || []);
         setLedgerTotals(ledgerData.totals || {});
-        
+
         if (ledgerData.pagination) {
           setLedgerPagination(ledgerData.pagination);
         }
@@ -207,7 +207,7 @@ const CustomerDetails = () => {
 
       let allLedger = response.data.data?.ledger || [];
       allLedger = filterLedgerByDate(allLedger, dateFilter);
-      
+
       if (allLedger.length === 0) {
         alert('No records available to download for the selected filters.');
         return;
@@ -601,7 +601,7 @@ const CustomerDetails = () => {
                 <span className="ml-2 text-sm text-gray-600">Loading...</span>
               </div>
             )}
-            
+
             {/* Ledger Table */}
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -649,7 +649,7 @@ const CustomerDetails = () => {
                       <td className="px-3 py-3 text-gray-900">{entry.vehiclesNo || '-'}</td>
                       <td className="px-3 py-3 text-gray-900">
                         {entry.trip?.tripId ? (
-                          <Link 
+                          <Link
                             to={`/trips/${entry.trip._id}`}
                             className="text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
                           >

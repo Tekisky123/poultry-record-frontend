@@ -20,7 +20,7 @@ const AddEditVoucher = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
-  
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [customers, setCustomers] = useState([]);
@@ -30,7 +30,7 @@ const AddEditVoucher = () => {
   const [cashBankLedgers, setCashBankLedgers] = useState([]);
   const [allParties, setAllParties] = useState([]); // Combined list of customers, ledgers, and vendors
   const [partyBalanceLabel, setPartyBalanceLabel] = useState('');
-  
+
   const [formData, setFormData] = useState({
     voucherType: ALLOWED_VOUCHER_TYPES[0],
     voucherNumber: '',
@@ -55,23 +55,38 @@ const AddEditVoucher = () => {
     }
   }, [id]);
 
-  // Reset parties when voucher type changes
+  // Reset parties/entries when voucher type changes
   useEffect(() => {
-        const isPaymentOrReceiptType = formData.voucherType === 'Payment' || formData.voucherType === 'Receipt';
-        if (isPaymentOrReceiptType && formData.parties.length === 0) {
-          // Initialize with one empty party
-          setFormData(prev => ({
-            ...prev,
-            parties: [{ partyId: '', partyType: '', partyName: '', amount: 0, currentBalance: 0, currentBalanceType: 'debit' }]
-          }));
-        } else if (!isPaymentOrReceiptType && formData.parties.length > 0) {
-          // Clear parties when switching away from Payment/Receipt
-          setFormData(prev => ({
-            ...prev,
-            parties: [],
-            account: ''
-          }));
-        }
+    const isPaymentOrReceiptType = formData.voucherType === 'Payment' || formData.voucherType === 'Receipt';
+    const isContra = formData.voucherType === 'Contra';
+    const isJournal = formData.voucherType === 'Journal';
+    const isRestrictedVoucher = isContra || isJournal;
+
+    if (isPaymentOrReceiptType && formData.parties.length === 0) {
+      // Initialize with one empty party
+      setFormData(prev => ({
+        ...prev,
+        parties: [{ partyId: '', partyType: '', partyName: '', amount: 0, currentBalance: 0, currentBalanceType: 'debit' }]
+      }));
+    } else if (isRestrictedVoucher) {
+      // Enforce structure for Contra/Journal: exactly 2 entries (Dr, Cr)
+      setFormData(prev => ({
+        ...prev,
+        parties: [], // Clear parties
+        account: '', // Clear account
+        entries: [
+          { account: prev.entries[0]?.account || '', debitAmount: prev.entries[0]?.debitAmount || 0, creditAmount: 0, narration: prev.entries[0]?.narration || '', type: 'Dr' },
+          { account: prev.entries[1]?.account || '', debitAmount: 0, creditAmount: prev.entries[1]?.creditAmount || 0, narration: prev.entries[1]?.narration || '', type: 'Cr' }
+        ]
+      }));
+    } else if (!isPaymentOrReceiptType && !isRestrictedVoucher && formData.parties.length > 0) {
+      // Clear parties when switching away from Payment/Receipt to others
+      setFormData(prev => ({
+        ...prev,
+        parties: [],
+        account: ''
+      }));
+    }
   }, [formData.voucherType, formData.parties.length]);
   const fetchNextVoucherNumber = async () => {
     try {
@@ -95,23 +110,23 @@ const AddEditVoucher = () => {
         api.get('/vendor'),
         api.get('/ledger')
       ]);
-      
+
       const allCustomers = customersRes.data.success ? customersRes.data.data : [];
       const allVendors = vendorsRes.data.success ? vendorsRes.data.data : [];
       const allLedgers = ledgersRes.data.success ? (ledgersRes.data.data || []) : [];
-      
+
       // Set individual state
       setCustomers(allCustomers);
       setVendors(allVendors);
       setLedgers(allLedgers);
-      
+
       // Filter Cash and Bank Accounts ledgers
       const cashBankLedgersData = allLedgers.filter(ledger => {
         const groupName = ledger.group?.name || '';
         return groupName === 'Cash-in-Hand' || groupName === 'Bank Accounts';
       });
       setCashBankLedgers(cashBankLedgersData);
-      
+
       // Match customers with ledgers
       const customersWithLedgersData = allCustomers.filter(customer => {
         // Check if customer has a ledger
@@ -121,10 +136,10 @@ const AddEditVoucher = () => {
         });
       });
       setCustomersWithLedgers(customersWithLedgersData);
-      
+
       // Create combined parties list: customers, ledgers, and vendors
       const partiesList = [];
-      
+
       // Add customers
       allCustomers.forEach(customer => {
         partiesList.push({
@@ -134,7 +149,7 @@ const AddEditVoucher = () => {
           data: customer
         });
       });
-      
+
       // Add ledgers
       allLedgers.forEach(ledger => {
         partiesList.push({
@@ -144,7 +159,7 @@ const AddEditVoucher = () => {
           data: ledger
         });
       });
-      
+
       // Add vendors
       allVendors.forEach(vendor => {
         partiesList.push({
@@ -154,7 +169,7 @@ const AddEditVoucher = () => {
           data: vendor
         });
       });
-      
+
       setAllParties(partiesList);
     } catch (error) {
       console.error('Error fetching master data:', error);
@@ -170,9 +185,9 @@ const AddEditVoucher = () => {
         const resolvedVoucherType = ALLOWED_VOUCHER_TYPES.includes(voucher.voucherType)
           ? voucher.voucherType
           : ALLOWED_VOUCHER_TYPES[0];
-        
+
         const isPaymentOrReceiptVoucher = resolvedVoucherType === 'Payment' || resolvedVoucherType === 'Receipt';
-        
+
         if (isPaymentOrReceiptVoucher && voucher.parties && voucher.parties.length > 0) {
           // Handle Payment/Receipt voucher structure
           const partiesData = await Promise.all(
@@ -181,7 +196,7 @@ const AddEditVoucher = () => {
               let partyName = '';
               let balance = 0;
               let balanceType = 'debit';
-              
+
               try {
                 if (partyType === 'customer') {
                   const customerRes = await api.get(`/customer/${partyItem.partyId}`);
@@ -211,7 +226,7 @@ const AddEditVoucher = () => {
               } catch (err) {
                 console.error(`Error fetching ${partyType} ${partyItem.partyId}:`, err);
               }
-              
+
               return {
                 partyId: partyItem.partyId,
                 partyType: partyType,
@@ -222,7 +237,7 @@ const AddEditVoucher = () => {
               };
             })
           );
-          
+
           setFormData({
             voucherType: resolvedVoucherType,
             voucherNumber: voucher.voucherNumber || '',
@@ -243,7 +258,7 @@ const AddEditVoucher = () => {
             ...entry,
             type: entry.debitAmount > 0 ? 'Dr' : 'Cr'
           }));
-          
+
           setFormData({
             voucherType: resolvedVoucherType,
             voucherNumber: voucher.voucherNumber || '',
@@ -275,7 +290,7 @@ const AddEditVoucher = () => {
   const handleEntryChange = (index, field, value) => {
     setFormData(prev => ({
       ...prev,
-      entries: prev.entries.map((entry, i) => 
+      entries: prev.entries.map((entry, i) =>
         i === index ? { ...entry, [field]: value } : entry
       )
     }));
@@ -332,13 +347,13 @@ const AddEditVoucher = () => {
   const handlePartySelect = async (index, partyValue) => {
     // partyValue format: "type:id" (e.g., "customer:123", "ledger:456", "vendor:789")
     const [partyType, partyId] = partyValue.split(':');
-    
+
     if (!partyType || !partyId) return;
-    
+
     let partyName = '';
     let balance = 0;
     let balanceType = 'debit';
-    
+
     try {
       if (partyType === 'customer') {
         const customerRes = await api.get(`/customer/${partyId}`);
@@ -366,19 +381,19 @@ const AddEditVoucher = () => {
           balanceType = vendorData.outstandingBalanceType || vendorData.openingBalanceType || 'debit';
         }
       }
-      
+
       setFormData(prev => ({
         ...prev,
-        parties: prev.parties.map((party, i) => 
-          i === index 
-            ? { 
-                partyId: partyId,
-                partyType: partyType,
-                partyName: partyName, 
-                amount: party.amount,
-                currentBalance: balance,
-                currentBalanceType: balanceType
-              }
+        parties: prev.parties.map((party, i) =>
+          i === index
+            ? {
+              partyId: partyId,
+              partyType: partyType,
+              partyName: partyName,
+              amount: party.amount,
+              currentBalance: balance,
+              currentBalanceType: balanceType
+            }
             : party
         )
       }));
@@ -398,19 +413,19 @@ const AddEditVoucher = () => {
           balance = partyFromList.data.outstandingBalance || partyFromList.data.openingBalance || 0;
           balanceType = partyFromList.data.outstandingBalanceType || partyFromList.data.openingBalanceType || 'debit';
         }
-        
+
         setFormData(prev => ({
           ...prev,
-          parties: prev.parties.map((party, i) => 
-            i === index 
-              ? { 
-                  partyId: partyId,
-                  partyType: partyType,
-                  partyName: partyName, 
-                  amount: party.amount,
-                  currentBalance: balance,
-                  currentBalanceType: balanceType
-                }
+          parties: prev.parties.map((party, i) =>
+            i === index
+              ? {
+                partyId: partyId,
+                partyType: partyType,
+                partyName: partyName,
+                amount: party.amount,
+                currentBalance: balance,
+                currentBalanceType: balanceType
+              }
               : party
           )
         }));
@@ -421,7 +436,7 @@ const AddEditVoucher = () => {
   const handlePartyAmountChange = (index, amount) => {
     setFormData(prev => ({
       ...prev,
-      parties: prev.parties.map((party, i) => 
+      parties: prev.parties.map((party, i) =>
         i === index ? { ...party, amount: parseFloat(amount) || 0 } : party
       )
     }));
@@ -437,7 +452,7 @@ const AddEditVoucher = () => {
     const customer = customers.find(c => c.id === partyId);
     const vendor = vendors.find(v => v._id === partyId);
     const party = customer || vendor;
-    
+
     setFormData(prev => ({
       ...prev,
       party: partyId,
@@ -460,7 +475,7 @@ const AddEditVoucher = () => {
         setError('At least one party is required');
         return false;
       }
-      
+
       for (let party of formData.parties) {
         if (!party.partyId) {
           setError('All parties must have a selected customer');
@@ -471,24 +486,24 @@ const AddEditVoucher = () => {
           return false;
         }
       }
-      
+
       if (!formData.account) {
         setError('Account (Cash or Bank) is required');
         return false;
       }
-      
+
       return true;
     }
-    
+
     // Validation for other voucher types
     const { totalDebit, totalCredit } = calculateTotals();
-    
+
     // Check if debit equals credit
     if (Math.abs(totalDebit - totalCredit) > 0.01) {
       setError('Total debit amount must equal total credit amount');
       return false;
     }
-    
+
     // Check if all entries have account names
     for (let entry of formData.entries) {
       if (!entry.account.trim()) {
@@ -504,28 +519,28 @@ const AddEditVoucher = () => {
         return false;
       }
     }
-    
+
     return true;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     try {
       setLoading(true);
       setError('');
-      
+
       let submitData;
-      
+
       if (isPaymentOrReceipt) {
         // For Payment/Receipt vouchers, build entries from parties
         const totalAmount = calculateTotalAmount();
         const entries = [];
-        
+
         // Add party entries (debit for Payment, credit for Receipt)
         formData.parties.forEach(party => {
           if (formData.voucherType === 'Payment') {
@@ -544,14 +559,14 @@ const AddEditVoucher = () => {
             });
           }
         });
-        
+
         // Update parties data to include partyType for backend
         const partiesData = formData.parties.map(p => ({
           partyId: p.partyId,
           partyType: p.partyType,
           amount: p.amount
         }));
-        
+
         // Add account entry (credit for Payment, debit for Receipt)
         const accountLedger = cashBankLedgers.find(l => l.id === formData.account);
         if (accountLedger) {
@@ -571,7 +586,7 @@ const AddEditVoucher = () => {
             });
           }
         }
-        
+
         submitData = {
           voucherType: formData.voucherType,
           date: formData.date,
@@ -590,14 +605,14 @@ const AddEditVoucher = () => {
       }
 
       delete submitData.voucherNumber;
-      
+
       let response;
       if (isEdit) {
         response = await api.put(`/voucher/${id}`, submitData);
       } else {
         response = await api.post('/voucher', submitData);
       }
-      
+
       if (response.data.success) {
         navigate('/vouchers');
       }
@@ -618,7 +633,7 @@ const AddEditVoucher = () => {
       maximumFractionDigits: 2
     })}`;
 
-  const getLedgerInfo = (accountName) => ledgers.find((ledger) => ledger.name === accountName);
+  const getLedgerInfo = (accountName) => ledgers.find((ledger) => ledger.name === accountName) || customers.find((customer) => customer.shopName === accountName) || vendors.find((vendor) => vendor.name === accountName);
 
   const getLedgerBalanceLabel = (ledger) => {
     if (!ledger) return '';
@@ -780,7 +795,7 @@ const AddEditVoucher = () => {
                     ADD party
                   </button>
                 </div>
-                
+
                 <div className="space-y-3">
                   {formData.parties.length === 0 ? (
                     <p className="text-sm text-gray-500 text-center py-4">No parties added. Click "+ ADD party" to add one.</p>
@@ -834,7 +849,7 @@ const AddEditVoucher = () => {
                     ))
                   )}
                 </div>
-                
+
                 {/* Total Amount */}
                 <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
                   <span className="text-sm font-semibold text-gray-700">Total Auto</span>
@@ -876,88 +891,98 @@ const AddEditVoucher = () => {
               </div>
             </div>
           ) : (
-            <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Party</label>
-                <select
-                  value={formData.party}
-                  onChange={(e) => handlePartyChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select Party</option>
-                  <optgroup label="Customers">
-                    {customers.map(customer => (
-                      <option key={customer.id} value={customer.id}>
-                        {customer.shopName} - {customer.ownerName}
-                      </option>
-                    ))}
-                  </optgroup>
-                  <optgroup label="Vendors">
-                    {vendors.map(vendor => (
-                      <option key={vendor._id} value={vendor._id}>
-                        {vendor.vendorName}
-                      </option>
-                    ))}
-                  </optgroup>
-                </select>
-                {partyBalanceLabel && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Current Balance: {partyBalanceLabel}
-                  </p>
-                )}
+            // Hide Party fields for Contra and Journal vouchers
+            formData.voucherType !== 'Contra' && formData.voucherType !== 'Journal' && (
+              <div className="px-6 py-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Party</label>
+                  <select
+                    value={formData.party}
+                    onChange={(e) => handlePartyChange(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select Party</option>
+                    <optgroup label="Customers">
+                      {customers.map(customer => (
+                        <option key={customer.id} value={customer.id}>
+                          {customer.shopName} - {customer.ownerName}
+                        </option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Vendors">
+                      {vendors.map(vendor => (
+                        <option key={vendor._id} value={vendor._id}>
+                          {vendor.vendorName}
+                        </option>
+                      ))}
+                    </optgroup>
+                  </select>
+                  {partyBalanceLabel && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Current Balance: {partyBalanceLabel}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Party Name</label>
+                  <input
+                    type="text"
+                    value={formData.partyName}
+                    onChange={(e) => handleInputChange('partyName', e.target.value)}
+                    placeholder="Enter party name"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Party Name</label>
-                <input
-                  type="text"
-                  value={formData.partyName}
-                  onChange={(e) => handleInputChange('partyName', e.target.value)}
-                  placeholder="Enter party name"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-              </div>
-            </div>
+            )
           )}
         </div>
 
         {/* Voucher Entries - Only show for non-Payment/Receipt vouchers */}
         {!isPaymentOrReceipt && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <DollarSign size={20} />
-                Particulars
-              </h2>
-              <p className="text-sm text-gray-500">Enter debit and credit lines similar to Tally</p>
-            </div>
-            <button
-              type="button"
-              onClick={addEntry}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-            >
-              <Plus size={16} />
-              Add Line
-            </button>
-          </div>
-
-          <div className="px-6">
-            <div className="grid grid-cols-[minmax(0,1fr),140px,140px] text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200 py-3">
-              <div>Particulars</div>
-              <div className="text-right">Debit</div>
-              <div className="text-right">Credit</div>
+          <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                  <DollarSign size={20} />
+                  Particulars
+                </h2>
+                <p className="text-sm text-gray-500">Enter debit and credit lines similar to Tally</p>
+              </div>
+              {formData.voucherType !== 'Contra' && formData.voucherType !== 'Journal' && (
+                <button
+                  type="button"
+                  onClick={addEntry}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                >
+                  <Plus size={16} />
+                  Add Line
+                </button>
+              )}
             </div>
 
-            {formData.entries.map((entry, index) => (
+            <div className="px-6">
+              <div className="grid grid-cols-[minmax(0,1fr),140px,140px] text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200 py-3">
+                <div>Particulars</div>
+                <div className="text-right">Debit</div>
+                <div className="text-right">Credit</div>
+              </div>
+
+              {formData.entries.map((entry, index) => (
                 <div key={index} className="grid grid-cols-[minmax(0,1fr),140px,140px] items-center gap-4 py-3 border-b border-gray-100">
+                  {console.log("entry", entry)}
                   <div>
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
                         onClick={() => toggleEntryType(index)}
-                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${entry.type === 'Cr' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}
+                        disabled={formData.voucherType === 'Contra' || formData.voucherType === 'Journal'} // Disable toggle for Contra/Journal
+                        className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${(formData.voucherType === 'Contra' || formData.voucherType === 'Journal')
+                          ? (index === 0 ? 'bg-red-100 text-red-700 cursor-not-allowed' : 'bg-green-100 text-green-700 cursor-not-allowed')
+                          : (entry.type === 'Cr' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700')
+                          }`}
                       >
-                        {entry.type}
+                        {(formData.voucherType === 'Contra' || formData.voucherType === 'Journal') ? (index === 0 ? 'Dr' : 'Cr') : entry.type}
                       </button>
                       <select
                         value={entry.account}
@@ -966,13 +991,38 @@ const AddEditVoucher = () => {
                         required
                       >
                         <option value="">Select account</option>
-                        {ledgers.map((ledger) => (
-                          <option key={ledger.id} value={ledger.name}>
-                            {ledger.name}
-                          </option>
-                        ))}
+                        {formData.voucherType === 'Journal' ? (
+                          <>
+                            {/* Combined list for Journal */}
+                            <optgroup label="Ledgers">
+                              {ledgers.map((ledger) => (
+                                <option key={`ledger-${ledger.id}`} value={ledger.name}>{ledger.name}</option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="Customers">
+                              {customers.map((customer) => (
+                                <option key={`customer-${customer.id}`} value={customer.shopName || customer.ownerName}>
+                                  {customer.shopName || customer.ownerName}
+                                </option>
+                              ))}
+                            </optgroup>
+                            <optgroup label="Vendors">
+                              {vendors.map((vendor) => (
+                                <option key={`vendor-${vendor._id}`} value={vendor.vendorName}>{vendor.vendorName}</option>
+                              ))}
+                            </optgroup>
+                          </>
+                        ) : (
+                          // Only ledgers for others
+                          ledgers.map((ledger) => (
+                            <option key={ledger.id} value={ledger.name}>
+                              {ledger.name}
+                            </option>
+                          ))
+                        )}
                       </select>
-                      {formData.entries.length > 2 && (
+                      {/* Hide delete button for Contra or if only 2 entries */}
+                      {formData.voucherType !== 'Contra' && formData.voucherType !== 'Journal' && formData.entries.length > 2 && (
                         <button
                           type="button"
                           onClick={() => removeEntry(index)}
@@ -1014,32 +1064,32 @@ const AddEditVoucher = () => {
                 </div>
               ))}
 
-            <div className="grid grid-cols-[minmax(0,1fr),140px,140px] items-center py-4">
-              <div className="text-right font-semibold text-gray-900 pr-6">Total</div>
-              <div className="text-right font-semibold text-red-600">₹{totalDebit.toFixed(2)}</div>
-              <div className="text-right font-semibold text-green-600">₹{totalCredit.toFixed(2)}</div>
+              <div className="grid grid-cols-[minmax(0,1fr),140px,140px] items-center py-4">
+                <div className="text-right font-semibold text-gray-900 pr-6">Total</div>
+                <div className="text-right font-semibold text-red-600">₹{totalDebit.toFixed(2)}</div>
+                <div className="text-right font-semibold text-green-600">₹{totalCredit.toFixed(2)}</div>
+              </div>
             </div>
-          </div>
 
-          <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm">
-              {isBalanced ? (
-                <span className="flex items-center gap-1 text-green-600">
-                  <CheckCircle size={16} />
-                  Voucher is balanced
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-red-600">
-                  <AlertCircle size={16} />
-                  Debit and Credit totals must match
-                </span>
-              )}
-            </div>
-            <div className="text-xs uppercase tracking-wide text-gray-500">
-              Dr / Cr difference: ₹{Math.abs(totalDebit - totalCredit).toFixed(2)}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm">
+                {isBalanced ? (
+                  <span className="flex items-center gap-1 text-green-600">
+                    <CheckCircle size={16} />
+                    Voucher is balanced
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-red-600">
+                    <AlertCircle size={16} />
+                    Debit and Credit totals must match
+                  </span>
+                )}
+              </div>
+              <div className="text-xs uppercase tracking-wide text-gray-500">
+                Dr / Cr difference: ₹{Math.abs(totalDebit - totalCredit).toFixed(2)}
+              </div>
             </div>
           </div>
-        </div>
         )}
         {/* Narration */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
