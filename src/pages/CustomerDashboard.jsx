@@ -74,6 +74,11 @@ const CustomerDashboard = () => {
     startDate: '',
     endDate: ''
   });
+  const [showDateFilterModal, setShowDateFilterModal] = useState(false);
+  const [tempDateFilter, setTempDateFilter] = useState({
+    startDate: '',
+    endDate: ''
+  });
   const [showPaymentTable, setShowPaymentTable] = useState(false);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const [isDownloadingLedger, setIsDownloadingLedger] = useState(false);
@@ -109,6 +114,12 @@ const CustomerDashboard = () => {
   });
 
   useEffect(() => {
+    setTimeout(() => {
+      fetchPurchaseLedger(1, true)
+    }, 1000)
+  }, []) // infinite scrolling is not working on first load so added this
+
+  useEffect(() => {
     if (user?._id || user?.id) {
       fetchDashboardData();
     }
@@ -140,6 +151,29 @@ const CustomerDashboard = () => {
     };
   }, [showDownloadOptions]);
 
+  const observerTarget = useRef(null);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      entries => {
+        if (entries[0].isIntersecting && ledgerPagination.currentPage < ledgerPagination.totalPages && !loadingPagination && !refreshingPurchases) {
+          fetchPurchaseLedger(ledgerPagination.currentPage + 1, false, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
+    }
+
+    return () => {
+      if (observerTarget.current) {
+        observer.unobserve(observerTarget.current);
+      }
+    };
+  }, [ledgerPagination.currentPage, ledgerPagination.totalPages, loadingPagination, refreshingPurchases]);
+
   const fetchDashboardData = async () => {
     try {
       const userId = user?._id || user?.id;
@@ -155,8 +189,8 @@ const CustomerDashboard = () => {
         setStats(statsResponse.data.data);
       }
 
-      // Fetch purchase ledger data
-      await fetchPurchaseLedger(ledgerPagination.currentPage);
+      // Fetch purchase ledger data (Start from page 1)
+      await fetchPurchaseLedger(1);
 
       // Fetch payment records
       const paymentResponse = await api.get(`/customer/panel/${userId}/payments?page=${paymentPagination.currentPage}&limit=${paymentPagination.itemsPerPage}`);
@@ -172,55 +206,39 @@ const CustomerDashboard = () => {
     }
   };
 
-  const fetchPurchaseLedger = async (page = 1, isRefresh = false, skipLastPageCheck = false) => {
+  const fetchPurchaseLedger = async (page = 1, isRefresh = false, append = false) => {
     try {
       if (isRefresh) {
         setRefreshingPurchases(true);
+      }
+      if (append) {
+        setLoadingPagination(true);
       }
 
       const userId = user?._id || user?.id;
       if (!userId) return;
 
-      // Clear existing data first to ensure clean state
-      if (!isRefresh && !skipLastPageCheck) {
+      // Clear existing data first only if not appending and not refreshing
+      if (!isRefresh && !append) {
         setPurchaseLedger([]);
       }
 
+      // Determine limit: if filter active, fetch all (10000), else use pagination limit
+      const limit = (dateFilter.startDate || dateFilter.endDate) ? 10000 : ledgerPagination.itemsPerPage;
+
       // Fetch purchase ledger data
-      const ledgerResponse = await api.get(`/customer/panel/${userId}/purchase-ledger?page=${page}&limit=${ledgerPagination.itemsPerPage}`);
+      const ledgerResponse = await api.get(`/customer/panel/${userId}/purchase-ledger?page=${page}&limit=${limit}`);
       if (ledgerResponse.data.success) {
         const ledgerData = ledgerResponse.data.data;
 
-        // Update pagination state first to get totalPages
+        // Update pagination state
         if (ledgerData.pagination) {
           setLedgerPagination(ledgerData.pagination);
         }
 
-        // On first load or refresh, if there are multiple pages, load the last page
-        if ((isFirstLoad || isRefresh) && !skipLastPageCheck && ledgerData.pagination && ledgerData.pagination.totalPages > 1) {
-          const lastPage = ledgerData.pagination.totalPages;
-          // Fetch the last page instead
-          const lastPageResponse = await api.get(`/customer/panel/${userId}/purchase-ledger?page=${lastPage}&limit=${ledgerPagination.itemsPerPage}`);
-          if (lastPageResponse.data.success) {
-            const lastPageData = lastPageResponse.data.data;
-            setPurchaseLedger(lastPageData.ledger || []);
-            setLedgerTotals(lastPageData.totals || {});
-
-            // Update pagination to show we're on the last page
-            if (lastPageData.pagination) {
-              setLedgerPagination(lastPageData.pagination);
-            }
-          }
-        } else {
-          // Normal pagination or single page
-          setPurchaseLedger(ledgerData.ledger || []);
-          setLedgerTotals(ledgerData.totals || {});
-        }
-
-        // Mark first load as complete only after first successful load (not on refresh)
-        if (isFirstLoad && !isRefresh) {
-          setIsFirstLoad(false);
-        }
+        // Set ledger data
+        setPurchaseLedger(prev => append ? [...prev, ...(ledgerData.ledger || [])] : (ledgerData.ledger || []));
+        setLedgerTotals(ledgerData.totals || {});
       }
 
       // Also refresh dashboard stats if this is a refresh action
@@ -237,33 +255,14 @@ const CustomerDashboard = () => {
       if (isRefresh) {
         setRefreshingPurchases(false);
       }
+      if (append) {
+        setLoadingPagination(false);
+      }
     }
   };
 
   // Pagination handlers for purchase ledger
-  const handlePreviousPage = async () => {
-    if (ledgerPagination.currentPage > 1 && !loadingPagination) {
-      setLoadingPagination(true);
-      try {
-        const newPage = ledgerPagination.currentPage - 1;
-        await fetchPurchaseLedger(newPage, false, true); // skipLastPageCheck = true to prevent re-fetching last page
-      } finally {
-        setLoadingPagination(false);
-      }
-    }
-  };
 
-  const handleNextPage = async () => {
-    if (ledgerPagination.currentPage < ledgerPagination.totalPages && !loadingPagination) {
-      setLoadingPagination(true);
-      try {
-        const newPage = ledgerPagination.currentPage + 1;
-        await fetchPurchaseLedger(newPage, false, true); // skipLastPageCheck = true to prevent re-fetching last page
-      } finally {
-        setLoadingPagination(false);
-      }
-    }
-  };
 
   // Pagination handlers for payment records
   const handlePaymentPreviousPage = async () => {
@@ -586,10 +585,34 @@ const CustomerDashboard = () => {
   const filteredPurchaseLedger = filterLedgerByDate(purchaseLedger, dateFilter);
   const displayedPurchaseLedger = isDateFilterActive ? filteredPurchaseLedger : purchaseLedger;
 
+  const openDateFilterModal = () => {
+    setTempDateFilter(dateFilter);
+    setShowDateFilterModal(true);
+  };
+
+  const handleApplyDateFilter = () => {
+    setDateFilter(tempDateFilter);
+    setShowDateFilterModal(false);
+  };
+
   const handleClearDateFilter = () => {
     setDateFilter({
       startDate: '',
       endDate: ''
+    });
+  };
+
+  useEffect(() => {
+    fetchPurchaseLedger(1, true);
+  }, [dateFilter]);
+
+  const formatDateDisplay = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit'
     });
   };
 
@@ -919,36 +942,34 @@ const CustomerDashboard = () => {
             </div>
           </div>
 
-          <div className="flex flex-col md:flex-row md:items-end gap-3">
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-              <input
-                type="date"
-                value={dateFilter.startDate}
-                onChange={(e) => setDateFilter((prev) => ({ ...prev, startDate: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-              <input
-                type="date"
-                value={dateFilter.endDate}
-                onChange={(e) => setDateFilter((prev) => ({ ...prev, endDate: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-            <div className="flex gap-2">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
               <button
-                onClick={handleClearDateFilter}
-                disabled={!isDateFilterActive}
-                className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={openDateFilterModal}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors"
+                title="Filter by Date Range"
               >
-                Clear Filter
+                <Calendar size={18} />
+                <span>
+                  {isDateFilterActive
+                    ? `${formatDateDisplay(dateFilter.startDate)} - ${formatDateDisplay(dateFilter.endDate)}`
+                    : 'Filter by Date'}
+                </span>
               </button>
-              <div className="px-4 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg bg-gray-50">
-                Showing: {isDateFilterActive ? `${displayedPurchaseLedger.length} filtered records` : `${purchaseLedger.length} records`}
-              </div>
+
+              {isDateFilterActive && (
+                <button
+                  onClick={handleClearDateFilter}
+                  className="flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
+                >
+                  <X size={16} />
+                  Clear
+                </button>
+              )}
+            </div>
+
+            <div className="px-4 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg bg-gray-50">
+              Showing: {isDateFilterActive ? `${displayedPurchaseLedger.length} filtered records` : `${purchaseLedger.length} records`}
             </div>
           </div>
         </div>
@@ -1001,7 +1022,7 @@ const CustomerDashboard = () => {
                   {displayedPurchaseLedger.map((entry, index) => (
                     <tr key={entry._id || index} className="hover:bg-gray-50">
                       <td className="px-3 py-3 text-gray-900">
-                        {(ledgerPagination.currentPage - 1) * ledgerPagination.itemsPerPage + index + 1}
+                        {index + 1}
                       </td>
                       <td className="px-3 py-3 text-gray-900">{formatDate(entry.date)}</td>
                       <td className="px-3 py-3">
@@ -1025,39 +1046,77 @@ const CustomerDashboard = () => {
               </table>
             </div>
 
-            {/* Pagination */}
-            {ledgerPagination.totalPages > 1 && (
-              <div className="flex items-center justify-between mt-4 px-3 py-3 bg-gray-50 border-t border-gray-200">
-                <div className="text-sm text-gray-700">
-                  Showing {((ledgerPagination.currentPage - 1) * ledgerPagination.itemsPerPage) + 1} to{' '}
-                  {Math.min(ledgerPagination.currentPage * ledgerPagination.itemsPerPage, ledgerPagination.totalItems)} of{' '}
-                  {ledgerPagination.totalItems} entries
-                </div>
+            {/* Infinite Scroll Loader */}
+            <div ref={observerTarget} className="h-4 w-full flex items-center justify-center mt-4">
+              {loadingPagination && (
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={handlePreviousPage}
-                    disabled={ledgerPagination.currentPage === 1 || loadingPagination}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <span className="px-3 py-1 text-sm text-gray-700">
-                    Page {ledgerPagination.currentPage} of {ledgerPagination.totalPages}
-                  </span>
-                  <button
-                    onClick={handleNextPage}
-                    disabled={ledgerPagination.currentPage === ledgerPagination.totalPages || loadingPagination}
-                    className="p-2 rounded-lg border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-green-600"></div>
+                  <span className="text-xs text-gray-500">Loading more...</span>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </>
         )}
       </div>
 
+      {/* Date Filter Modal */}
+      {showDateFilterModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Calendar size={24} className="text-blue-600" />
+                Select Date Range
+              </h2>
+              <button
+                onClick={() => setShowDateFilterModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={tempDateFilter.startDate}
+                  onChange={(e) => setTempDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={tempDateFilter.endDate}
+                  onChange={(e) => setTempDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowDateFilterModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyDateFilter}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                >
+                  Apply Filter
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Payment Modal */}
       {showPaymentModal && selectedSale && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">

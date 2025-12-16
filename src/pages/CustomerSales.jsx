@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
-import { 
-  Search, 
-  Filter, 
-  Download, 
-  Eye, 
+import {
+  Search,
+  Filter,
+  Download,
+  Eye,
   CreditCard,
   Calendar,
   Package,
@@ -37,7 +37,7 @@ const CustomerSales = () => {
     filterSales();
   }, [sales, searchTerm, statusFilter]);
 
-    const fetchSales = async () => {
+  const fetchSales = async () => {
     try {
       const userId = user?._id || user?.id;
       if (!userId) {
@@ -45,7 +45,7 @@ const CustomerSales = () => {
         setLoading(false);
         return;
       }
-      
+
       const response = await api.get(`/customer/panel/${userId}/sales`);
       if (response.data.success) {
         setSales(response.data.data || []);
@@ -62,7 +62,7 @@ const CustomerSales = () => {
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(sale => 
+      filtered = filtered.filter(sale =>
         sale.billNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         sale.tripId?.toLowerCase().includes(searchTerm.toLowerCase())
       );
@@ -271,7 +271,7 @@ const CustomerSales = () => {
             <Package className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <p className="text-gray-500 text-lg">No purchases found</p>
             <p className="text-gray-400 mt-1">
-              {searchTerm || statusFilter !== 'all' 
+              {searchTerm || statusFilter !== 'all'
                 ? 'Try adjusting your search or filter criteria'
                 : 'Your purchase history will appear here'
               }
@@ -292,7 +292,7 @@ const CustomerSales = () => {
                         {new Date(sale.timestamp).toLocaleDateString()}
                       </span>
                     </div>
-                    
+
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <h3 className="font-semibold text-gray-900">Bill: {sale.billNumber || 'N/A'}</h3>
@@ -301,7 +301,7 @@ const CustomerSales = () => {
                           {sale.birds || 0} birds • {sale.weight || 0} kg • ₹{sale.rate || 0}/kg
                         </p>
                       </div>
-                      
+
                       <div className="text-right">
                         <p className="text-lg font-bold text-gray-900">₹{(sale.amount || 0).toLocaleString()}</p>
                         <div className="text-sm text-gray-600 space-y-1">
@@ -313,7 +313,7 @@ const CustomerSales = () => {
                       </div>
                     </div>
                   </div>
-                  
+
                   <button
                     onClick={() => {
                       setSelectedSale(sale);

@@ -119,10 +119,10 @@ const UserModal = ({
                             </div>
 
                             {
-                                !isEdit && (
+                                (!isEdit || (currentUser?.role === 'superadmin' || user?._id === currentUserId)) && (
                                     <div>
                                         <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                                            Password *
+                                            Password {isEdit ? '(Leave blank to keep current)' : '*'}
                                         </label>
                                         <div className="mt-1 relative">
                                             <input
@@ -130,11 +130,11 @@ const UserModal = ({
                                                 name="password"
                                                 type={showPassword ? 'text' : 'password'}
                                                 autoComplete="new-password"
-                                                required
+                                                required={!isEdit}
                                                 value={formData.password}
                                                 onChange={handleChange}
                                                 className="block w-full px-3 py-2 pr-12 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                                                placeholder="Create a strong password"
+                                                placeholder={isEdit ? "Enter new password" : "Create a strong password"}
                                             />
                                             <button
                                                 type="button"

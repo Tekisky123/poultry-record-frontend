@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Filter, 
+import {
+  Plus,
+  Edit,
+  Trash2,
+  Filter,
   Download,
   Building2,
   Zap,
@@ -23,7 +23,9 @@ import {
   Plane,
   CreditCard,
   HelpCircle,
-  Loader2
+  Loader2,
+  Calendar,
+  X
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -92,6 +94,13 @@ export default function IndirectExpenses() {
     endDate: ''
   });
 
+  // Date Filter Modal States
+  const [showDateFilterModal, setShowDateFilterModal] = useState(false);
+  const [tempDateFilter, setTempDateFilter] = useState({
+    startDate: '',
+    endDate: ''
+  });
+
   const { register, handleSubmit, reset, formState: { errors }, setValue, watch } = useForm({
     resolver: zodResolver(expenseSchema),
     defaultValues: {
@@ -121,7 +130,7 @@ export default function IndirectExpenses() {
       if (filters.category) params.append('category', filters.category);
       if (filters.startDate) params.append('startDate', filters.startDate);
       if (filters.endDate) params.append('endDate', filters.endDate);
-      
+
       const { data } = await api.get(`/indirect-expense?${params.toString()}`);
       setExpenses(data.expenses || []);
     } catch (err) {
@@ -145,7 +154,7 @@ export default function IndirectExpenses() {
       setIsSubmitting(true);
       if (editingExpense) {
         await api.put(`/indirect-expense/${editingExpense.id}`, data);
-        setExpenses(prev => prev.map(exp => 
+        setExpenses(prev => prev.map(exp =>
           exp.id === editingExpense.id ? { ...exp, ...data } : exp
         ));
         alert('Expense updated successfully!');
@@ -154,7 +163,7 @@ export default function IndirectExpenses() {
         setExpenses(prev => [newExpense.data, ...prev]);
         alert('Expense added successfully!');
       }
-      
+
       setShowModal(false);
       setEditingExpense(null);
       reset();
@@ -209,6 +218,35 @@ export default function IndirectExpenses() {
   const getCategoryLabel = (category) => {
     return categoryLabels[category] || category;
   };
+
+  const formatDateDisplay = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit'
+    });
+  };
+
+  const handleApplyDateFilter = () => {
+    setFilters(prev => ({
+      ...prev,
+      startDate: tempDateFilter.startDate,
+      endDate: tempDateFilter.endDate
+    }));
+    setShowDateFilterModal(false);
+  };
+
+  const openDateFilterModal = () => {
+    setTempDateFilter({
+      startDate: filters.startDate,
+      endDate: filters.endDate
+    });
+    setShowDateFilterModal(true);
+  };
+
+  const isDateFilterActive = filters.startDate || filters.endDate;
 
   if (loading) {
     return (
@@ -302,28 +340,30 @@ export default function IndirectExpenses() {
             ))}
           </select>
 
-          <input
-            type="date"
-            value={filters.startDate}
-            onChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Start Date"
-          />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={openDateFilterModal}
+              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors bg-white"
+              title="Filter by Date Range"
+            >
+              <Calendar size={18} />
+              <span>
+                {isDateFilterActive
+                  ? `${formatDateDisplay(filters.startDate)} - ${formatDateDisplay(filters.endDate)}`
+                  : 'Filter by Date'}
+              </span>
+            </button>
 
-          <input
-            type="date"
-            value={filters.endDate}
-            onChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="End Date"
-          />
-
-          <button
-            onClick={() => setFilters({ category: '', startDate: '', endDate: '' })}
-            className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            Clear Filters
-          </button>
+            {(isDateFilterActive || filters.category) && (
+              <button
+                onClick={() => setFilters({ category: '', startDate: '', endDate: '' })}
+                className="flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
+              >
+                <X size={16} />
+                Clear All
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -412,7 +452,7 @@ export default function IndirectExpenses() {
             <h2 className="text-xl font-semibold mb-4">
               {editingExpense ? 'Edit Expense' : 'Add New Expense'}
             </h2>
-            
+
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -535,6 +575,64 @@ export default function IndirectExpenses() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* Date Filter Modal */}
+      {showDateFilterModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Calendar size={24} className="text-blue-600" />
+                Select Date Range
+              </h2>
+              <button
+                onClick={() => setShowDateFilterModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={tempDateFilter.startDate}
+                  onChange={(e) => setTempDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={tempDateFilter.endDate}
+                  onChange={(e) => setTempDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowDateFilterModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyDateFilter}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                >
+                  Apply Filter
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
