@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard';
 import Trips from './pages/Trips';
 import TripDetails from './pages/TripDetails';
 import Vendors from './pages/Vendors';
+import VendorDetails from './pages/VendorDetails';
 import Customers from './pages/Customers';
 import AddCustomer from './pages/AddCustomer';
 import CustomerDetails from './pages/CustomerDetails';
@@ -25,6 +26,7 @@ import Ledgers from './pages/Ledgers';
 import DieselStations from './pages/DieselStations';
 import BalanceSheet from './pages/BalanceSheet';
 import GroupSummary from './pages/GroupSummary';
+import MonthlySummary from './pages/MonthlySummary';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -107,11 +109,11 @@ const AppContent = () => {
       <div className="min-h-screen bg-gray-50 pb-20">
         <CustomerHeader />
         <main className="px-4 py-4">
-            <Routes>
-              <Route path="/customer" element={<CustomerDashboard />} />
-              <Route path="/customer/profile" element={<CustomerProfile />} />
-              <Route path="*" element={<Navigate to="/customer" replace />} />
-            </Routes>
+          <Routes>
+            <Route path="/customer" element={<CustomerDashboard />} />
+            <Route path="/customer/profile" element={<CustomerProfile />} />
+            <Route path="*" element={<Navigate to="/customer" replace />} />
+          </Routes>
         </main>
         <CustomerBottomNavigation />
       </div>
@@ -130,32 +132,34 @@ const AppContent = () => {
           <Header />
 
           <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
-              <Routes>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/users" element={<Users />} />
-                <Route path="/trips" element={<Trips />} />
-                <Route path="/trips/:id" element={<TripDetails />} />
-                <Route path="/vendors" element={<Vendors />} />
-                <Route path="/customers" element={<Customers />} />
-                <Route path="/add-customer" element={<AddCustomer />} />
-                <Route path="/customers/:id" element={<CustomerDetails />} />
-                <Route path="/customer-payments" element={<CustomerPaymentsAdmin />} />
-                <Route path="/vehicles" element={<Vehicles />} />
-                <Route path="/reports" element={<Reports />} />
-                <Route path="/indirect-expenses" element={<IndirectExpenses />} />
-                <Route path="/indirect-sales" element={<IndirectSales />} />
-                <Route path="/indirect-sales/:id" element={<IndirectSaleDetail />} />
-                <Route path="/vouchers" element={<VoucherList />} />
-                <Route path="/vouchers/add" element={<AddEditVoucher />} />
-                <Route path="/vouchers/:id" element={<VoucherDetails />} />
-                <Route path="/vouchers/:id/edit" element={<AddEditVoucher />} />
-                <Route path="/groups" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Groups /></ProtectedRoute>} />
-                <Route path="/ledgers" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Ledgers /></ProtectedRoute>} />
-                <Route path="/diesel-stations" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><DieselStations /></ProtectedRoute>} />
-                <Route path="/balance-sheet" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BalanceSheet /></ProtectedRoute>} />
-                <Route path="/group-summary/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><GroupSummary /></ProtectedRoute>} />
-                <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/users" element={<Users />} />
+              <Route path="/trips" element={<Trips />} />
+              <Route path="/trips/:id" element={<TripDetails />} />
+              <Route path="/vendors" element={<Vendors />} />
+              <Route path="/vendors/:id" element={<VendorDetails />} />
+              <Route path="/customers" element={<Customers />} />
+              <Route path="/add-customer" element={<AddCustomer />} />
+              <Route path="/customers/:id" element={<CustomerDetails />} />
+              <Route path="/customer-payments" element={<CustomerPaymentsAdmin />} />
+              <Route path="/vehicles" element={<Vehicles />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/indirect-expenses" element={<IndirectExpenses />} />
+              <Route path="/indirect-sales" element={<IndirectSales />} />
+              <Route path="/indirect-sales/:id" element={<IndirectSaleDetail />} />
+              <Route path="/vouchers" element={<VoucherList />} />
+              <Route path="/vouchers/add" element={<AddEditVoucher />} />
+              <Route path="/vouchers/:id" element={<VoucherDetails />} />
+              <Route path="/vouchers/:id/edit" element={<AddEditVoucher />} />
+              <Route path="/groups" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Groups /></ProtectedRoute>} />
+              <Route path="/ledgers" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Ledgers /></ProtectedRoute>} />
+              <Route path="/diesel-stations" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><DieselStations /></ProtectedRoute>} />
+              <Route path="/balance-sheet" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BalanceSheet /></ProtectedRoute>} />
+              <Route path="/group-summary/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><GroupSummary /></ProtectedRoute>} />
+              <Route path="/monthly-summary/:type/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><MonthlySummary /></ProtectedRoute>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
           </main>
         </div>
       </div>

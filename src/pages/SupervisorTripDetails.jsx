@@ -40,6 +40,12 @@ const SupervisorTripDetails = () => {
 
   const [trip, setTrip] = useState(null);
   const [vendors, setVendors] = useState([]);
+  const [filteredVendors, setFilteredVendors] = useState([]);
+  const [vendorSearchTerm, setVendorSearchTerm] = useState('');
+  const [showVendorDropdown, setShowVendorDropdown] = useState(false);
+  const [highlightedVendorIndex, setHighlightedVendorIndex] = useState(-1);
+  const highlightedVendorRef = useRef(null);
+  const [selectedVendor, setSelectedVendor] = useState(null);
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [customerSearchTerm, setCustomerSearchTerm] = useState('');
@@ -170,13 +176,13 @@ const SupervisorTripDetails = () => {
   // Check if trip has incomplete details (TBD values) and show modal
   useEffect(() => {
     if (trip && trip.type === 'transferred') {
-      const hasIncompleteDetails = 
-        trip.driver?.includes('TBD') || 
+      const hasIncompleteDetails =
+        trip.driver?.includes('TBD') ||
         trip.labour?.includes('TBD') ||
-        trip.route?.from === 'TBD' || 
+        trip.route?.from === 'TBD' ||
         trip.route?.to === 'TBD' ||
         trip.vehicleReadings?.opening === 0;
-      
+
       if (hasIncompleteDetails) {
         setShowCompleteTripDetailsModal(true);
       }
@@ -231,16 +237,16 @@ const SupervisorTripDetails = () => {
       const receivedAmount = cashPaid + onlinePaid;
       // Calculate balance using the correct formula: outstandingBalance + Total Amount - Online Paid - Cash Paid - Discount
       let balance = Number(customerBalance) + Number(saleData.amount) - Number(onlinePaid) - Number(cashPaid) - Number(discount);
-      
+
       // If payment exceeds the sale amount + current outstanding balance, 
       // the extra payment reduces the balance to 0 (minimum)
       balance = Math.max(0, balance);
-      
+
       if (receivedAmount !== saleData.receivedAmount || balance !== saleData.balance) {
-        setSaleData(prev => ({ 
-          ...prev, 
+        setSaleData(prev => ({
+          ...prev,
           receivedAmount,
-          balance 
+          balance
         }));
       }
     }
@@ -270,7 +276,7 @@ const SupervisorTripDetails = () => {
     if (birds > 0 && weight > 0) {
       const avgWeight = Number((weight / birds).toFixed(2));
       const value = Number((weight * rate).toFixed(2));
-      
+
       setStockData(prev => ({
         ...prev,
         avgWeight,
@@ -298,7 +304,77 @@ const SupervisorTripDetails = () => {
       );
       setFilteredCustomers(filtered);
     }
-  }, [customers, customerSearchTerm]);
+  }, [customerSearchTerm, customers]);
+
+  // Filter vendors based on search term
+  useEffect(() => {
+    if (vendorSearchTerm.trim() === '') {
+      setFilteredVendors(vendors);
+    } else {
+      const filtered = vendors.filter(vendor =>
+        vendor.vendorName.toLowerCase().includes(vendorSearchTerm.toLowerCase()) ||
+        (vendor.contactNumber && vendor.contactNumber.includes(vendorSearchTerm)) ||
+        (vendor.place && vendor.place.toLowerCase().includes(vendorSearchTerm.toLowerCase()))
+      );
+      setFilteredVendors(filtered);
+    }
+  }, [vendorSearchTerm, vendors]);
+
+  // Handle customer selection from dropdown
+  const handleCustomerSelect = (customer) => {
+    setSelectedCustomer(customer);
+    setSaleData(prev => ({ ...prev, client: customer._id || customer.id }));
+    setCustomerSearchTerm(`${customer.shopName} - ${customer.ownerName || 'N/A'}`);
+    setShowCustomerDropdown(false);
+    setHighlightedCustomerIndex(-1);
+    fetchCustomerBalance(customer);
+  };
+
+  // Handle vendor selection from dropdown
+  const handleVendorSelect = (vendor) => {
+    setSelectedVendor(vendor);
+    setPurchaseData(prev => ({ ...prev, supplier: vendor._id || vendor.id }));
+    setVendorSearchTerm(vendor.vendorName);
+    setShowVendorDropdown(false);
+    setHighlightedVendorIndex(-1);
+  };
+
+  const handleVendorInputFocus = () => {
+    setShowVendorDropdown(true);
+    // Optionally reset filter if you want to show all on focus when empty
+    if (vendorSearchTerm.trim() === '') {
+      setFilteredVendors(vendors);
+    }
+  };
+
+  const handleVendorInputBlur = () => {
+    // Delay hiding dropdown to allow clicking items
+    setTimeout(() => {
+      setShowVendorDropdown(false);
+      setHighlightedVendorIndex(-1);
+    }, 200);
+  };
+
+  const handleVendorKeyDown = (e) => {
+    if (!showVendorDropdown) return;
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedVendorIndex(prev =>
+        prev < filteredVendors.length - 1 ? prev + 1 : prev
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedVendorIndex(prev => prev > 0 ? prev - 1 : 0);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      if (highlightedVendorIndex >= 0 && filteredVendors[highlightedVendorIndex]) {
+        handleVendorSelect(filteredVendors[highlightedVendorIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowVendorDropdown(false);
+    }
+  };
 
   const fetchDieselStations = async () => {
     try {
@@ -322,6 +398,7 @@ const SupervisorTripDetails = () => {
 
       if (vendorsRes.data.success) {
         setVendors(vendorsRes.data.data || []);
+        setFilteredVendors(vendorsRes.data.data || []);
       }
 
       if (customersRes.data.success) {
@@ -337,7 +414,7 @@ const SupervisorTripDetails = () => {
 
   // Helper function to find "CASH A/C" ledger ID
   const getCashAcLedgerId = () => {
-    const cashAcLedger = cashInHandLedgers.find(ledger => 
+    const cashAcLedger = cashInHandLedgers.find(ledger =>
       ledger.name === 'CASH A/C' || ledger.name === 'CASH A/C' || ledger.name?.toUpperCase() === 'CASH A/C'
     );
     return cashAcLedger?.id || cashAcLedger?._id || null;
@@ -355,7 +432,7 @@ const SupervisorTripDetails = () => {
 
       const groups = groupsRes.data.data || [];
       console.log('Fetched groups:', groups);
-      
+
       // Find groups by name (they might be nested, so search through all groups)
       const bankAccountsGroup = groups.find(g => g.name === 'Bank Accounts');
       const cashInHandGroup = groups.find(g => g.name === 'Cash-in-Hand');
@@ -447,7 +524,7 @@ const SupervisorTripDetails = () => {
       const onlinePaid = Number(newData.onlinePaid) || 0;
       const discount = Number(newData.discount) || 0;
       newData.receivedAmount = cashPaid + onlinePaid;
-      
+
       // Calculate balance using the correct formula: outstandingBalance + Total Amount - Online Paid - Cash Paid - Discount
       if (customerBalance !== null) {
         let balance = Number(customerBalance) + Number(newData.amount) - Number(onlinePaid) - Number(cashPaid) - Number(discount);
@@ -456,7 +533,7 @@ const SupervisorTripDetails = () => {
         newData.balance = Math.max(0, balance);
       }
     }
-    
+
     // Auto-calculate receivedAmount when cashPaid or onlinePaid changes
     if (field === 'cashPaid' || field === 'onlinePaid') {
       newData.receivedAmount = newData.cashPaid + newData.onlinePaid;
@@ -491,17 +568,8 @@ const SupervisorTripDetails = () => {
     setShowCustomerDropdown(true);
   };
 
-  const handleCustomerSelect = (customer) => {
-    setSelectedCustomer(customer);
-    setSaleData(prev => ({ ...prev, client: customer._id || customer.id }));
-    setCustomerSearchTerm(`${customer.shopName} - ${customer.ownerName || 'N/A'}`);
-    setShowCustomerDropdown(false);
-    setHighlightedCustomerIndex(-1);
-    fetchCustomerBalance(customer);
-  };
-
   const fetchCustomerBalance = async (customer) => {
-    
+
     if (!customer) {
       setCustomerBalance(null);
       return;
@@ -513,7 +581,7 @@ const SupervisorTripDetails = () => {
       // If customer has user field (from dropdown selection), use panel endpoint
       if (customer.user) {
         response = await api.get(`/customer/panel/${customer.user._id || customer.user}/profile`);
-      } 
+      }
       // If customer only has _id (from editing sale), use admin endpoint
       else if (customer._id) {
         response = await api.get(`/customer/admin/${customer._id || customer.user}`);
@@ -541,7 +609,7 @@ const SupervisorTripDetails = () => {
   const handleCustomerInputFocus = () => {
     setShowCustomerDropdown(true);
   };
-  
+
 
   const handleCustomerInputBlur = () => {
     // Delay hiding dropdown to allow for click events
@@ -636,7 +704,7 @@ const SupervisorTripDetails = () => {
       // Validate mandatory fields
       const mandatoryFields = ['supplier', 'dcNumber', 'birds', 'weight', 'rate'];
       const validationErrors = validateMandatoryFields(purchaseData, mandatoryFields);
-      
+
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
         setIsSubmitting(false);
@@ -687,19 +755,19 @@ const SupervisorTripDetails = () => {
       // Validate mandatory fields
       const mandatoryFields = ['client', 'birds', 'weight', 'rate'];
       const validationErrors = validateMandatoryFields(saleData, mandatoryFields);
-      
+
       // Validate ledger selection if payment amounts are entered
       const cashPaid = Number(saleData.cashPaid) || 0;
       const onlinePaid = Number(saleData.onlinePaid) || 0;
-      
+
       if (cashPaid > 0 && !saleData.cashLedger) {
         validationErrors.push('Please select a Cash-in-Hand Ledger when entering cash payment');
       }
-      
+
       if (onlinePaid > 0 && !saleData.onlineLedger) {
         validationErrors.push('Please select a Bank Account Ledger when entering online payment');
       }
-      
+
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
         setIsSubmitting(false);
@@ -710,22 +778,22 @@ const SupervisorTripDetails = () => {
       const { remainingBirds, remainingWeight } = getPurchaseAndSaleStats();
       const currentSaleBirds = saleData.birds || 0;
       const currentSaleWeight = saleData.weight || 0;
-      
+
       // If editing, subtract the current sale birds from total sold birds to get accurate remaining
-      const adjustedRemainingBirds = editingSaleIndex !== null 
+      const adjustedRemainingBirds = editingSaleIndex !== null
         ? remainingBirds + (trip.sales[editingSaleIndex]?.birdsCount || trip.sales[editingSaleIndex]?.birds || 0)
         : remainingBirds;
-      
-      const adjustedRemainingWeight = editingSaleIndex !== null 
+
+      const adjustedRemainingWeight = editingSaleIndex !== null
         ? remainingWeight + (trip.sales[editingSaleIndex]?.weight || 0)
         : remainingWeight;
-      
+
       if (currentSaleBirds > adjustedRemainingBirds) {
         alert(`Cannot sell ${currentSaleBirds} birds. Only ${adjustedRemainingBirds} birds are available for sale.`);
         setIsSubmitting(false);
         return;
       }
-      
+
       if (currentSaleWeight > adjustedRemainingWeight) {
         alert(`Cannot sell ${currentSaleWeight} kg. Only ${adjustedRemainingWeight} kg are available for sale.`);
         setIsSubmitting(false);
@@ -737,10 +805,10 @@ const SupervisorTripDetails = () => {
         const totalPaid = (Number(saleData.cashPaid) || 0) + (Number(saleData.onlinePaid) || 0);
         const discount = Number(saleData.discount) || 0;
         const totalAmount = Number(saleData.amount) || 0;
-        
+
         // Calculate what the balance would be after this sale
         const calculatedBalance = Number(customerBalance) + Number(totalAmount) - Number(totalPaid) - Number(discount);
-        
+
         // If overpayment occurs (negative balance), show warning but allow it
         if (calculatedBalance < 0) {
           const overpaymentAmount = Math.abs(calculatedBalance);
@@ -753,7 +821,7 @@ const SupervisorTripDetails = () => {
             `The customer's balance will be set to ₹0.00 after this sale.\n\n` +
             `Do you want to proceed?`
           );
-          
+
           if (!confirmOverpayment) {
             setIsSubmitting(false);
             return;
@@ -784,7 +852,7 @@ const SupervisorTripDetails = () => {
               // Don't fail the sale if balance update fails
             }
           }
-          
+
           setShowSaleModal(false);
           setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
           setSelectedCustomer(null);
@@ -811,7 +879,7 @@ const SupervisorTripDetails = () => {
               // Don't fail the sale if balance update fails
             }
           }
-          
+
           setShowSaleModal(false);
           setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
           setSelectedCustomer(null);
@@ -840,25 +908,25 @@ const SupervisorTripDetails = () => {
       // Validate mandatory fields for receipt
       const mandatoryFields = ['client', 'billNumber'];
       const validationErrors = validateMandatoryFields(saleData, mandatoryFields);
-      
+
       // Validate that at least some payment is made
       const totalPaid = (saleData.cashPaid || 0) + (saleData.onlinePaid || 0);
       if (totalPaid <= 0) {
         validationErrors.push('Please enter at least some payment amount (cash or online)');
       }
-      
+
       // Validate ledger selection if payment amounts are entered
       const cashPaid = Number(saleData.cashPaid) || 0;
       const onlinePaid = Number(saleData.onlinePaid) || 0;
-      
+
       if (cashPaid > 0 && !saleData.cashLedger) {
         validationErrors.push('Please select a Cash-in-Hand Ledger when entering cash payment');
       }
-      
+
       if (onlinePaid > 0 && !saleData.onlineLedger) {
         validationErrors.push('Please select a Bank Account Ledger when entering online payment');
       }
-      
+
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
         setIsSubmitting(false);
@@ -895,7 +963,7 @@ const SupervisorTripDetails = () => {
               // Don't fail the receipt if balance update fails
             }
           }
-          
+
           setShowReceiptModal(false);
           setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
           setSelectedCustomer(null);
@@ -921,7 +989,7 @@ const SupervisorTripDetails = () => {
               // Don't fail the receipt if balance update fails
             }
           }
-          
+
           setShowReceiptModal(false);
           setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
           setSelectedCustomer(null);
@@ -949,7 +1017,7 @@ const SupervisorTripDetails = () => {
       // Validate mandatory fields
       const mandatoryFields = ['category', 'description', 'amount'];
       const validationErrors = validateMandatoryFields(expenseData, mandatoryFields);
-      
+
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
         setIsSubmitting(false);
@@ -981,7 +1049,7 @@ const SupervisorTripDetails = () => {
       // Validate mandatory fields
       const mandatoryFields = ['stationName', 'volume', 'rate'];
       const validationErrors = validateMandatoryFields(dieselData, mandatoryFields);
-      
+
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
         setIsSubmitting(false);
@@ -1030,7 +1098,7 @@ const SupervisorTripDetails = () => {
       // Validate mandatory fields
       const mandatoryFields = ['birds', 'weight', 'rate'];
       const validationErrors = validateMandatoryFields(stockData, mandatoryFields);
-      
+
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
         setIsSubmitting(false);
@@ -1041,24 +1109,24 @@ const SupervisorTripDetails = () => {
       const { availableForStockBirds, availableForStockWeight } = getRemainingStockStats();
       const currentStockBirds = stockData.birds || 0;
       const currentStockWeight = stockData.weight || 0;
-      
+
       // When editing, add back the current stock entry's birds/weight to available count
       let adjustedAvailableBirds = availableForStockBirds;
       let adjustedAvailableWeight = availableForStockWeight;
-      
+
       if (editingStockIndex !== null) {
         // Add back the current stock entry being edited
         const currentStockEntry = trip.stocks[editingStockIndex];
         adjustedAvailableBirds += (currentStockEntry?.birds || 0);
         adjustedAvailableWeight += (currentStockEntry?.weight || 0);
       }
-      
+
       if (currentStockBirds > adjustedAvailableBirds) {
         alert(`Cannot add ${currentStockBirds} birds to stock. Only ${adjustedAvailableBirds} birds are available for stock.`);
         setIsSubmitting(false);
         return;
       }
-      
+
       if (currentStockWeight > adjustedAvailableWeight) {
         alert(`Cannot add ${currentStockWeight} kg to stock. Only ${adjustedAvailableWeight.toFixed(2)} kg are available for stock.`);
         setIsSubmitting(false);
@@ -1137,11 +1205,11 @@ const SupervisorTripDetails = () => {
     const totalPurchasedBirds = trip.purchases?.reduce((sum, purchase) => sum + (purchase.birds || 0), 0) || 0;
     const totalSoldBirds = trip.sales?.reduce((sum, sale) => sum + (sale.birdsCount || sale.birds || 0), 0) || 0;
     const remainingBirds = totalPurchasedBirds - totalSoldBirds;
-    
+
     const totalPurchasedWeight = trip.purchases?.reduce((sum, purchase) => sum + (purchase.weight || 0), 0) || 0;
     const totalSoldWeight = trip.sales?.reduce((sum, sale) => sum + (sale.weight || 0), 0) || 0;
     const remainingWeight = totalPurchasedWeight - totalSoldWeight;
-    
+
     return {
       totalPurchasedBirds,
       totalSoldBirds,
@@ -1157,10 +1225,10 @@ const SupervisorTripDetails = () => {
     const { remainingBirds, remainingWeight } = getPurchaseAndSaleStats();
     const totalStockBirds = trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0;
     const totalStockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
-    
+
     const availableForStockBirds = remainingBirds - totalStockBirds;
     const availableForStockWeight = remainingWeight - totalStockWeight;
-    
+
     return {
       remainingBirds,
       remainingWeight,
@@ -1257,7 +1325,7 @@ const SupervisorTripDetails = () => {
     // Find customer details for this sale
     console.log(sale);
     const customer = customers.find(c => c._id === sale?.client?.id || c.id === sale?.client?.id);
-    
+
     if (!customer) {
       alert('Customer details not found for this sale');
       return;
@@ -1368,26 +1436,25 @@ const SupervisorTripDetails = () => {
           </button>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</h1>
-          <p className="text-gray-600">{trip.tripId || 'N/A'}</p>
-          {trip.type === 'transferred' && (
-            <p className="text-orange-600 text-sm font-medium mt-1 flex items-center gap-1">
-              <span className="w-2 h-2 bg-orange-600 rounded-full"></span>
-              Transferred Trip - Contains transferred stock from {trip.transferredFrom?.tripId ? `Trip ${trip.transferredFrom.tripId}` : 'another trip'}
-            </p>
-          )}
+            <p className="text-gray-600">{trip.tripId || 'N/A'}</p>
+            {trip.type === 'transferred' && (
+              <p className="text-orange-600 text-sm font-medium mt-1 flex items-center gap-1">
+                <span className="w-2 h-2 bg-orange-600 rounded-full"></span>
+                Transferred Trip - Contains transferred stock from {trip.transferredFrom?.tripId ? `Trip ${trip.transferredFrom.tripId}` : 'another trip'}
+              </p>
+            )}
             <p className="text-gray-500 text-sm">Manage trip details and operations</p>
           </div>
         </div>
-        
+
         {/* Refresh Button */}
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className={`p-2 rounded-lg transition-colors ${
-            refreshing 
-              ? 'text-gray-400 cursor-not-allowed' 
-              : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
-          }`}
+          className={`p-2 rounded-lg transition-colors ${refreshing
+            ? 'text-gray-400 cursor-not-allowed'
+            : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+            }`}
           title="Refresh trip data"
           data-refresh-button
         >
@@ -1406,6 +1473,9 @@ const SupervisorTripDetails = () => {
                   onClick={() => {
                     setPurchaseData({ supplier: '', dcNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0 });
                     setEditingPurchaseIndex(null);
+                    setSelectedVendor(null);
+                    setVendorSearchTerm('');
+                    setHighlightedVendorIndex(-1);
                     setShowPurchaseModal(true);
                   }}
                   className="flex-shrink-0 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 whitespace-nowrap"
@@ -1482,11 +1552,11 @@ const SupervisorTripDetails = () => {
               </button> */}
               {/* Transfer Trip Button - Only show if there are remaining birds */}
               {(() => {
-                const remainingBirds = (trip.summary?.totalBirdsPurchased || 0) - 
-                                     (trip.summary?.totalBirdsSold || 0) - 
-                                     (trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0) - 
-                                     (trip.summary?.totalBirdsLost || 0) - 
-                                     (trip.summary?.birdsTransferred || 0);
+                const remainingBirds = (trip.summary?.totalBirdsPurchased || 0) -
+                  (trip.summary?.totalBirdsSold || 0) -
+                  (trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0) -
+                  (trip.summary?.totalBirdsLost || 0) -
+                  (trip.summary?.birdsTransferred || 0);
                 return remainingBirds > 0 ? (
                   <button
                     onClick={() => setShowTransferModal(true)}
@@ -1526,15 +1596,15 @@ const SupervisorTripDetails = () => {
         <div className="flex items-center justify-between">
           {/* <div className="flex items-center space-x-4"> */}
           <span className="text-sm text-gray-600">
-              Created: {new Date(trip.createdAt).toLocaleDateString()}
-            </span>
-            <span className={`px-3 py-1 rounded-full text-sm font-medium ${trip.status === 'completed' ? 'bg-green-100 text-green-800' :
-                trip.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
-                  'bg-yellow-100 text-yellow-800'
-              }`}>
-              {trip.status}
-            </span>
-            
+            Created: {new Date(trip.createdAt).toLocaleDateString()}
+          </span>
+          <span className={`px-3 py-1 rounded-full text-sm font-medium ${trip.status === 'completed' ? 'bg-green-100 text-green-800' :
+            trip.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
+              'bg-yellow-100 text-yellow-800'
+            }`}>
+            {trip.status}
+          </span>
+
           {/* </div> */}
           {/* <div className="text-right">
             <div className="text-2xl font-bold text-green-600">
@@ -1549,14 +1619,14 @@ const SupervisorTripDetails = () => {
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="border-b border-gray-200">
           <nav className="flex overflow-x-auto scrollbar-hide px-6">
-          {/* 'stock' is removed */}
-            {['overview', 'purchases', 'sales', 'receipts', 'expenses' , 'diesel', 'losses', 'financials', 'transfers'].map((tab) => (
+            {/* 'stock' is removed */}
+            {['overview', 'purchases', 'sales', 'receipts', 'expenses', 'diesel', 'losses', 'financials', 'transfers'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={`py-4 px-3 border-b-2 font-medium text-sm capitalize whitespace-nowrap flex-shrink-0 ${activeTab === tab
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                   }`}
               >
                 {tab === 'transfers' ? 'Transfer Trip Info' : tab}
@@ -1597,7 +1667,7 @@ const SupervisorTripDetails = () => {
                     <div className="flex items-center gap-2">
                       <Users className="w-4 h-4 text-gray-400" />
                       <span className="text-sm text-gray-600">Labour: {trip.labour}</span>
-                  </div>
+                    </div>
                   )}
 
                   {trip.vehicleReadings?.opening && (
@@ -1608,7 +1678,7 @@ const SupervisorTripDetails = () => {
                       </span>
                     </div>
                   )}
-                  
+
                   {trip.status === 'completed' && trip.vehicleReadings?.closing && (
                     <div className="flex items-center gap-2">
                       <Truck className="w-4 h-4 text-gray-400" />
@@ -1617,7 +1687,7 @@ const SupervisorTripDetails = () => {
                       </span>
                     </div>
                   )}
-                  
+
                   {trip.status === 'completed' && trip.vehicleReadings?.totalDistance && (
                     <div className="flex items-center gap-2">
                       <Truck className="w-4 h-4 text-gray-400" />
@@ -1677,11 +1747,11 @@ const SupervisorTripDetails = () => {
                     <div className="flex-shrink-0">
                       <svg className="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
                         <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
+                      </svg>
                     </div>
                     <div className="ml-3">
                       <p className="text-sm text-orange-700">
-                        <strong>Transferred Trip:</strong> This trip contains transferred stock and cannot be modified. 
+                        <strong>Transferred Trip:</strong> This trip contains transferred stock and cannot be modified.
                         Purchase records show the transferred stock from the original trip.
                       </p>
                     </div>
@@ -1696,12 +1766,12 @@ const SupervisorTripDetails = () => {
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <div className="font-medium">
-                              {trip.type === 'transferred' && purchase.dcNumber?.startsWith('TRANSFER-') 
+                              {trip.type === 'transferred' && purchase.dcNumber?.startsWith('TRANSFER-')
                                 ? 'Transferred Purchase'
-                                : (purchase.supplier?.vendorName || 
-                                   purchase.supplier?.name || 
-                                   purchase.supplier?.companyName || 
-                                   (purchase.supplier ? `Vendor (${purchase.supplier._id})` : 'Unknown Vendor'))
+                                : (purchase.supplier?.vendorName ||
+                                  purchase.supplier?.name ||
+                                  purchase.supplier?.companyName ||
+                                  (purchase.supplier ? `Vendor (${purchase.supplier._id})` : 'Unknown Vendor'))
                               }
                             </div>
                             <div className="text-sm text-gray-600">
@@ -1720,12 +1790,24 @@ const SupervisorTripDetails = () => {
                                 onClick={() => {
                                   // Handle supplier field - it could be populated (object) or just ID (string)
                                   let supplierId = '';
+                                  let vendorObj = null;
+
                                   if (typeof purchase.supplier === 'string') {
                                     supplierId = purchase.supplier;
+                                    vendorObj = vendors.find(v => v._id === supplierId || v.id === supplierId);
                                   } else if (purchase.supplier && purchase.supplier._id) {
                                     supplierId = purchase.supplier._id;
+                                    vendorObj = purchase.supplier;
                                   }
-                                  
+
+                                  if (vendorObj) {
+                                    setSelectedVendor(vendorObj);
+                                    setVendorSearchTerm(vendorObj.vendorName);
+                                  } else {
+                                    setSelectedVendor(null);
+                                    setVendorSearchTerm('');
+                                  }
+
                                   setPurchaseData({
                                     supplier: supplierId,
                                     dcNumber: purchase.dcNumber || '',
@@ -1801,7 +1883,7 @@ const SupervisorTripDetails = () => {
                           <div className="flex justify-between items-center">
                             <h4 className="font-medium text-gray-800">{place}</h4>
                             <div className="text-sm text-gray-600">
-                              {salesInPlace.length} sale{salesInPlace.length !== 1 ? 's' : ''} | 
+                              {salesInPlace.length} sale{salesInPlace.length !== 1 ? 's' : ''} |
                               Total: ₹{salesInPlace.reduce((sum, sale) => sum + (sale.amount || 0), 0).toFixed(2)}
                             </div>
                           </div>
@@ -1825,8 +1907,8 @@ const SupervisorTripDetails = () => {
                                       </>
                                     ) : (
                                       <>
-                                    Bill: {sale.billNumber} | {sale.birds} birds | {sale.weight} kg
-                                    {sale.avgWeight && ` (Avg: ${sale.avgWeight} kg/bird)`}
+                                        Bill: {sale.billNumber} | {sale.birds} birds | {sale.weight} kg
+                                        {sale.avgWeight && ` (Avg: ${sale.avgWeight} kg/bird)`}
                                       </>
                                     )}
                                   </div>
@@ -1869,7 +1951,7 @@ const SupervisorTripDetails = () => {
                                               isReceipt: true
                                             });
                                             setSelectedCustomer(sale.client);
-                            
+
                                             setCustomerSearchTerm(sale.client ? `${sale.client.shopName} - ${sale.client.ownerName || 'N/A'}` : '');
                                             // When editing, use saleOutBalance from the sale record (balance at creation time)
                                             if (sale.saleOutBalance !== undefined && sale.saleOutBalance !== null) {
@@ -1884,41 +1966,41 @@ const SupervisorTripDetails = () => {
                                             setEditingSaleIndex(trip.sales.findIndex(s => s._id === sale._id));
                                             setShowReceiptModal(true);
                                           } else {
-                                          const cashAcId = getCashAcLedgerId();
-                                          const defaultCashLedger = (sale.cashLedger || (sale.cashPaid > 0 ? cashAcId : '')) || '';
-                                          setSaleData({
-                                            client: sale.client?._id || sale.client?.id || sale.client?.user?.customer?.id || '',
-                                            billNumber: sale.billNumber || generateBillNumber(),
-                                            birds: sale.birds || 0,
-                                            weight: sale.weight || 0,
-                                            avgWeight: sale.avgWeight || 0,
-                                            rate: sale.rate || 0,
-                                            amount: sale.amount || 0,
-                                            // paymentMode: sale.paymentMode || 'cash',
-                                            // paymentStatus: sale.paymentStatus || 'pending',
-                                            receivedAmount: sale.receivedAmount || 0,
-                                            discount: sale.discount || 0,
-                                            outstandingBalance: sale.outstandingBalance || 0,
-                                            cashPaid: sale.cashPaid || 0,
-                                            onlinePaid: sale.onlinePaid || 0,
-                                            cashLedger: defaultCashLedger,
-                                            onlineLedger: sale.onlineLedger || ''
-                                          });
-                                          setSelectedCustomer(sale.client);
-                                          setCustomerSearchTerm(sale.client ? `${sale.client.shopName} - ${sale.client.ownerName || 'N/A'}` : '');
-                                          // When editing, use saleOutBalance from the sale record (balance at creation time)
-                                          if (sale.saleOutBalance !== undefined && sale.saleOutBalance !== null) {
-                                            // saleOutBalance is stored as signed value, convert to display value
-                                            setCustomerBalance(sale.saleOutBalance);
-                                            console.log("sssssSale", sale)
-                                          } else if (sale.client) {
-                                            // Fallback: if saleOutBalance doesn't exist (old sales), fetch current balance
-                                            fetchCustomerBalance(sale.client);
-                                          } else {
-                                            setCustomerBalance(null);
-                                          }
-                                          setEditingSaleIndex(trip.sales.findIndex(s => s._id === sale._id));
-                                          setShowSaleModal(true);
+                                            const cashAcId = getCashAcLedgerId();
+                                            const defaultCashLedger = (sale.cashLedger || (sale.cashPaid > 0 ? cashAcId : '')) || '';
+                                            setSaleData({
+                                              client: sale.client?._id || sale.client?.id || sale.client?.user?.customer?.id || '',
+                                              billNumber: sale.billNumber || generateBillNumber(),
+                                              birds: sale.birds || 0,
+                                              weight: sale.weight || 0,
+                                              avgWeight: sale.avgWeight || 0,
+                                              rate: sale.rate || 0,
+                                              amount: sale.amount || 0,
+                                              // paymentMode: sale.paymentMode || 'cash',
+                                              // paymentStatus: sale.paymentStatus || 'pending',
+                                              receivedAmount: sale.receivedAmount || 0,
+                                              discount: sale.discount || 0,
+                                              outstandingBalance: sale.outstandingBalance || 0,
+                                              cashPaid: sale.cashPaid || 0,
+                                              onlinePaid: sale.onlinePaid || 0,
+                                              cashLedger: defaultCashLedger,
+                                              onlineLedger: sale.onlineLedger || ''
+                                            });
+                                            setSelectedCustomer(sale.client);
+                                            setCustomerSearchTerm(sale.client ? `${sale.client.shopName} - ${sale.client.ownerName || 'N/A'}` : '');
+                                            // When editing, use saleOutBalance from the sale record (balance at creation time)
+                                            if (sale.saleOutBalance !== undefined && sale.saleOutBalance !== null) {
+                                              // saleOutBalance is stored as signed value, convert to display value
+                                              setCustomerBalance(sale.saleOutBalance);
+                                              console.log("sssssSale", sale)
+                                            } else if (sale.client) {
+                                              // Fallback: if saleOutBalance doesn't exist (old sales), fetch current balance
+                                              fetchCustomerBalance(sale.client);
+                                            } else {
+                                              setCustomerBalance(null);
+                                            }
+                                            setEditingSaleIndex(trip.sales.findIndex(s => s._id === sale._id));
+                                            setShowSaleModal(true);
                                           }
                                         }}
                                         className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 flex items-center gap-1"
@@ -1956,8 +2038,8 @@ const SupervisorTripDetails = () => {
               <h3 className="text-lg font-semibold text-gray-900">Receipts</h3>
               {(() => {
                 // Filter receipts from sales (where isReceipt is true or birds/weight/amount are 0)
-                const receipts = trip.sales?.filter(sale => 
-                  sale.isReceipt === true || 
+                const receipts = trip.sales?.filter(sale =>
+                  sale.isReceipt === true ||
                   ((sale.birds === 0 || !sale.birds) && (sale.weight === 0 || !sale.weight) && (sale.amount === 0 || !sale.amount))
                 ) || [];
 
@@ -2014,7 +2096,7 @@ const SupervisorTripDetails = () => {
                             <div className="flex justify-between items-center">
                               <h4 className="font-medium text-gray-800">{place}</h4>
                               <div className="text-sm text-gray-600">
-                                {receiptsInPlace.length} receipt{receiptsInPlace.length !== 1 ? 's' : ''} | 
+                                {receiptsInPlace.length} receipt{receiptsInPlace.length !== 1 ? 's' : ''} |
                                 Total: ₹{receiptsInPlace.reduce((sum, receipt) => sum + (receipt.cashPaid || 0) + (receipt.onlinePaid || 0), 0).toFixed(2)}
                               </div>
                             </div>
@@ -2122,11 +2204,11 @@ const SupervisorTripDetails = () => {
                   <button
                     onClick={() => {
                       setEditingStockIndex(null);
-                      setStockData({ 
-                    birds: '', 
-                    weight: '', 
-                        avgWeight: 0, 
-                    rate: trip.summary?.avgPurchaseRate || '', 
+                      setStockData({
+                        birds: '',
+                        weight: '',
+                        avgWeight: 0,
+                        rate: trip.summary?.avgPurchaseRate || '',
                         value: 0,
                         notes: ''
                       });
@@ -2144,7 +2226,7 @@ const SupervisorTripDetails = () => {
                   </div>
                 )}
               </div>
-              
+
               {/* Stock Summary */}
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <h4 className="font-medium text-blue-900 mb-3">Total Stock Summary</h4>
@@ -2209,7 +2291,7 @@ const SupervisorTripDetails = () => {
                           </div>
                         )}
                       </div>
-                      
+
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                         <div>
                           <span className="text-gray-600">Birds:</span>
@@ -2228,7 +2310,7 @@ const SupervisorTripDetails = () => {
                           <span className="font-medium ml-2">₹{stock.value.toFixed(2)}</span>
                         </div>
                       </div>
-                      
+
                       {stock.notes && (
                         <div className="mt-3 pt-3 border-t border-gray-100">
                           <span className="text-gray-600 text-sm">Notes:</span>
@@ -2286,11 +2368,11 @@ const SupervisorTripDetails = () => {
                         <div>
                           <div className="flex items-center gap-2 mb-1">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${expense.category === 'lunch/tea-snacks' || expense.category === 'lunch' || expense.category === 'tea' ? 'bg-green-100 text-green-800' :
-                                  expense.category === 'toll' ? 'bg-purple-100 text-purple-800' :
-                                    expense.category === 'parking' ? 'bg-indigo-100 text-indigo-800' :
-                                      expense.category === 'loading/unloading' ? 'bg-orange-100 text-orange-800' :
-                                        expense.category === 'maintenance' ? 'bg-red-100 text-red-800' :
-                                          'bg-gray-100 text-gray-800'
+                              expense.category === 'toll' ? 'bg-purple-100 text-purple-800' :
+                                expense.category === 'parking' ? 'bg-indigo-100 text-indigo-800' :
+                                  expense.category === 'loading/unloading' ? 'bg-orange-100 text-orange-800' :
+                                    expense.category === 'maintenance' ? 'bg-red-100 text-red-800' :
+                                      'bg-gray-100 text-gray-800'
                               }`}>
                               {expense.category === 'lunch' || expense.category === 'tea' ? 'lunch/tea-snacks' : expense.category}
                             </span>
@@ -2439,7 +2521,7 @@ const SupervisorTripDetails = () => {
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <h4 className="font-medium text-blue-900 mb-3">Automatic Death Calculation</h4>
                 <p className="text-sm text-blue-800 mb-3">
-                  Death birds are automatically calculated based on the remaining birds at the end of the trip. 
+                  Death birds are automatically calculated based on the remaining birds at the end of the trip.
                   The system tracks birds that cannot be accounted for through sales or stock.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
@@ -2586,7 +2668,7 @@ const SupervisorTripDetails = () => {
           {activeTab === 'transfers' && (
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-gray-900">Transfer Trip Information</h3>
-              
+
               {/* Trip Type Information */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 className="font-medium text-blue-900 mb-3">Trip Type & Status</h4>
@@ -2611,8 +2693,8 @@ const SupervisorTripDetails = () => {
                     <span className="text-blue-700 text-sm">Current Status:</span>
                     <div className="font-medium text-blue-900">
                       <span className={`px-3 py-1 rounded-full text-sm font-medium ${trip.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          trip.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
-                            'bg-yellow-100 text-yellow-800'
+                        trip.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
+                          'bg-yellow-100 text-yellow-800'
                         }`}>
                         {trip.status}
                       </span>
@@ -2651,9 +2733,9 @@ const SupervisorTripDetails = () => {
                       <div>
                         <span className="text-purple-700 text-sm">Transfer Details:</span>
                         <div className="text-sm text-purple-600 mt-1">
-                          • Birds Received: {trip.purchases[0].birds} birds<br/>
-                          • Weight Received: {trip.purchases[0].weight} kg<br/>
-                          • Avg Weight: {trip.purchases[0].avgWeight} kg/bird<br/>
+                          • Birds Received: {trip.purchases[0].birds} birds<br />
+                          • Weight Received: {trip.purchases[0].weight} kg<br />
+                          • Avg Weight: {trip.purchases[0].avgWeight} kg/bird<br />
                           • Transfer Rate: ₹{trip.purchases[0].rate}/kg
                         </div>
                       </div>
@@ -2800,11 +2882,11 @@ const SupervisorTripDetails = () => {
                     This trip has not been involved in any transfers yet.
                   </p>
                   {(() => {
-                    const remainingBirds = (trip.summary?.totalBirdsPurchased || 0) - 
-                                         (trip.summary?.totalBirdsSold || 0) - 
-                                         (trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0) - 
-                                         (trip.summary?.totalBirdsLost || 0) - 
-                                         (trip.summary?.birdsTransferred || 0);
+                    const remainingBirds = (trip.summary?.totalBirdsPurchased || 0) -
+                      (trip.summary?.totalBirdsSold || 0) -
+                      (trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0) -
+                      (trip.summary?.totalBirdsLost || 0) -
+                      (trip.summary?.birdsTransferred || 0);
                     return remainingBirds > 0 && trip.status !== 'completed' ? (
                       <div className="mt-4">
                         <button
@@ -2834,150 +2916,204 @@ const SupervisorTripDetails = () => {
             </div>
             <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
 
-            {/* Summary Section */}
-            {purchaseData.birds > 0 && purchaseData.weight > 0 && (
-              <div className="bg-blue-50 p-1.5 rounded-lg mb-2">
-                <div className="text-xs text-blue-800">
-                  <div className="grid grid-cols-2 gap-1">
-                    <div><span className="font-medium">DC:</span> {purchaseData.dcNumber}</div>
-                    <div><span className="font-medium">Birds:</span> {purchaseData.birds}</div>
-                    <div><span className="font-medium">Weight:</span> {purchaseData.weight} kg</div>
-                    <div><span className="font-medium">Avg:</span> {purchaseData.avgWeight} kg/bird</div>
-                    <div><span className="font-medium">Rate:</span> ₹{purchaseData.rate}/kg</div>
-                    <div><span className="font-medium">Amount:</span> ₹{purchaseData.amount?.toLocaleString() || '0'}</div>
+              {/* Summary Section */}
+              {purchaseData.birds > 0 && purchaseData.weight > 0 && (
+                <div className="bg-blue-50 p-1.5 rounded-lg mb-2">
+                  <div className="text-xs text-blue-800">
+                    <div className="grid grid-cols-2 gap-1">
+                      <div><span className="font-medium">DC:</span> {purchaseData.dcNumber}</div>
+                      <div><span className="font-medium">Birds:</span> {purchaseData.birds}</div>
+                      <div><span className="font-medium">Weight:</span> {purchaseData.weight} kg</div>
+                      <div><span className="font-medium">Avg:</span> {purchaseData.avgWeight} kg/bird</div>
+                      <div><span className="font-medium">Rate:</span> ₹{purchaseData.rate}/kg</div>
+                      <div><span className="font-medium">Amount:</span> ₹{purchaseData.amount?.toLocaleString() || '0'}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            <form onSubmit={handlePurchaseSubmit} className="space-y-2">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Supplier *</label>
-                <select
-                  value={purchaseData.supplier}
-                  onChange={(e) => handlePurchaseDataChange('supplier', e.target.value)}
-                  className={`w-full px-2 py-1 border rounded text-xs ${
-                    purchaseData.supplier === '' || purchaseData.supplier === null
-                      ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' 
-                      : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                  }`}
-                  required
-                >
-                  <option value="">Select Vendor</option>
-                  {vendors.map(vendor => (
-                    <option key={vendor._id || vendor.id} value={vendor._id || vendor.id}>
-                      {vendor.vendorName} - {vendor.contactNumber}
-                    </option>
-                  ))}
-                </select>
-                {(purchaseData.supplier === '' || purchaseData.supplier === null) && (
-                  <p className="text-xs text-red-600 mt-1">Please select a supplier</p>
-                )}
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">DC NO *</label>
-                <input
-                  type="text"
-                  value={purchaseData.dcNumber}
-                  onChange={(e) => handlePurchaseDataChange('dcNumber', e.target.value)}
-                  className={`w-full px-2 py-1 border rounded text-xs ${
-                    purchaseData.dcNumber === '' || purchaseData.dcNumber === null
-                      ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' 
-                      : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                  }`}
-                  placeholder="Delivery Challan Number"
-                  required
-                />
-                {(purchaseData.dcNumber === '' || purchaseData.dcNumber === null) && (
-                  <p className="text-xs text-red-600 mt-1">DC Number cannot be empty</p>
-                )}
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">BIRDS *</label>
-                  <input
-                    type="number"
-                    value={purchaseData.birds}
-                    onChange={(e) => handlePurchaseDataChange('birds', Number(e.target.value))}
-                    className={`w-full px-2 py-1 border rounded text-xs ${
-                      purchaseData.birds === 0 
-                        ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' 
+              <form onSubmit={handlePurchaseSubmit} className="space-y-2">
+                <div className="relative">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Supplier *</label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={selectedVendor ? `${selectedVendor.vendorName} - ${selectedVendor.contactNumber || 'N/A'}` : vendorSearchTerm}
+                      onChange={(e) => {
+                        setVendorSearchTerm(e.target.value);
+                        setSelectedVendor(null);
+                        setPurchaseData(prev => ({ ...prev, supplier: '' }));
+                        setHighlightedVendorIndex(-1);
+                      }}
+                      onFocus={handleVendorInputFocus}
+                      onBlur={handleVendorInputBlur}
+                      onKeyDown={handleVendorKeyDown}
+                      placeholder="Search vendor by name, contact or place..."
+                      className={`w-full px-2 py-1 border rounded text-xs pr-8 ${purchaseData.supplier === '' || purchaseData.supplier === null
+                        ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
                         : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                    }`}
-                    placeholder="Number of birds"
-                    required
-                    min="1"
-                  />
-                  {purchaseData.birds === 0 && (
-                    <p className="text-xs text-red-600 mt-1">Birds cannot be zero</p>
+                        }`}
+                      autoComplete="off"
+                    />
+
+                    {selectedVendor && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedVendor(null);
+                          setVendorSearchTerm('');
+                          setPurchaseData(prev => ({ ...prev, supplier: '' }));
+                          setHighlightedVendorIndex(-1);
+                        }}
+                        className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+
+                  {showVendorDropdown && filteredVendors.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-y-auto">
+                      {filteredVendors.map((vendor, index) => (
+                        <div
+                          key={vendor._id || vendor.id}
+                          ref={index === highlightedVendorIndex ? (el) => {
+                            if (el) {
+                              el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                            }
+                          } : null}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleVendorSelect(vendor);
+                          }}
+                          onMouseEnter={() => setHighlightedVendorIndex(index)}
+                          className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 text-xs ${index === highlightedVendorIndex
+                            ? 'bg-blue-100 border-blue-200'
+                            : 'hover:bg-gray-100'
+                            }`}
+                        >
+                          <div className="font-medium text-gray-900">{vendor.vendorName}</div>
+                          <div className="text-xs text-gray-500">{vendor.contactNumber}</div>
+                          {vendor.place && (
+                            <div className="text-xs text-gray-400">Place: {vendor.place}</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {showVendorDropdown && filteredVendors.length === 0 && vendorSearchTerm.trim() !== '' && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg">
+                      <div className="px-3 py-2 text-gray-500 text-center text-xs">
+                        No vendors found
+                      </div>
+                    </div>
+                  )}
+
+                  {(purchaseData.supplier === '' || purchaseData.supplier === null) && (
+                    <p className="text-xs text-red-600 mt-1">Please select a supplier</p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">WEIGHT (kg) *</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">DC NO *</label>
                   <input
-                    type="number"
-                    value={purchaseData.weight}
-                    onChange={(e) => handlePurchaseDataChange('weight', Number(e.target.value))}
-                    className={`w-full px-2 py-1 border rounded text-xs ${
-                      purchaseData.weight === 0 
-                        ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' 
-                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                    }`}
-                    placeholder="Total weight"
+                    type="text"
+                    value={purchaseData.dcNumber}
+                    onChange={(e) => handlePurchaseDataChange('dcNumber', e.target.value)}
+                    className={`w-full px-2 py-1 border rounded text-xs ${purchaseData.dcNumber === '' || purchaseData.dcNumber === null
+                      ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                      : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                      }`}
+                    placeholder="Delivery Challan Number"
                     required
-                    min="0.01"
-                    step="0.01"
                   />
-                  {purchaseData.weight === 0 && (
-                    <p className="text-xs text-red-600 mt-1">Weight cannot be zero</p>
+                  {(purchaseData.dcNumber === '' || purchaseData.dcNumber === null) && (
+                    <p className="text-xs text-red-600 mt-1">DC Number cannot be empty</p>
                   )}
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">BIRDS *</label>
+                    <input
+                      type="number"
+                      value={purchaseData.birds}
+                      onChange={(e) => handlePurchaseDataChange('birds', Number(e.target.value))}
+                      className={`w-full px-2 py-1 border rounded text-xs ${purchaseData.birds === 0
+                        ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
+                      placeholder="Number of birds"
+                      required
+                      min="1"
+                    />
+                    {purchaseData.birds === 0 && (
+                      <p className="text-xs text-red-600 mt-1">Birds cannot be zero</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">WEIGHT (kg) *</label>
+                    <input
+                      type="number"
+                      value={purchaseData.weight}
+                      onChange={(e) => handlePurchaseDataChange('weight', Number(e.target.value))}
+                      className={`w-full px-2 py-1 border rounded text-xs ${purchaseData.weight === 0
+                        ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
+                      placeholder="Total weight"
+                      required
+                      min="0.01"
+                      step="0.01"
+                    />
+                    {purchaseData.weight === 0 && (
+                      <p className="text-xs text-red-600 mt-1">Weight cannot be zero</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">AVG (kg/bird)</label>
+                    <input
+                      type="number"
+                      value={purchaseData.avgWeight}
+                      className="w-full px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-xs"
+                      placeholder="Auto-calculated"
+                      readOnly
+                      step="0.01"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">RATE (₹/kg) *</label>
+                    <input
+                      type="number"
+                      value={purchaseData.rate}
+                      onChange={(e) => handlePurchaseDataChange('rate', Number(e.target.value))}
+                      className={`w-full px-2 py-1 border rounded text-xs ${purchaseData.rate === 0
+                        ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
+                      placeholder="Rate per kg"
+                      required
+                      min="0.01"
+                      step="0.01"
+                    />
+                    {purchaseData.rate === 0 && (
+                      <p className="text-xs text-red-600 mt-1">Rate cannot be zero</p>
+                    )}
+                  </div>
+                </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">AVG (kg/bird)</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">AMOUNT (₹)</label>
                   <input
                     type="number"
-                    value={purchaseData.avgWeight}
+                    value={purchaseData.amount}
                     className="w-full px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-xs"
                     placeholder="Auto-calculated"
                     readOnly
                     step="0.01"
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">RATE (₹/kg) *</label>
-                  <input
-                    type="number"
-                    value={purchaseData.rate}
-                    onChange={(e) => handlePurchaseDataChange('rate', Number(e.target.value))}
-                    className={`w-full px-2 py-1 border rounded text-xs ${
-                      purchaseData.rate === 0 
-                        ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' 
-                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                    }`}
-                    placeholder="Rate per kg"
-                    required
-                    min="0.01"
-                    step="0.01"
-                  />
-                  {purchaseData.rate === 0 && (
-                    <p className="text-xs text-red-600 mt-1">Rate cannot be zero</p>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">AMOUNT (₹)</label>
-                <input
-                  type="number"
-                  value={purchaseData.amount}
-                  className="w-full px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-xs"
-                  placeholder="Auto-calculated"
-                  readOnly
-                  step="0.01"
-                />
-              </div>
-            </form>
+              </form>
             </div>
 
             {/* Modal Footer */}
@@ -3021,7 +3157,7 @@ const SupervisorTripDetails = () => {
                 return (
                   <div className="bg-gray-50 p-3 rounded-lg mb-3">
                     <div className="text-sm font-medium text-gray-700 mb-2">Purchase & Sale Summary</div>
-                    
+
                     {/* Birds Summary */}
                     <div className="mb-3">
                       <div className="text-xs font-medium text-gray-600 mb-2">BIRDS</div>
@@ -3042,7 +3178,7 @@ const SupervisorTripDetails = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     {/* Weight Summary */}
                     <div>
                       <div className="text-xs font-medium text-gray-600 mb-2">WEIGHT (kg)</div>
@@ -3063,7 +3199,7 @@ const SupervisorTripDetails = () => {
                         </div>
                       </div>
                     </div>
-                    
+
                     {(remainingBirds <= 0 || remainingWeight <= 0) && (
                       <div className="mt-2 text-xs text-red-600 font-medium text-center">
                         ⚠️ No birds/weight available for sale
@@ -3101,23 +3237,25 @@ const SupervisorTripDetails = () => {
                       type="text"
                       value={selectedCustomer ? `${selectedCustomer.shopName} - ${selectedCustomer.ownerName || 'N/A'}` : customerSearchTerm}
                       onChange={(e) => {
+                        if (editingSaleIndex !== null) return;
                         setCustomerSearchTerm(e.target.value);
                         setSelectedCustomer(null);
                         setSaleData(prev => ({ ...prev, client: '' }));
                         setHighlightedCustomerIndex(-1);
                         setCustomerBalance(null);
                       }}
-                      onFocus={handleCustomerInputFocus}
+                      onFocus={editingSaleIndex !== null ? undefined : handleCustomerInputFocus}
                       onBlur={handleCustomerInputBlur}
                       onKeyDown={handleCustomerKeyDown}
                       placeholder="Search customer by name, owner, contact, or place..."
-                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingSaleIndex !== null ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      readOnly={editingSaleIndex !== null}
                       required
                     />
 
 
 
-                    {selectedCustomer && (
+                    {selectedCustomer && editingSaleIndex === null && (
                       <button
                         type="button"
                         onClick={() => {
@@ -3135,35 +3273,34 @@ const SupervisorTripDetails = () => {
                   {showCustomerDropdown && filteredCustomers.length > 0 && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
                       {filteredCustomers.map((customer, index) => (
-                            <div
-                              key={customer._id || customer.id}
+                        <div
+                          key={customer._id || customer.id}
                           ref={index === highlightedCustomerIndex ? (el) => {
                             if (el) {
                               el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                             }
                           } : null}
-                              onMouseDown={(e) => {
-                                e.preventDefault();
-                                handleCustomerSelect(customer);
-                              }}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleCustomerSelect(customer);
+                          }}
                           onMouseEnter={() => setHighlightedCustomerIndex(index)}
-                          className={`px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                            index === highlightedCustomerIndex 
-                              ? 'bg-blue-100 border-blue-200' 
-                              : 'hover:bg-gray-100'
-                          }`}
-                            >
-                              <div className="font-medium text-gray-900">{customer.shopName}</div>
-                              {customer.ownerName && (
-                                <div className="text-sm text-gray-600">Owner: {customer.ownerName}</div>
-                              )}
-                              <div className="text-sm text-gray-500">{customer.contact}</div>
+                          className={`px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0 ${index === highlightedCustomerIndex
+                            ? 'bg-blue-100 border-blue-200'
+                            : 'hover:bg-gray-100'
+                            }`}
+                        >
+                          <div className="font-medium text-gray-900">{customer.shopName}</div>
+                          {customer.ownerName && (
+                            <div className="text-sm text-gray-600">Owner: {customer.ownerName}</div>
+                          )}
+                          <div className="text-sm text-gray-500">{customer.contact}</div>
                           {customer.place && (
                             <div className="text-xs text-gray-400">Place: {customer.place}</div>
                           )}
-                              {customer.gstOrPanNumber && (
-                                <div className="text-xs text-gray-400">GST/PAN: {customer.gstOrPanNumber}</div>
-                              )}
+                          {customer.gstOrPanNumber && (
+                            <div className="text-xs text-gray-400">GST/PAN: {customer.gstOrPanNumber}</div>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -3192,9 +3329,8 @@ const SupervisorTripDetails = () => {
                             <span className="text-sm text-gray-500">Loading...</span>
                           </div>
                         ) : customerBalance !== null ? (
-                          <span className={`text-sm font-semibold ${
-                            customerBalance > 0 ? 'text-red-600' : 'text-green-600'
-                          }`}>
+                          <span className={`text-sm font-semibold ${customerBalance > 0 ? 'text-red-600' : 'text-green-600'
+                            }`}>
                             ₹{Number(customerBalance).toLocaleString()}
                           </span>
                         ) : (
@@ -3227,22 +3363,21 @@ const SupervisorTripDetails = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Birds *</label>
                     {(() => {
                       const { remainingBirds } = getPurchaseAndSaleStats();
-                      const adjustedRemainingBirds = editingSaleIndex !== null 
+                      const adjustedRemainingBirds = editingSaleIndex !== null
                         ? remainingBirds + (trip.sales[editingSaleIndex]?.birdsCount || trip.sales[editingSaleIndex]?.birds || 0)
                         : remainingBirds;
                       const isExceeding = saleData.birds > adjustedRemainingBirds;
-                      
+
                       return (
                         <>
                           <input
                             type="number"
                             value={saleData.birds}
                             onChange={(e) => handleSaleDataChange('birds', Number(e.target.value))}
-                            className={`w-full px-3 py-2 border rounded-lg ${
-                              isExceeding 
-                                ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' 
-                                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                            }`}
+                            className={`w-full px-3 py-2 border rounded-lg ${isExceeding
+                              ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                              : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                              }`}
                             required
                             max={adjustedRemainingBirds}
                           />
@@ -3265,23 +3400,22 @@ const SupervisorTripDetails = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Weight (kg) *</label>
                     {(() => {
                       const { remainingWeight } = getPurchaseAndSaleStats();
-                      const adjustedRemainingWeight = editingSaleIndex !== null 
+                      const adjustedRemainingWeight = editingSaleIndex !== null
                         ? remainingWeight + (trip.sales[editingSaleIndex]?.weight || 0)
                         : remainingWeight;
                       const isExceeding = saleData.weight > adjustedRemainingWeight;
                       const isZero = saleData.weight === 0;
-                      
+
                       return (
                         <>
                           <input
                             type="number"
                             value={saleData.weight}
                             onChange={(e) => handleSaleDataChange('weight', Number(e.target.value))}
-                            className={`w-full px-3 py-2 border rounded-lg ${
-                              isZero || isExceeding
-                                ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' 
-                                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                            }`}
+                            className={`w-full px-3 py-2 border rounded-lg ${isZero || isExceeding
+                              ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                              : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                              }`}
                             required
                             min="0.01"
                             step="0.01"
@@ -3326,11 +3460,10 @@ const SupervisorTripDetails = () => {
                       type="number"
                       value={saleData.rate}
                       onChange={(e) => handleSaleDataChange('rate', Number(e.target.value))}
-                      className={`w-full px-3 py-2 border rounded-lg ${
-                        saleData.rate === 0 
-                          ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' 
-                          : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                      }`}
+                      className={`w-full px-3 py-2 border rounded-lg ${saleData.rate === 0
+                        ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                        }`}
                       required
                       min="0.01"
                       step="0.01"
@@ -3341,7 +3474,7 @@ const SupervisorTripDetails = () => {
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                    <div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Trip Total Amount (₹)</label>
                     <input
                       type="number"
@@ -3352,7 +3485,7 @@ const SupervisorTripDetails = () => {
                       step="0.01"
                     />
                   </div>
-                    <div>
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Total Balance (₹)</label>
                     <input
                       type="number"
@@ -3364,7 +3497,7 @@ const SupervisorTripDetails = () => {
                     />
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-4">
                   {/* <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Payment Mode</label>
@@ -3505,10 +3638,10 @@ const SupervisorTripDetails = () => {
                   onClick={handleSaleSubmit}
                   disabled={isSubmitting || (() => {
                     const { remainingBirds, remainingWeight } = getPurchaseAndSaleStats();
-                    const adjustedRemainingBirds = editingSaleIndex !== null 
+                    const adjustedRemainingBirds = editingSaleIndex !== null
                       ? remainingBirds + (trip.sales[editingSaleIndex]?.birdsCount || trip.sales[editingSaleIndex]?.birds || 0)
                       : remainingBirds;
-                    const adjustedRemainingWeight = editingSaleIndex !== null 
+                    const adjustedRemainingWeight = editingSaleIndex !== null
                       ? remainingWeight + (trip.sales[editingSaleIndex]?.weight || 0)
                       : remainingWeight;
                     return saleData.birds > adjustedRemainingBirds || saleData.weight > adjustedRemainingWeight;
@@ -3533,7 +3666,7 @@ const SupervisorTripDetails = () => {
               </h3>
             </div>
             <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
-              
+
               {/* Receipt Info */}
               <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg">
                 <div className="flex items-center gap-2 text-green-700">
@@ -3553,23 +3686,25 @@ const SupervisorTripDetails = () => {
                       type="text"
                       value={selectedCustomer ? `${selectedCustomer.shopName} - ${selectedCustomer.ownerName || 'N/A'}` : customerSearchTerm}
                       onChange={(e) => {
+                        if (editingSaleIndex !== null) return;
                         setCustomerSearchTerm(e.target.value);
                         setSelectedCustomer(null);
                         setSaleData(prev => ({ ...prev, client: '' }));
                         setHighlightedCustomerIndex(-1);
                         setCustomerBalance(null);
                       }}
-                      onFocus={handleCustomerInputFocus}
+                      onFocus={editingSaleIndex !== null ? undefined : handleCustomerInputFocus}
                       onBlur={handleCustomerInputBlur}
                       onKeyDown={handleCustomerKeyDown}
                       placeholder="Search customer by name, owner, contact, or place..."
-                      className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className={`w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${editingSaleIndex !== null ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      readOnly={editingSaleIndex !== null}
                       required
                     />
 
 
 
-                    {selectedCustomer && (
+                    {selectedCustomer && editingSaleIndex === null && (
                       <button
                         type="button"
                         onClick={() => {
@@ -3599,11 +3734,10 @@ const SupervisorTripDetails = () => {
                             handleCustomerSelect(customer);
                           }}
                           onMouseEnter={() => setHighlightedCustomerIndex(index)}
-                          className={`px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0 ${
-                            index === highlightedCustomerIndex 
-                              ? 'bg-blue-100 border-blue-200' 
-                              : 'hover:bg-gray-100'
-                          }`}
+                          className={`px-4 py-3 cursor-pointer border-b border-gray-100 last:border-b-0 ${index === highlightedCustomerIndex
+                            ? 'bg-blue-100 border-blue-200'
+                            : 'hover:bg-gray-100'
+                            }`}
                         >
                           <div className="font-medium text-gray-900">{customer.shopName}</div>
                           {customer.ownerName && (
@@ -3644,9 +3778,8 @@ const SupervisorTripDetails = () => {
                             <span className="text-sm text-gray-500">Loading...</span>
                           </div>
                         ) : customerBalance !== null ? (
-                          <span className={`text-sm font-semibold ${
-                            customerBalance > 0 ? 'text-red-600' : 'text-green-600'
-                          }`}>
+                          <span className={`text-sm font-semibold ${customerBalance > 0 ? 'text-red-600' : 'text-green-600'
+                            }`}>
                             ₹{Number(customerBalance).toLocaleString()}
                           </span>
                         ) : (
@@ -3762,7 +3895,7 @@ const SupervisorTripDetails = () => {
                 <p>• <strong>BALANCE:</strong> Automatically calculated based on customer's outstanding balance</p>
               </div>
             </div>
-            
+
             <div className="p-4 pt-3 border-t border-gray-200 flex-shrink-0">
               <div className="flex gap-3">
                 <button
@@ -3884,12 +4017,12 @@ const SupervisorTripDetails = () => {
                     Opening reading: {trip.vehicleReadings.opening}
                   </p>
                 )}
-                {completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening && 
-                 completeData.closingOdometer < trip.vehicleReadings.opening && (
-                  <p className="text-xs text-red-500 mt-1">
-                    Closing reading must be greater than opening reading ({trip.vehicleReadings.opening})
-                  </p>
-                )}
+                {completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening &&
+                  completeData.closingOdometer < trip.vehicleReadings.opening && (
+                    <p className="text-xs text-red-500 mt-1">
+                      Closing reading must be greater than opening reading ({trip.vehicleReadings.opening})
+                    </p>
+                  )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Final Remarks</label>
@@ -3924,8 +4057,8 @@ const SupervisorTripDetails = () => {
                 </button>
                 <button
                   type="submit"
-                  disabled={isSubmitting || (completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening && 
-                           completeData.closingOdometer < trip.vehicleReadings.opening)}
+                  disabled={isSubmitting || (completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening &&
+                    completeData.closingOdometer < trip.vehicleReadings.opening)}
                   className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Complete Trip'}
@@ -4076,237 +4209,235 @@ const SupervisorTripDetails = () => {
             </div>
             <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
 
-            {/* Stock Availability Info */}
-            {(() => {
-              const { remainingBirds, remainingWeight, totalStockBirds, totalStockWeight, availableForStockBirds, availableForStockWeight } = getRemainingStockStats();
-              return (
-                <div className="bg-gray-50 p-3 rounded-lg mb-3">
-                  <div className="text-sm font-medium text-gray-700 mb-2">Stock Availability</div>
-                  
-                  {/* Birds Summary */}
-                  <div className="mb-3">
-                    <div className="text-xs font-medium text-gray-600 mb-2">BIRDS</div>
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div className="text-center">
-                        <div className="text-gray-500">Remaining</div>
-                        <div className="font-semibold text-blue-600">{remainingBirds}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-gray-500">In Stock</div>
-                        <div className="font-semibold text-green-600">{totalStockBirds}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-gray-500">Available</div>
-                        <div className={`font-semibold ${availableForStockBirds > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                          {availableForStockBirds}
+              {/* Stock Availability Info */}
+              {(() => {
+                const { remainingBirds, remainingWeight, totalStockBirds, totalStockWeight, availableForStockBirds, availableForStockWeight } = getRemainingStockStats();
+                return (
+                  <div className="bg-gray-50 p-3 rounded-lg mb-3">
+                    <div className="text-sm font-medium text-gray-700 mb-2">Stock Availability</div>
+
+                    {/* Birds Summary */}
+                    <div className="mb-3">
+                      <div className="text-xs font-medium text-gray-600 mb-2">BIRDS</div>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="text-center">
+                          <div className="text-gray-500">Remaining</div>
+                          <div className="font-semibold text-blue-600">{remainingBirds}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-gray-500">In Stock</div>
+                          <div className="font-semibold text-green-600">{totalStockBirds}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-gray-500">Available</div>
+                          <div className={`font-semibold ${availableForStockBirds > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                            {availableForStockBirds}
+                          </div>
                         </div>
                       </div>
                     </div>
+
+                    {/* Weight Summary */}
+                    <div>
+                      <div className="text-xs font-medium text-gray-600 mb-2">WEIGHT (kg)</div>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="text-center">
+                          <div className="text-gray-500">Remaining</div>
+                          <div className="font-semibold text-blue-600">{remainingWeight.toFixed(2)}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-gray-500">In Stock</div>
+                          <div className="font-semibold text-green-600">{totalStockWeight.toFixed(2)}</div>
+                        </div>
+                        <div className="text-center">
+                          <div className="text-gray-500">Available</div>
+                          <div className={`font-semibold ${availableForStockWeight > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                            {availableForStockWeight.toFixed(2)}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {(availableForStockBirds <= 0 || availableForStockWeight <= 0) && (
+                      <div className="mt-2 text-xs text-red-600 font-medium text-center">
+                        ⚠️ No birds/weight available for stock
+                      </div>
+                    )}
                   </div>
-                  
-                  {/* Weight Summary */}
+                );
+              })()}
+
+              {/* Summary Section */}
+              {stockData.birds > 0 && stockData.weight > 0 && stockData.rate > 0 && (
+                <div className="bg-cyan-50 p-1.5 rounded-lg mb-2">
+                  <div className="text-xs text-cyan-800">
+                    <div className="grid grid-cols-2 gap-1">
+                      <div><span className="font-medium">Birds:</span> {stockData.birds}</div>
+                      <div><span className="font-medium">Weight:</span> {stockData.weight} kg</div>
+                      <div><span className="font-medium">Avg:</span> {stockData.avgWeight} kg/bird</div>
+                      <div><span className="font-medium">Rate:</span> ₹{stockData.rate}/kg</div>
+                      <div className="col-span-2"><span className="font-medium">Value:</span> ₹{stockData.value.toFixed(2)}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleStockSubmit} className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <div className="text-xs font-medium text-gray-600 mb-2">WEIGHT (kg)</div>
-                    <div className="grid grid-cols-3 gap-2 text-xs">
-                      <div className="text-center">
-                        <div className="text-gray-500">Remaining</div>
-                        <div className="font-semibold text-blue-600">{remainingWeight.toFixed(2)}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-gray-500">In Stock</div>
-                        <div className="font-semibold text-green-600">{totalStockWeight.toFixed(2)}</div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-gray-500">Available</div>
-                        <div className={`font-semibold ${availableForStockWeight > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                          {availableForStockWeight.toFixed(2)}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {(availableForStockBirds <= 0 || availableForStockWeight <= 0) && (
-                    <div className="mt-2 text-xs text-red-600 font-medium text-center">
-                      ⚠️ No birds/weight available for stock
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Birds in Stock *</label>
+                    {(() => {
+                      const { availableForStockBirds } = getRemainingStockStats();
+                      // When editing, add back the current stock entry's birds to available count
+                      let adjustedAvailableBirds = availableForStockBirds;
+                      if (editingStockIndex !== null) {
+                        const currentStockEntry = trip.stocks[editingStockIndex];
+                        adjustedAvailableBirds += (currentStockEntry?.birds || 0);
+                      }
+                      const isExceeding = stockData.birds > adjustedAvailableBirds;
+                      const isZero = stockData.birds === 0;
 
-            {/* Summary Section */}
-            {stockData.birds > 0 && stockData.weight > 0 && stockData.rate > 0 && (
-              <div className="bg-cyan-50 p-1.5 rounded-lg mb-2">
-                <div className="text-xs text-cyan-800">
-                  <div className="grid grid-cols-2 gap-1">
-                    <div><span className="font-medium">Birds:</span> {stockData.birds}</div>
-                    <div><span className="font-medium">Weight:</span> {stockData.weight} kg</div>
-                    <div><span className="font-medium">Avg:</span> {stockData.avgWeight} kg/bird</div>
-                    <div><span className="font-medium">Rate:</span> ₹{stockData.rate}/kg</div>
-                    <div className="col-span-2"><span className="font-medium">Value:</span> ₹{stockData.value.toFixed(2)}</div>
+                      return (
+                        <>
+                          <input
+                            type="number"
+                            value={stockData.birds}
+                            onChange={(e) => setStockData(prev => ({ ...prev, birds: Number(e.target.value) }))}
+                            className={`w-full px-2 py-1 border rounded text-xs ${isZero || isExceeding
+                              ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                              : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                              }`}
+                            required
+                            min="1"
+                            step="1"
+                            max={adjustedAvailableBirds}
+                          />
+                          <div className="mt-1 text-xs">
+                            <span className="text-gray-500">Available: </span>
+                            <span className={`font-medium ${adjustedAvailableBirds > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                              {adjustedAvailableBirds}
+                            </span>
+                            {isZero && (
+                              <span className="ml-2 text-red-600 font-medium">
+                                ⚠️ Birds cannot be zero
+                              </span>
+                            )}
+                            {isExceeding && !isZero && (
+                              <span className="ml-2 text-red-600 font-medium">
+                                ⚠️ Exceeds available birds
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Total Weight (kg) *</label>
+                    {(() => {
+                      const { availableForStockWeight } = getRemainingStockStats();
+                      // When editing, add back the current stock entry's weight to available count
+                      let adjustedAvailableWeight = availableForStockWeight;
+                      if (editingStockIndex !== null) {
+                        const currentStockEntry = trip.stocks[editingStockIndex];
+                        adjustedAvailableWeight += (currentStockEntry?.weight || 0);
+                      }
+                      const isExceeding = stockData.weight > adjustedAvailableWeight;
+                      const isZero = stockData.weight === 0;
+
+                      return (
+                        <>
+                          <input
+                            type="number"
+                            value={stockData.weight}
+                            onChange={(e) => setStockData(prev => ({ ...prev, weight: Number(e.target.value) }))}
+                            className={`w-full px-2 py-1 border rounded text-xs ${isZero || isExceeding
+                              ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                              : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                              }`}
+                            required
+                            min="0.01"
+                            step="0.01"
+                            max={adjustedAvailableWeight}
+                          />
+                          <div className="mt-1 text-xs">
+                            <span className="text-gray-500">Available: </span>
+                            <span className={`font-medium ${adjustedAvailableWeight > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                              {adjustedAvailableWeight.toFixed(2)} kg
+                            </span>
+                            {isZero && (
+                              <span className="ml-2 text-red-600 font-medium">
+                                ⚠️ Weight cannot be zero
+                              </span>
+                            )}
+                            {isExceeding && !isZero && (
+                              <span className="ml-2 text-red-600 font-medium">
+                                ⚠️ Exceeds available weight
+                              </span>
+                            )}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
-              </div>
-            )}
-
-            <form onSubmit={handleStockSubmit} className="space-y-2">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Birds in Stock *</label>
-                  {(() => {
-                    const { availableForStockBirds } = getRemainingStockStats();
-                    // When editing, add back the current stock entry's birds to available count
-                    let adjustedAvailableBirds = availableForStockBirds;
-                    if (editingStockIndex !== null) {
-                      const currentStockEntry = trip.stocks[editingStockIndex];
-                      adjustedAvailableBirds += (currentStockEntry?.birds || 0);
-                    }
-                    const isExceeding = stockData.birds > adjustedAvailableBirds;
-                    const isZero = stockData.birds === 0;
-                    
-                    return (
-                      <>
-                        <input
-                          type="number"
-                          value={stockData.birds}
-                          onChange={(e) => setStockData(prev => ({ ...prev, birds: Number(e.target.value) }))}
-                          className={`w-full px-2 py-1 border rounded text-xs ${
-                            isZero || isExceeding
-                              ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' 
-                              : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                          }`}
-                          required
-                          min="1"
-                          step="1"
-                          max={adjustedAvailableBirds}
-                        />
-                        <div className="mt-1 text-xs">
-                          <span className="text-gray-500">Available: </span>
-                          <span className={`font-medium ${adjustedAvailableBirds > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                            {adjustedAvailableBirds}
-                          </span>
-                          {isZero && (
-                            <span className="ml-2 text-red-600 font-medium">
-                              ⚠️ Birds cannot be zero
-                            </span>
-                          )}
-                          {isExceeding && !isZero && (
-                            <span className="ml-2 text-red-600 font-medium">
-                              ⚠️ Exceeds available birds
-                            </span>
-                          )}
-                        </div>
-                      </>
-                    );
-                  })()}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Rate per kg (₹) *</label>
+                    <input
+                      type="number"
+                      value={stockData.rate}
+                      onChange={(e) => setStockData(prev => ({ ...prev, rate: Number(e.target.value) }))}
+                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                      required
+                      min="0"
+                      step="0.01"
+                      placeholder="Enter purchase rate per kg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Avg Weight (Auto-calc)</label>
+                    <input
+                      type="number"
+                      value={stockData.avgWeight.toFixed(2)}
+                      className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-xs"
+                      readOnly
+                      step="0.01"
+                      placeholder="Weight ÷ Birds"
+                    />
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Total Weight (kg) *</label>
-                  {(() => {
-                    const { availableForStockWeight } = getRemainingStockStats();
-                    // When editing, add back the current stock entry's weight to available count
-                    let adjustedAvailableWeight = availableForStockWeight;
-                    if (editingStockIndex !== null) {
-                      const currentStockEntry = trip.stocks[editingStockIndex];
-                      adjustedAvailableWeight += (currentStockEntry?.weight || 0);
-                    }
-                    const isExceeding = stockData.weight > adjustedAvailableWeight;
-                    const isZero = stockData.weight === 0;
-                    
-                    return (
-                      <>
-                        <input
-                          type="number"
-                          value={stockData.weight}
-                          onChange={(e) => setStockData(prev => ({ ...prev, weight: Number(e.target.value) }))}
-                          className={`w-full px-2 py-1 border rounded text-xs ${
-                            isZero || isExceeding
-                              ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500' 
-                              : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                          }`}
-                          required
-                          min="0.01"
-                          step="0.01"
-                          max={adjustedAvailableWeight}
-                        />
-                        <div className="mt-1 text-xs">
-                          <span className="text-gray-500">Available: </span>
-                          <span className={`font-medium ${adjustedAvailableWeight > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                            {adjustedAvailableWeight.toFixed(2)} kg
-                          </span>
-                          {isZero && (
-                            <span className="ml-2 text-red-600 font-medium">
-                              ⚠️ Weight cannot be zero
-                            </span>
-                          )}
-                          {isExceeding && !isZero && (
-                            <span className="ml-2 text-red-600 font-medium">
-                              ⚠️ Exceeds available weight
-                            </span>
-                          )}
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Rate per kg (₹) *</label>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Stock Value (Auto-calc)</label>
                   <input
                     type="number"
-                    value={stockData.rate}
-                    onChange={(e) => setStockData(prev => ({ ...prev, rate: Number(e.target.value) }))}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                    required
-                    min="0"
-                    step="0.01"
-                    placeholder="Enter purchase rate per kg"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Avg Weight (Auto-calc)</label>
-                  <input
-                    type="number"
-                    value={stockData.avgWeight.toFixed(2)}
+                    value={stockData.value.toFixed(2)}
                     className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-xs"
                     readOnly
                     step="0.01"
-                    placeholder="Weight ÷ Birds"
+                    placeholder="Weight × Rate"
                   />
                 </div>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Stock Value (Auto-calc)</label>
-                <input
-                  type="number"
-                  value={stockData.value.toFixed(2)}
-                  className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-xs"
-                  readOnly
-                  step="0.01"
-                  placeholder="Weight × Rate"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Notes (Optional)</label>
-                <textarea
-                  value={stockData.notes}
-                  onChange={(e) => setStockData(prev => ({ ...prev, notes: e.target.value }))}
-                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                  rows="2"
-                  placeholder="Add any notes about this stock entry..."
-                />
-              </div>
-              <div className="bg-yellow-50 p-1 rounded text-xs text-yellow-800">
-                <div className="font-medium mb-0.5">Note:</div>
-                <div className="space-y-0.5">
-                  <div>• Stock represents birds kept for future sales</div>
-                  <div>• Stock value calculated at purchase rate</div>
-                  {/* <div>• Not included in current profit calculations</div> */}
-                  <div>• Death birds calculated automatically</div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                  <textarea
+                    value={stockData.notes}
+                    onChange={(e) => setStockData(prev => ({ ...prev, notes: e.target.value }))}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                    rows="2"
+                    placeholder="Add any notes about this stock entry..."
+                  />
                 </div>
-              </div>
-            </form>
+                <div className="bg-yellow-50 p-1 rounded text-xs text-yellow-800">
+                  <div className="font-medium mb-0.5">Note:</div>
+                  <div className="space-y-0.5">
+                    <div>• Stock represents birds kept for future sales</div>
+                    <div>• Stock value calculated at purchase rate</div>
+                    {/* <div>• Not included in current profit calculations</div> */}
+                    <div>• Death birds calculated automatically</div>
+                  </div>
+                </div>
+              </form>
             </div>
 
             {/* Modal Footer */}
@@ -4327,15 +4458,15 @@ const SupervisorTripDetails = () => {
                     // When editing, add back the current stock entry's birds/weight to available count
                     let adjustedAvailableBirds = availableForStockBirds;
                     let adjustedAvailableWeight = availableForStockWeight;
-                    
+
                     if (editingStockIndex !== null) {
                       const currentStockEntry = trip.stocks[editingStockIndex];
                       adjustedAvailableBirds += (currentStockEntry?.birds || 0);
                       adjustedAvailableWeight += (currentStockEntry?.weight || 0);
                     }
-                    
-                    return stockData.birds <= 0 || stockData.weight <= 0 || stockData.rate <= 0 || 
-                           stockData.birds > adjustedAvailableBirds || stockData.weight > adjustedAvailableWeight;
+
+                    return stockData.birds <= 0 || stockData.weight <= 0 || stockData.rate <= 0 ||
+                      stockData.birds > adjustedAvailableBirds || stockData.weight > adjustedAvailableWeight;
                   })()}
                   className="flex-1 px-2 py-1 bg-cyan-600 text-white rounded hover:bg-cyan-700 disabled:opacity-50 text-xs font-medium"
                 >
@@ -4569,6 +4700,6 @@ const SupervisorTripDetails = () => {
   );
 };
 
-  
+
 export default SupervisorTripDetails;
 

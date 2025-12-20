@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import {
   ArrowLeft,
   User,
@@ -29,6 +29,7 @@ import { downloadCustomerLedgerExcel } from '../utils/downloadCustomerLedgerExce
 const CustomerDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [customer, setCustomer] = useState(null);
   const [purchaseLedger, setPurchaseLedger] = useState([]);
   const [ledgerTotals, setLedgerTotals] = useState({});
@@ -102,6 +103,17 @@ const CustomerDetails = () => {
       fetchCustomerDetails();
     }
   }, [id]);
+
+  useEffect(() => {
+    const start = searchParams.get('startDate');
+    const end = searchParams.get('endDate');
+    if (start || end) {
+      setDateFilter({
+        startDate: start || '',
+        endDate: end || ''
+      });
+    }
+  }, [searchParams]);
 
   // Re-fetch purchase ledger when customer data is loaded
   useEffect(() => {
@@ -187,7 +199,7 @@ const CustomerDetails = () => {
 
 
   const handleBack = () => {
-    navigate('/customers');
+    navigate(-1);
   };
 
   const handleDownloadLedger = async (type) => {

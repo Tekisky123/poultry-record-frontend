@@ -1,5 +1,6 @@
 // src/pages/Dashboard.jsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Truck,
   TrendingUp,
@@ -14,6 +15,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [recentTrips, setRecentTrips] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -117,7 +119,11 @@ export default function Dashboard() {
           ) : (
             <div className="space-y-4">
               {recentTrips.map((trip) => (
-                <div key={trip.id} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+                <div
+                  key={trip.id}
+                  onClick={() => navigate(`/trips/${trip._id || trip.id}`)}
+                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer"
+                >
                   <div className="flex items-center gap-4">
                     <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
                       <Truck className="w-5 h-5 text-blue-600" />

@@ -1,15 +1,16 @@
 // src/pages/Vendors.jsx
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Users, 
-  MapPin, 
-  Phone, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Users,
+  MapPin,
+  Phone,
   Mail,
   Building,
   Eye,
@@ -17,7 +18,10 @@ import {
   Trash2,
   MoreHorizontal,
   Loader2,
-  X
+  X,
+  List,
+  Grid3X3,
+  LayoutGrid
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,8 +39,7 @@ const vendorSchema = z.object({
     // .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Invalid GST number format')
     .optional(),
   contactNumber: z.string()
-    .min(10, 'Contact number must be at least 10 digits')
-    .regex(/^[0-9+\-\s()]+$/, 'Invalid contact number format'),
+    .regex(/^\d{10}$/, 'Contact number must be exactly 10 digits'),
   email: z.string()
     .email('Invalid email address')
     .toLowerCase(),
@@ -59,6 +62,8 @@ const vendorSchema = z.object({
     required_error: 'Payment mode is required',
   }).default('cash'),
   group: z.string().min(1, 'Group is required'),
+  openingBalance: z.number().optional().default(0),
+  openingBalanceType: z.enum(['debit', 'credit']).optional().default('credit'),
   tdsApplicable: z.boolean().default(false)
 });
 
@@ -77,10 +82,12 @@ const getStatusColor = (isActive) => {
 
 export default function Vendors() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [vendors, setVendors] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
+  const [viewMode, setViewMode] = useState('table'); // 'table', 'grid-small', 'grid-large'
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState('');
@@ -102,7 +109,7 @@ export default function Vendors() {
   // React Hook Form with Zod validation
   const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm({
     resolver: zodResolver(vendorSchema),
-      defaultValues: {
+    defaultValues: {
       vendorName: '',
       companyName: '',
       gstNumber: '',
@@ -113,7 +120,11 @@ export default function Vendors() {
       state: '',
       postalCode: '',
       country: '',
+      postalCode: '',
+      country: '',
       defaultPaymentMode: 'cash',
+      openingBalance: 0,
+      openingBalanceType: 'credit',
       tdsApplicable: false,
       group: ''
     }
@@ -195,7 +206,7 @@ export default function Vendors() {
 
       // Filter groups to show only "Sundry Creditors" and its descendants
       const sundryCreditorsGroups = getGroupDescendants(groupsData, 'Sundry Creditors');
-      
+
       // Build tree for filtered groups
       const buildTree = (groups) => {
         const groupMap = new Map();
@@ -309,7 +320,9 @@ export default function Vendors() {
     setValue('vendorName', vendor.vendorName || '');
     setValue('companyName', vendor.companyName || '');
     setValue('gstNumber', vendor.gstNumber || '');
-    setValue('contactNumber', vendor.contactNumber || '');
+    // Strip +91 prefix for editing if it exists
+    const contact = vendor.contactNumber || '';
+    setValue('contactNumber', contact.startsWith('+91') ? contact.slice(3) : contact);
     setValue('email', vendor.email || '');
     setValue('address', vendor.address || '');
     setValue('city', vendor.city || '');
@@ -317,6 +330,8 @@ export default function Vendors() {
     setValue('postalCode', vendor.postalCode || '');
     setValue('country', vendor.country || '');
     setValue('defaultPaymentMode', vendor.defaultPaymentMode || 'cash');
+    setValue('openingBalance', vendor.openingBalance || 0);
+    setValue('openingBalanceType', vendor.openingBalanceType || 'credit');
     setValue('tdsApplicable', vendor.tdsApplicable || false);
     setValue('group', vendor.group?.id || '');
     setShowAddModal(true);
@@ -328,20 +343,22 @@ export default function Vendors() {
     }
   };
 
-  const handleView = async (vendor) => {
-    const vendorDetails = await fetchVendorById(vendor.id);
-    if (vendorDetails) {
-      // You can implement a view modal here or navigate to a details page
-      console.log('Vendor details:', vendorDetails);
-      alert(`Vendor: ${vendorDetails.vendorName}\nEmail: ${vendorDetails.email}\nContact: ${vendorDetails.contactNumber}`);
-    }
+  const handleView = (vendor) => {
+    navigate(`/vendors/${vendor.id}`);
   };
 
   const onSubmit = (data) => {
+    // Append +91 prefix to contact number
+    const payload = {
+      ...data,
+      contactNumber: `+91${data.contactNumber}`,
+      tdsApplicable: data.tdsApplicable ?? false
+    };
+
     if (editingVendor) {
-      updateVendor({ id: editingVendor.id, ...data, tdsApplicable: data.tdsApplicable ?? false });
+      updateVendor({ id: editingVendor.id, ...payload });
     } else {
-      addVendor({ ...data, tdsApplicable: data.tdsApplicable ?? false });
+      addVendor(payload);
     }
   };
 
@@ -360,12 +377,12 @@ export default function Vendors() {
 
   const filteredVendors = vendors.filter(vendor => {
     const matchesSearch = vendor.vendorName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         vendor.contactNumber.includes(searchTerm) ||
-                         vendor.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'active' && vendor.isActive) ||
-                         (statusFilter === 'inactive' && !vendor.isActive);
+      vendor.companyName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      vendor.contactNumber.includes(searchTerm) ||
+      vendor.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' ||
+      (statusFilter === 'active' && vendor.isActive) ||
+      (statusFilter === 'inactive' && !vendor.isActive);
     const matchesPayment = paymentFilter === 'all' || vendor.defaultPaymentMode === paymentFilter;
     return matchesSearch && matchesStatus && matchesPayment;
   });
@@ -382,7 +399,7 @@ export default function Vendors() {
     return (
       <div className="text-center py-8">
         <p className="text-red-600 mb-4">{error}</p>
-        <button 
+        <button
           onClick={fetchVendors}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
@@ -414,7 +431,7 @@ export default function Vendors() {
           <h1 className="text-3xl font-bold text-gray-900">Vendors Management</h1>
           <p className="text-gray-600 mt-1">Manage your poultry suppliers and vendors</p>
         </div>
-        <button 
+        <button
           onClick={handleAddNew}
           className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
         >
@@ -462,93 +479,282 @@ export default function Vendors() {
               <Filter size={16} />
               More Filters
             </button>
+
+            {/* View Toggle Filters */}
+            <div className="flex border border-gray-300 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setViewMode('table')}
+                className={`px-3 py-2 transition-colors ${viewMode === 'table'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                title="Table View"
+              >
+                <List size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode('grid-small')}
+                className={`px-3 py-2 transition-colors ${viewMode === 'grid-small'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                title="Small Grid View"
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <button
+                onClick={() => setViewMode('grid-large')}
+                className={`px-3 py-2 transition-colors ${viewMode === 'grid-large'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                title="Large Grid View"
+              >
+                <Grid3X3 size={16} />
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Vendors Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredVendors.map((vendor) => (
-          <div key={vendor.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
-            {/* Header */}
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-                  <Users className="w-6 h-6 text-blue-600" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">{vendor.vendorName}</h3>
-                  {vendor.companyName && (
-                    <p className="text-sm text-gray-500">{vendor.companyName}</p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                <button 
-                  onClick={() => handleView(vendor)}
-                  className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                >
-                  <Eye size={16} />
-                </button>
-                <button 
-                  onClick={() => handleEdit(vendor)}
-                  className="p-1 text-gray-400 hover:text-green-600 transition-colors"
-                >
-                  <Edit size={16} />
-                </button>
-                <button 
-                  onClick={() => handleDelete(vendor)}
-                  className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                >
-                  <Trash2 size={16} />
-                </button>
+      {/* Vendors Display */}
+      {filteredVendors.length === 0 ? (
+        <div className="text-center py-10 text-gray-600 bg-white rounded-xl shadow-sm border border-gray-200">
+          <p>No vendors found matching your criteria.</p>
+        </div>
+      ) : (
+        <>
+          {/* Table View */}
+          {viewMode === 'table' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
+              <div className="overflow-x-auto max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendor Info</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GST No.</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment Mode</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredVendors.map((vendor) => (
+                      <tr key={vendor.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
+                              <Users className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{vendor.vendorName}</div>
+                              {vendor.companyName && (
+                                <div className="text-xs text-gray-500">{vendor.companyName}</div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{vendor.contactNumber}</div>
+                          <div className="text-xs text-gray-500">{vendor.email}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {vendor.city ? `${vendor.city}, ${vendor.state || ''}` : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
+                          {vendor.gstNumber || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentModeColor(vendor.defaultPaymentMode)}`}>
+                            {vendor.defaultPaymentMode.charAt(0).toUpperCase() + vendor.defaultPaymentMode.slice(1)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(vendor.isActive)}`}>
+                            {vendor.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
+                          <button
+                            onClick={() => handleView(vendor)}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="View Details"
+                          >
+                            <Eye size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(vendor)}
+                            className="text-green-600 hover:text-green-900"
+                            title="Edit Vendor"
+                          >
+                            <Edit size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(vendor)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete Vendor"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
+          )}
 
-            {/* Contact Info */}
-            <div className="space-y-3 mb-4">
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Phone className="w-4 h-4" />
-                <span>{vendor.contactNumber}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <Mail className="w-4 h-4" />
-                <span>{vendor.email}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-gray-600">
-                <MapPin className="w-4 h-4" />
-                <span>{vendor.address}, {vendor.city}, {vendor.state}</span>
-              </div>
-            </div>
-
-            {/* GST and Payment Info */}
-            <div className="space-y-3 mb-4">
-              {vendor.gstNumber && (
-                <div className="flex items-center gap-2 text-sm text-gray-600">
-                  <Building className="w-4 h-4" />
-                  <span className="font-mono">{vendor.gstNumber}</span>
+          {/* Small Grid View */}
+          {viewMode === 'grid-small' && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredVendors.map((vendor) => (
+                <div key={vendor.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-all duration-200">
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <Users className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div className="overflow-hidden">
+                        <h3 className="text-sm font-semibold text-gray-900 truncate">{vendor.vendorName}</h3>
+                        {vendor.companyName && (
+                          <p className="text-xs text-gray-500 truncate">{vendor.companyName}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleView(vendor)}
+                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                        title="View"
+                      >
+                        <Eye size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleEdit(vendor)}
+                        className="p-1 text-gray-400 hover:text-green-600 transition-colors"
+                        title="Edit"
+                      >
+                        <Edit size={14} />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="space-y-2 mb-3">
+                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <Phone className="w-3 h-3" />
+                      <span className="truncate">{vendor.contactNumber}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <MapPin className="w-3 h-3" />
+                      <span className="truncate">{vendor.city || 'No city'}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(vendor.isActive)}`}>
+                      {vendor.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <button
+                      onClick={() => handleDelete(vendor)}
+                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
-              )}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">Payment Mode:</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentModeColor(vendor.defaultPaymentMode)}`}>
-                  {vendor.defaultPaymentMode.charAt(0).toUpperCase() + vendor.defaultPaymentMode.slice(1)}
-                </span>
-              </div>
+              ))}
             </div>
+          )}
 
-            {/* Status and Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(vendor.isActive)}`}>
-                {vendor.isActive ? 'Active' : 'Inactive'}
-              </span>
-              <button className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                View Details
-              </button>
+          {/* Large Grid View (Original) */}
+          {viewMode === 'grid-large' && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+              {filteredVendors.map((vendor) => (
+                <div key={vendor.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <Users className="w-6 h-6 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{vendor.vendorName}</h3>
+                        {vendor.companyName && (
+                          <p className="text-sm text-gray-500">{vendor.companyName}</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleView(vendor)}
+                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleEdit(vendor)}
+                        className="p-1 text-gray-400 hover:text-green-600 transition-colors"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(vendor)}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Contact Info */}
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Phone className="w-4 h-4" />
+                      <span>{vendor.contactNumber}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <Mail className="w-4 h-4" />
+                      <span>{vendor.email}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <MapPin className="w-4 h-4" />
+                      <span>{vendor.address}, {vendor.city}, {vendor.state}</span>
+                    </div>
+                  </div>
+
+                  {/* GST and Payment Info */}
+                  <div className="space-y-3 mb-4">
+                    {vendor.gstNumber && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <Building className="w-4 h-4" />
+                        <span className="font-mono">{vendor.gstNumber}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">Payment Mode:</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getPaymentModeColor(vendor.defaultPaymentMode)}`}>
+                        {vendor.defaultPaymentMode.charAt(0).toUpperCase() + vendor.defaultPaymentMode.slice(1)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Status and Actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(vendor.isActive)}`}>
+                      {vendor.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                    <button onClick={() => handleView(vendor)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                      View Details
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        ))}
-      </div>
+          )}
+        </>
+      )}
 
       {/* Summary Stats */}
       {/* <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -631,11 +837,21 @@ export default function Vendors() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Contact Number *
                   </label>
-                  <input
-                    type="tel"
-                    {...register('contactNumber')}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                      <span className="text-gray-500 sm:text-sm">+91</span>
+                    </div>
+                    <input
+                      type="tel"
+                      {...register('contactNumber')}
+                      className="w-full pl-12 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Enter 10 digit number"
+                      maxLength={10}
+                      onInput={(e) => {
+                        e.target.value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                      }}
+                    />
+                  </div>
                   {errors.contactNumber && <p className="text-red-500 text-xs mt-1">{errors.contactNumber.message}</p>}
                 </div>
                 <div>
@@ -665,6 +881,32 @@ export default function Vendors() {
                     ))}
                   </select>
                   {errors.group && <p className="text-red-500 text-xs mt-1">{errors.group.message}</p>}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Opening Balance (₹)
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="number"
+                      {...register('openingBalance', { valueAsNumber: true })}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                    <select
+                      {...register('openingBalanceType')}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="debit">Debit</option>
+                      <option value="credit">Credit</option>
+                    </select>
+                  </div>
+                  {errors.openingBalance && <p className="text-red-500 text-xs mt-1">{errors.openingBalance.message}</p>}
+                  <p className="text-xs text-gray-500 mt-1">
+                    Vendor&apos;s initial opening balance
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

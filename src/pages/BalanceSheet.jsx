@@ -1,70 +1,44 @@
 import { useState, useEffect, useMemo, memo, useCallback } from 'react';
-import { Calendar, Download, Loader2, ChevronDown, ChevronRight, FileText } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Calendar, Download, Loader2, ChevronDown, ChevronRight, FileText, X } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 
-// Memoized balance cache to avoid recalculating
-const balanceCache = new Map();
-
-// Aggregate balances from nested children into parent (optimized with caching)
-const aggregateChildrenBalances = (group) => {
-  const cacheKey = `${group.id || group._id}_${group.balance}`;
-  
-  if (balanceCache.has(cacheKey)) {
-    return balanceCache.get(cacheKey);
-  }
-  
-  let totalBalance = Math.abs(group.balance || 0);
-  
-  // If this group has children, aggregate their balances
-  if (group.children && group.children.length > 0) {
-    group.children.forEach(child => {
-      totalBalance += aggregateChildrenBalances(child);
-    });
-  }
-  
-  balanceCache.set(cacheKey, totalBalance);
-  return totalBalance;
-};
-
-// Clear cache when balance sheet changes
-const clearBalanceCache = () => {
-  balanceCache.clear();
-};
-
 // Render group node with one level of nesting (memoized for performance)
 const GroupNode = memo(({ group, level = 0 }) => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const balance = Math.abs(group.balance || 0);
   const groupId = group.id || group._id;
   const hasChildren = group.children && group.children.length > 0;
-  
+
   // Calculate indentation for hierarchy
   const indentWidth = 24;
   const leftPadding = level * indentWidth;
 
   const handleGroupClick = useCallback((e) => {
     e.stopPropagation();
-    navigate(`/group-summary/${groupId}`);
-  }, [navigate, groupId]);
+    // Pass date filter params
+    const startDate = searchParams.get('startDate') || '';
+    const endDate = searchParams.get('endDate') || new Date().toISOString().split('T')[0];
+    navigate(`/group-summary/${groupId}?startDate=${startDate}&endDate=${endDate}`);
+  }, [navigate, groupId, searchParams]);
 
   return (
     <div className="select-none">
       {/* Parent Group */}
-      <div 
+      <div
         className="flex items-center gap-2 py-1 hover:bg-gray-50 cursor-pointer rounded px-2 transition-colors"
         onClick={handleGroupClick}
-        style={{ 
+        style={{
           paddingLeft: `${leftPadding}px`
         }}
       >
         {/* Group name */}
-        <span className={`flex-1 ${
-          level === 0 ? 'text-sm font-semibold text-gray-900' : 
+        <span className={`flex-1 ${level === 0 ? 'text-sm font-semibold text-gray-900' :
           'text-sm text-gray-700'
-        }`}>
+          }`}>
           {group.name}
         </span>
 
@@ -77,17 +51,13 @@ const GroupNode = memo(({ group, level = 0 }) => {
       {/* Direct Children (one level only) */}
       {hasChildren && level === 0 && (
         <div>
-          {group.children.map((child) => {
-            // Aggregate deeper children's balances into this child
-            const aggregatedBalance = aggregateChildrenBalances(child);
-            return (
-              <GroupNode
-                key={child.id || child._id}
-                group={{ ...child, balance: aggregatedBalance }}
-                level={1}
-              />
-            );
-          })}
+          {group.children.map((child) => (
+            <GroupNode
+              key={child.id || child._id}
+              group={child}
+              level={1}
+            />
+          ))}
         </div>
       )}
     </div>
@@ -104,13 +74,27 @@ const GroupNode = memo(({ group, level = 0 }) => {
 
 export default function BalanceSheet() {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [balanceSheet, setBalanceSheet] = useState(null);
-  const [asOnDate, setAsOnDate] = useState(new Date().toISOString().split('T')[0]);
+
+  const [dateFilter, setDateFilter] = useState({
+    startDate: searchParams.get('startDate') || '',
+    endDate: searchParams.get('endDate') || new Date().toISOString().split('T')[0]
+  });
+
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState('');
 
+  // Date Filter Modal States
+  const [showDateFilterModal, setShowDateFilterModal] = useState(false);
+  const [tempDateFilter, setTempDateFilter] = useState({
+    startDate: '',
+    endDate: ''
+  });
+
   const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
+
   const sortedLiabilityGroups = useMemo(() => {
     if (!balanceSheet?.liabilities?.groups) return [];
     const priorityMap = {
@@ -141,23 +125,36 @@ export default function BalanceSheet() {
   }, [balanceSheet]);
 
   useEffect(() => {
+    // Sync state with URL params
+    const start = searchParams.get('startDate');
+    const end = searchParams.get('endDate');
+    if (start !== dateFilter.startDate || end !== dateFilter.endDate) {
+      setDateFilter({
+        startDate: start || '',
+        endDate: end || new Date().toISOString().split('T')[0]
+      });
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (hasAdminAccess) {
       fetchBalanceSheet();
     }
-  }, [asOnDate, hasAdminAccess]);
+  }, [dateFilter, hasAdminAccess]);
 
   const fetchBalanceSheet = async () => {
     try {
       setIsLoading(true);
       setIsError(false);
-      
-      // Clear cache before fetching new data
-      clearBalanceCache();
-      
+
       const { data } = await api.get('/balance-sheet', {
-        params: { asOnDate }
+        params: {
+          asOnDate: dateFilter.endDate, // Backward compatibility
+          startDate: dateFilter.startDate,
+          endDate: dateFilter.endDate
+        }
       });
-      
+
       // Filter to show only top-level groups (no parent) and process one level of nesting
       // Use useMemo pattern for filtering
       const filterTopLevelGroups = (groups) => {
@@ -187,33 +184,56 @@ export default function BalanceSheet() {
     }
   };
 
+  const openDateFilterModal = () => {
+    setTempDateFilter(dateFilter);
+    setShowDateFilterModal(true);
+  };
+
+  const handleApplyDateFilter = () => {
+    setDateFilter(tempDateFilter);
+    setSearchParams({
+      startDate: tempDateFilter.startDate,
+      endDate: tempDateFilter.endDate
+    });
+    setShowDateFilterModal(false);
+  };
+
+  const handleClearDateFilter = () => {
+    const defaultEnd = new Date().toISOString().split('T')[0];
+    const newFilter = { startDate: '', endDate: defaultEnd };
+    setDateFilter(newFilter);
+    setSearchParams({ endDate: defaultEnd });
+    setTempDateFilter(newFilter);
+    setShowDateFilterModal(false);
+  };
+
 
   // Memoize flattened groups for Excel export
   const flattenedGroupsForExcel = useMemo(() => {
     if (!balanceSheet) return { assets: [], liabilities: [] };
-    
+
     const flattenGroups = (groups, level = 0) => {
       const result = [];
       groups.forEach(group => {
         const name = level === 0 ? group.name : `  ${group.name}`;
-        const balance = aggregateChildrenBalances(group);
+        const balance = Math.abs(group.balance || 0);
         result.push({ name, balance, level });
-        
+
         // Include one level of children
         if (level === 0 && group.children && group.children.length > 0) {
           group.children.forEach(child => {
-            const childBalance = aggregateChildrenBalances(child);
-            result.push({ 
-              name: `  ${child.name}`, 
-              balance: childBalance, 
-              level: 1 
+            const childBalance = Math.abs(child.balance || 0);
+            result.push({
+              name: `  ${child.name}`,
+              balance: childBalance,
+              level: 1
             });
           });
         }
       });
       return result;
     };
-    
+
     return {
       assets: flattenGroups(sortedAssetGroups.length ? sortedAssetGroups : balanceSheet.assets.groups),
       liabilities: flattenGroups(sortedLiabilityGroups.length ? sortedLiabilityGroups : balanceSheet.liabilities.groups)
@@ -224,7 +244,7 @@ export default function BalanceSheet() {
     if (!balanceSheet) return;
 
     const wb = XLSX.utils.book_new();
-    
+
     // Prepare data using memoized flattened groups
     const assetsData = [];
     const liabilitiesData = [];
@@ -254,7 +274,7 @@ export default function BalanceSheet() {
     // Create worksheet
     const maxRows = Math.max(assetsData.length, liabilitiesData.length);
     const wsData = [];
-    
+
     for (let i = 0; i < maxRows; i++) {
       const row = [];
       if (i < assetsData.length) {
@@ -272,7 +292,7 @@ export default function BalanceSheet() {
     }
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
-    
+
     // Set column widths
     ws['!cols'] = [
       { wch: 30 }, // Assets name
@@ -284,10 +304,10 @@ export default function BalanceSheet() {
 
     XLSX.utils.book_append_sheet(wb, ws, 'Balance Sheet');
 
-    const dateStr = new Date(asOnDate).toLocaleDateString('en-GB').replace(/\//g, '');
+    const dateStr = new Date(dateFilter.endDate).toLocaleDateString('en-GB').replace(/\//g, '');
     const filename = `Balance_Sheet_${dateStr}.xlsx`;
     XLSX.writeFile(wb, filename);
-  }, [balanceSheet, asOnDate, flattenedGroupsForExcel]);
+  }, [balanceSheet, dateFilter, flattenedGroupsForExcel]);
 
   if (!hasAdminAccess) {
     return (
@@ -312,7 +332,7 @@ export default function BalanceSheet() {
     return (
       <div className="text-center py-8">
         <p className="text-red-600 mb-4">{error}</p>
-        <button 
+        <button
           onClick={fetchBalanceSheet}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
@@ -326,6 +346,15 @@ export default function BalanceSheet() {
     return null;
   }
 
+  const formatDateDisplay = (dateString) => {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -335,15 +364,16 @@ export default function BalanceSheet() {
           <p className="text-gray-600 mt-1">Financial position as on selected date</p>
         </div>
         <div className="flex gap-3 mt-4 sm:mt-0">
-          <div className="flex items-center gap-2">
-            <Calendar className="text-gray-400" size={20} />
-            <input
-              type="date"
-              value={asOnDate}
-              onChange={(e) => setAsOnDate(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
+          <button
+            onClick={openDateFilterModal}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 shadow-sm"
+          >
+            <Calendar size={20} className="text-gray-500" />
+            <span className="font-medium">
+              {dateFilter.startDate ? `${formatDateDisplay(dateFilter.startDate)} - ` : 'Up to '}
+              {formatDateDisplay(dateFilter.endDate)}
+            </span>
+          </button>
           <button
             onClick={downloadExcel}
             className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
@@ -360,11 +390,11 @@ export default function BalanceSheet() {
         <div className="text-center mb-6">
           <h2 className="text-2xl font-bold text-gray-900">BALANCE SHEET</h2>
           <p className="text-gray-600 mt-1">
-            As on {new Date(asOnDate).toLocaleDateString('en-GB', { 
-              day: '2-digit', 
-              month: 'long', 
-              year: 'numeric' 
-            })}
+            {dateFilter.startDate ? (
+              <>Period: {formatDateDisplay(dateFilter.startDate)} to {formatDateDisplay(dateFilter.endDate)}</>
+            ) : (
+              <>As on {formatDateDisplay(dateFilter.endDate)}</>
+            )}
           </p>
         </div>
 
@@ -374,7 +404,7 @@ export default function BalanceSheet() {
           <div className="border-r border-gray-200 pr-8">
             <div className="mb-4">
               <h3 className="text-lg font-bold text-purple-700 mb-3">LIABILITIES & CAPITAL</h3>
-              
+
               {/* Liabilities */}
               <div className="mb-4">
                 <h4 className="text-md font-semibold text-purple-600 mb-2">LIABILITIES</h4>
@@ -391,9 +421,9 @@ export default function BalanceSheet() {
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold">Total Liabilities</span>
                     <span className="text-sm font-semibold text-right w-32">
-                      {balanceSheet.totals.totalLiabilities.toLocaleString('en-IN', { 
-                        minimumFractionDigits: 2, 
-                        maximumFractionDigits: 2 
+                      {balanceSheet.totals.totalLiabilities.toLocaleString('en-IN', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
                       })}
                     </span>
                   </div>
@@ -407,9 +437,9 @@ export default function BalanceSheet() {
                   <div className="flex items-center justify-between py-1">
                     <span className="text-sm font-medium ml-5">Capital/Equity</span>
                     <span className="text-sm font-semibold text-right w-32">
-                      {balanceSheet.capital.amount.toLocaleString('en-IN', { 
-                        minimumFractionDigits: 2, 
-                        maximumFractionDigits: 2 
+                      {balanceSheet.capital.amount.toLocaleString('en-IN', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2
                       })}
                     </span>
                   </div>
@@ -421,9 +451,9 @@ export default function BalanceSheet() {
                 <div className="flex items-center justify-between">
                   <span className="text-base font-bold">Total Liabilities & Capital</span>
                   <span className="text-base font-bold text-right w-32">
-                    {balanceSheet.totals.totalLiabilitiesAndCapital.toLocaleString('en-IN', { 
-                      minimumFractionDigits: 2, 
-                      maximumFractionDigits: 2 
+                    {balanceSheet.totals.totalLiabilitiesAndCapital.toLocaleString('en-IN', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
                     })}
                   </span>
                 </div>
@@ -433,7 +463,7 @@ export default function BalanceSheet() {
 
           {/* Assets Side */}
           <div className="pl-8">
-              <div className="mb-4">
+            <div className="mb-4">
               <h3 className="text-lg font-bold text-blue-700 mb-3">ASSETS</h3>
               <div className="space-y-1">
                 {(sortedAssetGroups.length ? sortedAssetGroups : balanceSheet.assets.groups).map((group) => (
@@ -448,9 +478,9 @@ export default function BalanceSheet() {
                 <div className="flex items-center justify-between">
                   <span className="text-base font-bold">Total Assets</span>
                   <span className="text-base font-bold text-right w-32">
-                    {balanceSheet.totals.totalAssets.toLocaleString('en-IN', { 
-                      minimumFractionDigits: 2, 
-                      maximumFractionDigits: 2 
+                    {balanceSheet.totals.totalAssets.toLocaleString('en-IN', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2
                     })}
                   </span>
                 </div>
@@ -463,12 +493,78 @@ export default function BalanceSheet() {
         {Math.abs(balanceSheet.totals.balance) > 0.01 && (
           <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-yellow-800 text-sm">
-              <strong>Note:</strong> Balance difference: ₹{balanceSheet.totals.balance.toFixed(2)}. 
+              <strong>Note:</strong> Balance difference: ₹{balanceSheet.totals.balance.toFixed(2)}.
               Assets and Liabilities & Capital should match.
             </p>
           </div>
         )}
       </div>
+
+      {/* Date Filter Modal */}
+      {showDateFilterModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                <Calendar size={24} className="text-blue-600" />
+                Select Date Range
+              </h2>
+              <button
+                onClick={() => setShowDateFilterModal(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={tempDateFilter.startDate}
+                  onChange={(e) => setTempDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={tempDateFilter.endDate}
+                  onChange={(e) => setTempDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={handleClearDateFilter}
+                  className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors mr-auto"
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowDateFilterModal(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApplyDateFilter}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
+                >
+                  Apply Filter
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

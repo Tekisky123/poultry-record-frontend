@@ -108,7 +108,7 @@ export default function IndirectSaleDetail() {
   useEffect(() => {
     fetchRecord();
     loadDropdownData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleDetailEdit = () => {
@@ -525,40 +525,40 @@ export default function IndirectSaleDetail() {
           <p className="text-sm text-gray-500">Automatically calculated profitability snapshot</p>
         </div>
         <div className="px-6 py-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Sales Amount</p>
-              <p className="text-2xl font-semibold text-gray-900 mt-2">
+          <div className="grid grid-cols-1 gap-4">
+            <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 flex justify-between items-center">
+              <p className="text-sm text-gray-500 uppercase tracking-wide font-medium">Sales Amount</p>
+              <p className="text-xl font-bold text-gray-900">
                 ₹{formatCurrency(record.summary?.salesAmount || 0)}
               </p>
             </div>
-            <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Purchase Amount</p>
-              <p className="text-2xl font-semibold text-gray-900 mt-2">
+            <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 flex justify-between items-center">
+              <p className="text-sm text-gray-500 uppercase tracking-wide font-medium">Purchase Amount</p>
+              <p className="text-xl font-bold text-gray-900">
                 ₹{formatCurrency(record.summary?.purchaseAmount || 0)}
               </p>
             </div>
-            <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Gross Profit</p>
-              <p className="text-2xl font-semibold text-gray-900 mt-2">
+            <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 flex justify-between items-center">
+              <p className="text-sm text-gray-500 uppercase tracking-wide font-medium">Gross Profit</p>
+              <p className="text-xl font-bold text-gray-900">
                 ₹{formatCurrency(record.summary?.grossProfit || 0)}
               </p>
             </div>
-            <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Mortality / Wastage Loss</p>
-              <p className="text-2xl font-semibold text-gray-900 mt-2">
+            <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 flex justify-between items-center">
+              <p className="text-sm text-gray-500 uppercase tracking-wide font-medium">Mortality / Wastage Loss</p>
+              <p className="text-xl font-bold text-gray-900">
                 ₹{formatCurrency(record.summary?.mortalityAmount || 0)}
               </p>
             </div>
-            <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Net Profit</p>
-              <p className="text-2xl font-semibold text-gray-900 mt-2">
+            <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 flex justify-between items-center">
+              <p className="text-sm text-gray-500 uppercase tracking-wide font-medium">Net Profit</p>
+              <p className="text-xl font-bold text-gray-900">
                 ₹{formatCurrency(record.summary?.netProfit || 0)}
               </p>
             </div>
-            <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-              <p className="text-xs text-gray-500 uppercase tracking-wide">Margin (₹/Kg)</p>
-              <p className="text-2xl font-semibold text-gray-900 mt-2">
+            <div className="p-4 border border-gray-200 rounded-lg bg-gray-50 flex justify-between items-center">
+              <p className="text-sm text-gray-500 uppercase tracking-wide font-medium">Margin (₹/Kg)</p>
+              <p className="text-xl font-bold text-gray-900">
                 ₹{formatCurrency(record.summary?.margin || 0)}
               </p>
             </div>

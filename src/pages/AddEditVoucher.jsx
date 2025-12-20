@@ -633,11 +633,23 @@ const AddEditVoucher = () => {
       maximumFractionDigits: 2
     })}`;
 
-  const getLedgerInfo = (accountName) => ledgers.find((ledger) => ledger.name === accountName) || customers.find((customer) => customer.shopName === accountName) || vendors.find((vendor) => vendor.name === accountName);
+  const getLedgerInfo = (accountName) =>
+    ledgers.find((ledger) => ledger.name === accountName) ||
+    customers.find((customer) => (customer.shopName || customer.ownerName) === accountName) ||
+    vendors.find((vendor) => vendor.vendorName === accountName);
 
   const getLedgerBalanceLabel = (ledger) => {
     if (!ledger) return '';
     const outstanding = ledger.outstandingBalance ?? ledger.openingBalance ?? 0;
+
+    // Check for explicit balance type (for Customers/Vendors) or cached type
+    if (ledger.outstandingBalanceType) {
+      return `${formatAmount(outstanding)} ${ledger.outstandingBalanceType === 'credit' ? 'Cr' : 'Dr'}`;
+    }
+    if (ledger.openingBalanceType && !ledger.group) { // Fallback if no outstanding type but opening type exists (and not a ledger with group)
+      return `${formatAmount(outstanding)} ${ledger.openingBalanceType === 'credit' ? 'Cr' : 'Dr'}`;
+    }
+
     const nature =
       ledger.group?.type === 'Liability' || ledger.group?.type === 'Expenses' ? 'Cr' : 'Dr';
     return `${formatAmount(outstanding)} ${nature}`;
@@ -811,11 +823,19 @@ const AddEditVoucher = () => {
                             required
                           >
                             <option value="">Select Party</option>
-                            {allParties.map(partyItem => (
-                              <option key={`${partyItem.type}:${partyItem.id}`} value={`${partyItem.type}:${partyItem.id}`}>
-                                {partyItem.name}
-                              </option>
-                            ))}
+                            {allParties
+                              .filter(partyItem => {
+                                // Hide Vendors if Voucher Type is Receipt
+                                if (formData.voucherType === 'Receipt' && partyItem.type === 'vendor') {
+                                  return false;
+                                }
+                                return true;
+                              })
+                              .map(partyItem => (
+                                <option key={`${partyItem.type}:${partyItem.id}`} value={`${partyItem.type}:${partyItem.id}`}>
+                                  {partyItem.name}
+                                </option>
+                              ))}
                           </select>
                           {party.partyId && (
                             <p className="text-xs text-gray-500">
