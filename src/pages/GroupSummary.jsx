@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { Calendar, ArrowLeft, Loader2, X } from 'lucide-react';
+import { Calendar, ArrowLeft, Loader2, X, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -10,6 +11,7 @@ export default function GroupSummary() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const [groupSummary, setGroupSummary] = useState(null);
+  const [showPercentage, setShowPercentage] = useState(false);
 
   const [dateFilter, setDateFilter] = useState({
     startDate: searchParams.get('startDate') || '',
@@ -66,6 +68,61 @@ export default function GroupSummary() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleExportToExcel = () => {
+    if (!groupSummary) return;
+
+    const isExpandedView = (groupSummary.entries.some(e => e.birds > 0 || e.weight > 0) || groupSummary.group.name.toLowerCase().includes('debtor'));
+
+    const exportData = groupSummary.entries.map(entry => {
+      const row = {
+        Particular: entry.name,
+      };
+
+      if (isExpandedView) {
+        row['Total Birds'] = entry.birds || 0;
+        row['Total Weight'] = entry.weight ? parseFloat(entry.weight.toFixed(2)) : 0;
+        row['Debit (Sales)'] = entry.transactionDebit || entry.debit || 0;
+        row['Credit (Receipts)'] = entry.transactionCredit || entry.credit || 0;
+
+        const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
+        row['Closing Balance'] = Math.abs(closingBal).toFixed(2) + (closingBal >= 0 ? ' Dr' : ' Cr');
+      } else {
+        row['Debit'] = entry.debit || 0;
+        row['Credit'] = entry.credit || 0;
+      }
+      return row;
+    });
+
+    // Add Totals Row
+    const totalRow = {
+      Particular: 'Grand Total',
+    };
+
+    if (isExpandedView) {
+      totalRow['Total Birds'] = groupSummary.totals.birds || 0;
+      totalRow['Total Weight'] = groupSummary.totals.weight ? parseFloat(groupSummary.totals.weight.toFixed(2)) : 0;
+
+      const totalDebit = groupSummary.entries.reduce((sum, e) => sum + (e.transactionDebit || e.debit || 0), 0);
+      const totalCredit = groupSummary.entries.reduce((sum, e) => sum + (e.transactionCredit || e.credit || 0), 0);
+
+      totalRow['Debit (Sales)'] = totalDebit;
+      totalRow['Credit (Receipts)'] = totalCredit;
+
+      const netBalance = groupSummary.entries.reduce((sum, e) => sum + (e.closingBalance || (e.debit - e.credit) || 0), 0);
+      totalRow['Closing Balance'] = Math.abs(netBalance).toFixed(2) + (netBalance >= 0 ? ' Dr' : ' Cr');
+    } else {
+      totalRow['Debit'] = groupSummary.totals.debit;
+      totalRow['Credit'] = groupSummary.totals.credit;
+    }
+
+    exportData.push(totalRow);
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Group Summary");
+    XLSX.writeFile(wb, `${groupSummary.group.name.replace(/[^a-zA-Z0-9]/g, '_')}_Summary.xlsx`);
   };
 
   const openDateFilterModal = () => {
@@ -128,6 +185,51 @@ export default function GroupSummary() {
     return null;
   }
 
+  const isExpandedView = (groupSummary.entries.some(e => e.birds > 0 || e.weight > 0) || groupSummary.group.name.toLowerCase().includes('debtor'));
+
+  const totals = {
+    birds: groupSummary.totals.birds || 0,
+    weight: groupSummary.totals.weight || 0,
+    debitExpanded: groupSummary.entries.reduce((sum, e) => sum + (e.transactionDebit || e.debit || 0), 0),
+    creditExpanded: groupSummary.entries.reduce((sum, e) => sum + (e.transactionCredit || e.credit || 0), 0),
+    netBalance: groupSummary.entries.reduce((sum, e) => sum + (e.closingBalance || (e.debit - e.credit) || 0), 0),
+    debitNormal: groupSummary.totals.debit || 0,
+    creditNormal: groupSummary.totals.credit || 0
+  };
+
+  const renderCellWithPercentage = (val, total, type = 'number', isClosing = false) => {
+    // Treat 0 as '-' unless it's a closing balance or specifically 0 is valid (e.g. net balance 0 is rare but possible)
+    if ((!val && val !== 0) || (val === 0 && !isClosing)) return '-';
+
+    let formatted;
+    const absVal = Math.abs(val);
+
+    if (type === 'currency') {
+      formatted = absVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (isClosing) {
+        formatted += (val >= 0 ? ' Dr' : ' Cr');
+      }
+    } else if (type === 'weight') {
+      formatted = absVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    } else {
+      formatted = absVal.toLocaleString();
+    }
+
+    if (showPercentage && total) {
+      const absTotal = Math.abs(total);
+      if (absTotal === 0) return formatted;
+      const pct = ((absVal / absTotal) * 100).toFixed(2);
+
+      return (
+        <span className="whitespace-nowrap">
+          {formatted} <span className="text-gray-500 text-xs ml-1">({pct}%)</span>
+        </span>
+      );
+    }
+
+    return formatted;
+  };
+
   const formatDateDisplay = (dateString) => {
     if (!dateString) return '';
     return new Date(dateString).toLocaleDateString('en-GB', {
@@ -167,6 +269,22 @@ export default function GroupSummary() {
         </div>
         <div className="flex gap-3 mt-4 sm:mt-0">
           <button
+            onClick={() => setShowPercentage(!showPercentage)}
+            className={`px-4 py-2 border rounded-lg font-medium transition-colors shadow-sm ${showPercentage
+              ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+              : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+              }`}
+          >
+            % Percentage
+          </button>
+          <button
+            onClick={handleExportToExcel}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors"
+          >
+            <Download size={20} />
+            <span className="font-medium">Export Excel</span>
+          </button>
+          <button
             onClick={openDateFilterModal}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 shadow-sm"
           >
@@ -199,7 +317,7 @@ export default function GroupSummary() {
             <thead>
               <tr className="border-b-2 border-gray-300">
                 <th className="text-left py-3 px-4 font-semibold text-gray-900">Particular</th>
-                {(groupSummary.entries.some(e => e.birds > 0 || e.weight > 0) || groupSummary.group.name.toLowerCase().includes('debtor')) && (
+                {isExpandedView && (
                   <>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Birds</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Weight</th>
@@ -208,7 +326,7 @@ export default function GroupSummary() {
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
                   </>
                 )}
-                {!(groupSummary.entries.some(e => e.birds > 0 || e.weight > 0) || groupSummary.group.name.toLowerCase().includes('debtor')) && (
+                {!isExpandedView && (
                   <>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit</th>
@@ -217,11 +335,10 @@ export default function GroupSummary() {
               </tr>
             </thead>
             <tbody>
+
               {groupSummary.entries.length > 0 ? (
                 <>
                   {groupSummary.entries.map((entry, index) => {
-                    const isExpandedView = (groupSummary.entries.some(e => e.birds > 0 || e.weight > 0) || groupSummary.group.name.toLowerCase().includes('debtor'));
-
                     return (
                       <tr
                         key={entry.id}
@@ -262,50 +379,37 @@ export default function GroupSummary() {
                         {isExpandedView ? (
                           <>
                             <td className="py-3 px-4 text-right text-gray-700">
-                              {entry.birds ? entry.birds.toLocaleString() : '-'}
+                              {renderCellWithPercentage(entry.birds, totals.birds)}
                             </td>
                             <td className="py-3 px-4 text-right text-gray-700">
-                              {entry.weight ? entry.weight.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
+                              {renderCellWithPercentage(entry.weight, totals.weight, 'weight')}
                             </td>
                             <td className="py-3 px-4 text-right text-gray-700">
-                              {entry.transactionDebit ? entry.transactionDebit.toLocaleString('en-IN', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              }) : (entry.debit > 0 ? entry.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-')}
+                              {(() => {
+                                const val = entry.transactionDebit || entry.debit || 0;
+                                return renderCellWithPercentage(val, totals.debitExpanded, 'currency');
+                              })()}
                             </td>
                             <td className="py-3 px-4 text-right text-gray-700">
-                              {entry.transactionCredit ? entry.transactionCredit.toLocaleString('en-IN', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              }) : (entry.credit > 0 ? entry.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-')}
+                              {(() => {
+                                const val = entry.transactionCredit || entry.credit || 0;
+                                return renderCellWithPercentage(val, totals.creditExpanded, 'currency');
+                              })()}
                             </td>
                             <td className="py-3 px-4 text-right font-semibold text-gray-900">
-                              {entry.closingBalance !== undefined ? (
-                                Math.abs(entry.closingBalance).toLocaleString('en-IN', {
-                                  minimumFractionDigits: 2,
-                                  maximumFractionDigits: 2
-                                }) + (entry.closingBalance >= 0 ? ' Dr' : ' Cr')
-                              ) : (
-                                // Fallback to debit/credit check if closingBalance not explicitly sent
-                                entry.debit > 0 ? entry.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 }) + ' Dr'
-                                  : entry.credit > 0 ? entry.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 }) + ' Cr'
-                                    : '0.00'
-                              )}
+                              {(() => {
+                                const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
+                                return renderCellWithPercentage(closingBal, totals.netBalance, 'currency', true);
+                              })()}
                             </td>
                           </>
                         ) : (
                           <>
                             <td className="py-3 px-4 text-right text-gray-700">
-                              {entry.debit > 0 ? entry.debit.toLocaleString('en-IN', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              }) : '-'}
+                              {renderCellWithPercentage(entry.debit, totals.debitNormal, 'currency')}
                             </td>
                             <td className="py-3 px-4 text-right text-gray-700">
-                              {entry.credit > 0 ? entry.credit.toLocaleString('en-IN', {
-                                minimumFractionDigits: 2,
-                                maximumFractionDigits: 2
-                              }) : '-'}
+                              {renderCellWithPercentage(entry.credit, totals.creditNormal, 'currency')}
                             </td>
                           </>
                         )}
@@ -313,53 +417,40 @@ export default function GroupSummary() {
                     );
                   })}
 
-                  {/* Grand Total Row */}
-                  {(groupSummary.entries.some(e => e.birds > 0 || e.weight > 0) || groupSummary.group.name.toLowerCase().includes('debtor')) ? (
+                  {(isExpandedView) ? (
                     <tr className="border-t-2 border-gray-400 bg-gray-50">
                       <td className="py-3 px-4 font-bold text-gray-900">Grand Total</td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {groupSummary.totals.birds?.toLocaleString()}
+                        {renderCellWithPercentage(totals.birds, totals.birds)}
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {groupSummary.totals.weight?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        {renderCellWithPercentage(totals.weight, totals.weight, 'weight')}
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {/* Calculate Sum of Transaction Debits */}
-                        {groupSummary.entries.reduce((sum, e) => sum + (e.transactionDebit || e.debit || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        {renderCellWithPercentage(totals.debitExpanded, totals.debitExpanded, 'currency')}
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {/* Calculate Sum of Transaction Credits */}
-                        {groupSummary.entries.reduce((sum, e) => sum + (e.transactionCredit || e.credit || 0), 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                        {renderCellWithPercentage(totals.creditExpanded, totals.creditExpanded, 'currency')}
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {/* Net Closing Balance */}
-                        {(() => {
-                          const netBalance = groupSummary.entries.reduce((sum, e) => sum + (e.closingBalance || (e.debit - e.credit) || 0), 0);
-                          return Math.abs(netBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 }) + (netBalance >= 0 ? ' Dr' : ' Cr');
-                        })()}
+                        {renderCellWithPercentage(totals.netBalance, totals.netBalance, 'currency', true)}
                       </td>
                     </tr>
                   ) : (
                     <tr className="border-t-2 border-gray-400 bg-gray-50">
                       <td className="py-3 px-4 font-bold text-gray-900">Grand Total</td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {groupSummary.totals.debit.toLocaleString('en-IN', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2
-                        })}
+                        {renderCellWithPercentage(totals.debitNormal, totals.debitNormal, 'currency')}
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {groupSummary.totals.credit.toLocaleString('en-IN', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2
-                        })}
+                        {renderCellWithPercentage(totals.creditNormal, totals.creditNormal, 'currency')}
                       </td>
                     </tr>
                   )}
                 </>
               ) : (
                 <tr>
-                  <td colSpan={(groupSummary.entries.some(e => e.birds > 0 || e.weight > 0) || groupSummary.group.name.toLowerCase().includes('debtor')) ? 6 : 3} className="py-8 text-center text-gray-500">
+                  <td colSpan={isExpandedView ? 6 : 3} className="py-8 text-center text-gray-500">
                     No ledgers or sub-groups found in this group
                   </td>
                 </tr>
