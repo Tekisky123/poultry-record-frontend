@@ -122,8 +122,15 @@ const AddEditVoucher = () => {
 
       // Filter Cash and Bank Accounts ledgers
       const cashBankLedgersData = allLedgers.filter(ledger => {
+        const groupSlug = ledger.group?.slug || '';
         const groupName = ledger.group?.name || '';
-        return groupName === 'Cash-in-Hand' || groupName === 'Bank Accounts';
+
+        // Check by slug (primary) or name (fallback)
+        // Slugs: 'cash-in-hand', 'bank-accounts'
+        const isCash = groupSlug === 'cash-in-hand' || groupName === 'Cash-in-Hand';
+        const isBank = groupSlug === 'bank-accounts' || groupName === 'Bank Accounts';
+
+        return isCash || isBank;
       });
       setCashBankLedgers(cashBankLedgersData);
 
@@ -1015,9 +1022,16 @@ const AddEditVoucher = () => {
                           <>
                             {/* Combined list for Journal */}
                             <optgroup label="Ledgers">
-                              {ledgers.map((ledger) => (
-                                <option key={`ledger-${ledger.id}`} value={ledger.name}>{ledger.name}</option>
-                              ))}
+                              {ledgers
+                                .filter(ledger => {
+                                  const groupSlug = ledger.group?.slug || '';
+                                  const groupName = ledger.group?.name || '';
+                                  // Filter out "Bank Account" group ledgers
+                                  return groupSlug !== 'bank-accounts' || groupName !== 'Bank Accounts';
+                                })
+                                .map((ledger) => (
+                                  <option key={`ledger-${ledger.id}`} value={ledger.name}>{ledger.name}</option>
+                                ))}
                             </optgroup>
                             <optgroup label="Customers">
                               {customers.map((customer) => (

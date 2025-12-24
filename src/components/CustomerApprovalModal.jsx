@@ -37,8 +37,8 @@ const CustomerApprovalModal = ({ show, onClose, user, onApprove }) => {
     return result;
   };
 
-  // Helper function to get all descendants of a group
-  const getGroupDescendants = (allGroups, parentGroupName) => {
+  // Helper function to get all descendants of a group by SLUG
+  const getGroupDescendants = (allGroups, parentGroupSlug) => {
     // Build tree structure
     const groupMap = new Map();
     const rootGroups = [];
@@ -52,21 +52,21 @@ const CustomerApprovalModal = ({ show, onClose, user, onApprove }) => {
       }
     });
 
-    // Find the parent group by name
-    const findGroupByName = (groups, name) => {
+    // Find the parent group by SLUG
+    const findGroupBySlug = (groups, slug) => {
       for (const group of groups) {
-        if (group.name === name) {
+        if (group.slug === slug) {
           return group;
         }
         if (group.children && group.children.length > 0) {
-          const found = findGroupByName(group.children, name);
+          const found = findGroupBySlug(group.children, slug);
           if (found) return found;
         }
       }
       return null;
     };
 
-    const parentGroup = findGroupByName(rootGroups, parentGroupName);
+    const parentGroup = findGroupBySlug(rootGroups, parentGroupSlug);
     if (!parentGroup) {
       return [];
     }
@@ -95,9 +95,23 @@ const CustomerApprovalModal = ({ show, onClose, user, onApprove }) => {
           const groupsData = groupsRes.data.data || [];
           setGroups(groupsData);
 
-          // Filter groups to show only "Sundry Debtors" and its descendants
-          const sundryDebtorsGroups = getGroupDescendants(groupsData, 'Sundry Debtors');
-          
+          // Filter groups to show only "Sundry Debtors" and its descendants using SLUG
+          // This relies on the backend migration having been run to populate slugs
+          const sundryDebtorsGroups = getGroupDescendants(groupsData, 'sundry-debtors');
+
+          let groupsToDisplay = [];
+
+          if (sundryDebtorsGroups.length > 0) {
+            groupsToDisplay = groupsData.filter(g => {
+              const allDescendants = sundryDebtorsGroups.map(gr => gr.id);
+              return allDescendants.includes(g.id);
+            });
+          } else {
+            // Fallback if slug not found (e.g. migration didn't run or group missing)
+            console.warn('Sundry Debtors group not found by slug "sundry-debtors", displaying all groups');
+            groupsToDisplay = groupsData;
+          }
+
           // Build tree for filtered groups
           const buildTree = (groups) => {
             const groupMap = new Map();
@@ -114,13 +128,7 @@ const CustomerApprovalModal = ({ show, onClose, user, onApprove }) => {
             return rootGroups;
           };
 
-          // Filter to only include Sundry Debtors hierarchy
-          const filteredGroups = groupsData.filter(g => {
-            const allDescendants = sundryDebtorsGroups.map(gr => gr.id);
-            return allDescendants.includes(g.id);
-          });
-
-          const treeGroups = buildTree(filteredGroups);
+          const treeGroups = buildTree(groupsToDisplay);
           setFlatGroups(flattenGroups(treeGroups));
         } catch (err) {
           console.error('Error fetching groups:', err);

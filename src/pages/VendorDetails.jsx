@@ -192,7 +192,7 @@ const VendorDetails = () => {
     };
 
     const handleBack = () => {
-        navigate('/vendors');
+        navigate(-1);
     };
 
     const openDateFilterModal = () => {

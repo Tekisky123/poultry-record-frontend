@@ -18,7 +18,8 @@ import {
   BookOpen,
   Fuel,
   FileText as FileTextIcon,
-  Home
+  Home,
+  Shield
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,7 +28,7 @@ import chickenLogo from '../assets/chicken-logo.png';
 
 const getMenuItems = (userRole) => {
   const baseItems = [
-    { name: 'Dashboard', path: '/', icon: Home },
+    { name: 'Profit & Loss', path: '/', icon: Home },
     { name: 'Trips', path: '/trips', icon: Truck },
     { name: 'Users', path: '/users', icon: UserCheck },
     { name: 'Customer Payments', path: '/customer-payments', icon: CreditCard },
@@ -38,14 +39,14 @@ const getMenuItems = (userRole) => {
       icon: Settings,
       isParent: true,
       children: [
-        { name: 'Customers', path: '/customers', icon: Store},
+        { name: 'Customers', path: '/customers', icon: Store },
         { name: '+ Add Customer', path: '/add-customer', icon: Store },
         { name: 'Vehicles', path: '/vehicles', icon: Car },
         { name: 'Vendors', path: '/vendors', icon: UsersIcon },
         { name: 'Diesel Stations', path: '/diesel-stations', icon: Fuel },
-        
+
         // Add Accounting section for Groups and Ledgers
-        
+
         { name: 'Groups', path: '/groups', icon: FolderTree },
         { name: 'Ledgers', path: '/ledgers', icon: BookOpen },
         ,
@@ -62,6 +63,7 @@ const getMenuItems = (userRole) => {
   if (userRole === 'admin' || userRole === 'superadmin') {
     baseItems.push({ name: 'Indirect Expenses', path: '/indirect-expenses', icon: FileText });
     baseItems.push({ name: 'Indirect Purchase & Sales', path: '/indirect-sales', icon: FileText });
+    baseItems.push({ name: 'Security', path: '/security', icon: Shield });
 
   }
 

@@ -27,6 +27,7 @@ import DieselStations from './pages/DieselStations';
 import BalanceSheet from './pages/BalanceSheet';
 import GroupSummary from './pages/GroupSummary';
 import MonthlySummary from './pages/MonthlySummary';
+import Security from './pages/Security';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -158,6 +159,7 @@ const AppContent = () => {
               <Route path="/balance-sheet" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BalanceSheet /></ProtectedRoute>} />
               <Route path="/group-summary/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><GroupSummary /></ProtectedRoute>} />
               <Route path="/monthly-summary/:type/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><MonthlySummary /></ProtectedRoute>} />
+              <Route path="/security" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Security /></ProtectedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>

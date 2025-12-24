@@ -158,21 +158,21 @@ export default function Vendors() {
       }
     });
 
-    // Find the parent group by name
-    const findGroupByName = (groups, name) => {
+    // Find the parent group by slug or name
+    const findGroupByIdentifier = (groups, identifier) => {
       for (const group of groups) {
-        if (group.name === name) {
+        if (group.slug === identifier || group.name === identifier) {
           return group;
         }
         if (group.children && group.children.length > 0) {
-          const found = findGroupByName(group.children, name);
+          const found = findGroupByIdentifier(group.children, identifier);
           if (found) return found;
         }
       }
       return null;
     };
 
-    const parentGroup = findGroupByName(rootGroups, parentGroupName);
+    const parentGroup = findGroupByIdentifier(rootGroups, parentGroupName);
     if (!parentGroup) {
       return [];
     }
@@ -205,7 +205,12 @@ export default function Vendors() {
       setGroups(groupsData);
 
       // Filter groups to show only "Sundry Creditors" and its descendants
-      const sundryCreditorsGroups = getGroupDescendants(groupsData, 'Sundry Creditors');
+      let sundryCreditorsGroups = getGroupDescendants(groupsData, 'sundry-creditors');
+
+      // Fallback to name if slug search returns empty (though slug should exist)
+      if (sundryCreditorsGroups.length === 0) {
+        sundryCreditorsGroups = getGroupDescendants(groupsData, 'Sundry Creditors');
+      }
 
       // Build tree for filtered groups
       const buildTree = (groups) => {

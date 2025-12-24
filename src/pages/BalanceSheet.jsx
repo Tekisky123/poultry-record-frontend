@@ -98,13 +98,17 @@ export default function BalanceSheet() {
   const sortedLiabilityGroups = useMemo(() => {
     if (!balanceSheet?.liabilities?.groups) return [];
     const priorityMap = {
+      'capital-account': 0,
+      'loans-liability': 1,
+      'current-liabilities': 2,
+      // Fallback for names
       'Capital Account': 0,
       'Loans (Liability)': 1,
       'Current Liabilities': 2
     };
     return [...balanceSheet.liabilities.groups].sort((a, b) => {
-      const priorityA = priorityMap[a.name] ?? 99;
-      const priorityB = priorityMap[b.name] ?? 99;
+      const priorityA = priorityMap[a.slug] ?? priorityMap[a.name] ?? 99;
+      const priorityB = priorityMap[b.slug] ?? priorityMap[b.name] ?? 99;
       if (priorityA === priorityB) return 0;
       return priorityA < priorityB ? -1 : 1;
     });
@@ -112,13 +116,17 @@ export default function BalanceSheet() {
   const sortedAssetGroups = useMemo(() => {
     if (!balanceSheet?.assets?.groups) return [];
     const priorityMap = {
+      'fixed-assets': 0,
+      'current-assets': 1,
+      'suspense-a-c': 2,
+      // Fallback for names
       'Fixed Assets': 0,
       'Current Assets': 1,
       'Suspense A/c': 2
     };
     return [...balanceSheet.assets.groups].sort((a, b) => {
-      const priorityA = priorityMap[a.name] ?? 99;
-      const priorityB = priorityMap[b.name] ?? 99;
+      const priorityA = priorityMap[a.slug] ?? priorityMap[a.name] ?? 99;
+      const priorityB = priorityMap[b.slug] ?? priorityMap[b.name] ?? 99;
       if (priorityA === priorityB) return 0;
       return priorityA < priorityB ? -1 : 1;
     });

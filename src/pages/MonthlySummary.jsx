@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Loader2, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -13,6 +14,7 @@ export default function MonthlySummary() {
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
     const [year, setYear] = useState(''); // Optional, default to current FY in backend if empty
+    const [showPercentage, setShowPercentage] = useState(false);
 
     const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
 
@@ -67,6 +69,67 @@ export default function MonthlySummary() {
         }
     };
 
+    const handleExportToExcel = () => {
+        if (!data) return;
+
+        const exportData = data.months.map(month => ({
+            Month: month.name,
+            'Total Birds': month.birds || 0,
+            'Total Weight': month.weight ? parseFloat(month.weight.toFixed(2)) : 0,
+            'Debit (Sales)': month.debit || 0,
+            'Credit (Receipts)': month.credit || 0,
+            'Closing Balance': `${month.closingBalance.toFixed(2)} ${month.closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`
+        }));
+
+        // Add Totals Row
+        exportData.push({
+            Month: 'Grand Total',
+            'Total Birds': data.totals.birds || 0,
+            'Total Weight': data.totals.weight ? parseFloat(data.totals.weight.toFixed(2)) : 0,
+            'Debit (Sales)': data.totals.debit || 0,
+            'Credit (Receipts)': data.totals.credit || 0,
+            'Closing Balance': `${data.months[data.months.length - 1].closingBalance.toFixed(2)} ${data.months[data.months.length - 1].closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`
+        });
+
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Monthly Summary");
+        const fileName = `${data.subject.name.replace(/[^a-zA-Z0-9]/g, '_')}_Monthly_Summary.xlsx`;
+        XLSX.writeFile(wb, fileName);
+    };
+
+    const renderCellWithPercentage = (val, total, type = 'number', isClosing = false) => {
+        if ((!val && val !== 0) || (val === 0 && !isClosing)) return '-';
+
+        let formatted;
+        const absVal = Math.abs(val);
+
+        if (type === 'currency') {
+            formatted = absVal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            if (isClosing) {
+                formatted += (val >= 0 ? ' Dr' : ' Cr');
+            }
+        } else if (type === 'weight') {
+            formatted = absVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            formatted = absVal.toLocaleString();
+        }
+
+        if (showPercentage && total) {
+            const absTotal = Math.abs(total);
+            if (absTotal === 0) return formatted;
+            const pct = ((absVal / absTotal) * 100).toFixed(2);
+
+            return (
+                <span className="whitespace-nowrap">
+                    {formatted} <span className="text-gray-500 text-xs ml-1">({pct}%)</span>
+                </span>
+            );
+        }
+
+        return formatted;
+    };
+
     if (!hasAdminAccess) return <div className="p-4 text-red-600">Access Denied</div>;
     if (loading && !data) return <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-blue-600" /></div>;
     if (error) return <div className="p-4 text-center">
@@ -92,6 +155,24 @@ export default function MonthlySummary() {
                         <p className="text-sm text-gray-500 capitalize">{data.subject.type}</p>
                     </div>
                 </div>
+                <div className="flex gap-3 mt-4 sm:mt-0">
+                    <button
+                        onClick={() => setShowPercentage(!showPercentage)}
+                        className={`px-4 py-2 border rounded-lg font-medium transition-colors shadow-sm ${showPercentage
+                            ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                            }`}
+                    >
+                        % Percentage
+                    </button>
+                    <button
+                        onClick={handleExportToExcel}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors"
+                    >
+                        <Download size={20} />
+                        <span className="font-medium">Export Excel</span>
+                    </button>
+                </div>
             </div>
 
             {/* Summary Table */}
@@ -111,8 +192,10 @@ export default function MonthlySummary() {
                         <thead>
                             <tr className="border-b-2 border-gray-300 bg-gray-50">
                                 <th className="text-left py-3 px-4 font-semibold text-gray-900">Month</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit</th>
+                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Birds</th>
+                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Weight</th>
+                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit (Sales)</th>
+                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit (Receipts)</th>
                                 <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
                             </tr>
                         </thead>
@@ -125,10 +208,16 @@ export default function MonthlySummary() {
                                 >
                                     <td className="py-3 px-4 text-blue-600 font-medium hover:underline">{month.name}</td>
                                     <td className="py-3 px-4 text-right text-gray-700">
-                                        {month.debit > 0 ? month.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}
+                                        {renderCellWithPercentage(month.birds, data.totals.birds)}
                                     </td>
                                     <td className="py-3 px-4 text-right text-gray-700">
-                                        {month.credit > 0 ? month.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}
+                                        {renderCellWithPercentage(month.weight, data.totals.weight, 'weight')}
+                                    </td>
+                                    <td className="py-3 px-4 text-right text-gray-700">
+                                        {renderCellWithPercentage(month.debit, data.totals.debit, 'currency')}
+                                    </td>
+                                    <td className="py-3 px-4 text-right text-gray-700">
+                                        {renderCellWithPercentage(month.credit, data.totals.credit, 'currency')}
                                     </td>
                                     <td className="py-3 px-4 text-right font-medium text-gray-900">
                                         {month.closingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -139,10 +228,16 @@ export default function MonthlySummary() {
                             <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
                                 <td className="py-3 px-4 text-gray-900">Total</td>
                                 <td className="py-3 px-4 text-right text-gray-900">
-                                    {data.totals.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    {renderCellWithPercentage(data.totals.birds, data.totals.birds)}
                                 </td>
                                 <td className="py-3 px-4 text-right text-gray-900">
-                                    {data.totals.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    {renderCellWithPercentage(data.totals.weight, data.totals.weight, 'weight')}
+                                </td>
+                                <td className="py-3 px-4 text-right text-gray-900">
+                                    {renderCellWithPercentage(data.totals.debit, data.totals.debit, 'currency')}
+                                </td>
+                                <td className="py-3 px-4 text-right text-gray-900">
+                                    {renderCellWithPercentage(data.totals.credit, data.totals.credit, 'currency')}
                                 </td>
                                 <td className="py-3 px-4 text-right text-gray-900">
                                     {/* Closing Balance of the year is the closing balance of the last month */}

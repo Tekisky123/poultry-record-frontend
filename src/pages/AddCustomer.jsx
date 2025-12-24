@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { 
+import {
   ArrowLeft,
   Eye,
   EyeOff,
@@ -66,7 +66,7 @@ export default function AddCustomer() {
   // React Hook Form with Zod validation
   const { register, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(customerSchema),
-      defaultValues: {
+    defaultValues: {
       shopName: '',
       ownerName: '',
       contact: '',
@@ -115,8 +115,8 @@ export default function AddCustomer() {
     return result;
   };
 
-  // Helper function to get all descendants of a group
-  const getGroupDescendants = (allGroups, parentGroupName) => {
+  // Helper function to get all descendants of a group by SLUG
+  const getGroupDescendants = (allGroups, parentGroupSlug) => {
     // Build tree structure
     const groupMap = new Map();
     const rootGroups = [];
@@ -130,21 +130,21 @@ export default function AddCustomer() {
       }
     });
 
-    // Find the parent group by name
-    const findGroupByName = (groups, name) => {
+    // Find the parent group by SLUG
+    const findGroupBySlug = (groups, slug) => {
       for (const group of groups) {
-        if (group.name === name) {
+        if (group.slug === slug) {
           return group;
         }
         if (group.children && group.children.length > 0) {
-          const found = findGroupByName(group.children, name);
+          const found = findGroupBySlug(group.children, slug);
           if (found) return found;
         }
       }
       return null;
     };
 
-    const parentGroup = findGroupByName(rootGroups, parentGroupName);
+    const parentGroup = findGroupBySlug(rootGroups, parentGroupSlug);
     if (!parentGroup) {
       return [];
     }
@@ -172,9 +172,9 @@ export default function AddCustomer() {
         const groupsData = groupsRes.data.data || [];
         setGroups(groupsData);
 
-        // Filter groups to show only "Sundry Debtors" and its descendants
-        const sundryDebtorsGroups = getGroupDescendants(groupsData, 'Sundry Debtors');
-        
+        // Filter groups to show only "Sundry Debtors" and its descendants using SLUG
+        const sundryDebtorsGroups = getGroupDescendants(groupsData, 'sundry-debtors');
+
         // Build tree for filtered groups
         const buildTree = (groups) => {
           const groupMap = new Map();
@@ -192,13 +192,20 @@ export default function AddCustomer() {
         };
 
         // Filter to only include Sundry Debtors hierarchy
-        const filteredGroups = groupsData.filter(g => {
-          const allDescendants = sundryDebtorsGroups.map(gr => gr.id);
-          return allDescendants.includes(g.id);
-        });
+        let groupsToDisplay = groupsData;
+        if (sundryDebtorsGroups.length > 0) {
+          groupsToDisplay = groupsData.filter(g => {
+            const allDescendants = sundryDebtorsGroups.map(gr => gr.id);
+            return allDescendants.includes(g.id);
+          });
+        } else {
+          console.warn('Sundry Debtors group not found by slug "sundry-debtors", displaying all groups');
+        }
 
-        const treeGroups = buildTree(filteredGroups);
+        const treeGroups = buildTree(groupsToDisplay);
         setFlatGroups(flattenGroups(treeGroups));
+
+
       } catch (err) {
         console.error('Error fetching groups:', err);
       } finally {
@@ -216,7 +223,7 @@ export default function AddCustomer() {
       contact: `+91${data.contact}`,
       tdsApplicable: data.tdsApplicable ?? false
     };
-    
+
     addCustomer(customerData);
   };
 

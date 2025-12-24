@@ -487,6 +487,10 @@ const CustomerDashboard = () => {
         return 'text-blue-600 bg-blue-100';
       case 'PURCHASE':
         return 'text-blue-600 bg-blue-100';
+      case 'INDIRECT_PURCHASE':
+        return 'text-red-600 bg-red-100';
+      case 'INDIRECT_SALES':
+        return 'text-red-600 bg-red-100';
       case 'RECEIPT':
         return 'text-green-600 bg-green-100';
       case 'PAYMENT':

@@ -4,13 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  Store, 
-  MapPin, 
-  Phone, 
+import {
+  Plus,
+  Search,
+  Filter,
+  Store,
+  MapPin,
+  Phone,
   CreditCard,
   Clock,
   Eye,
@@ -110,7 +110,7 @@ export default function Customers() {
   // React Hook Form with Zod validation
   const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm({
     resolver: zodResolver(customerSchema),
-      defaultValues: {
+    defaultValues: {
       shopName: '',
       ownerName: '',
       contact: '',
@@ -139,8 +139,8 @@ export default function Customers() {
     return result;
   };
 
-  // Helper function to get all descendants of a group
-  const getGroupDescendants = (allGroups, parentGroupName) => {
+  // Helper function to get all descendants of a group by SLUG
+  const getGroupDescendants = (allGroups, parentGroupSlug) => {
     // Build tree structure
     const groupMap = new Map();
     const rootGroups = [];
@@ -154,21 +154,21 @@ export default function Customers() {
       }
     });
 
-    // Find the parent group by name
-    const findGroupByName = (groups, name) => {
+    // Find the parent group by SLUG
+    const findGroupBySlug = (groups, slug) => {
       for (const group of groups) {
-        if (group.name === name) {
+        if (group.slug === slug) {
           return group;
         }
         if (group.children && group.children.length > 0) {
-          const found = findGroupByName(group.children, name);
+          const found = findGroupBySlug(group.children, slug);
           if (found) return found;
         }
       }
       return null;
     };
 
-    const parentGroup = findGroupByName(rootGroups, parentGroupName);
+    const parentGroup = findGroupBySlug(rootGroups, parentGroupSlug);
     if (!parentGroup) {
       return [];
     }
@@ -200,9 +200,9 @@ export default function Customers() {
       const groupsData = groupsRes.data.data || [];
       setGroups(groupsData);
 
-      // Filter groups to show only "Sundry Debtors" and its descendants
-      const sundryDebtorsGroups = getGroupDescendants(groupsData, 'Sundry Debtors');
-      
+      // Filter groups to show only "Sundry Debtors" and its descendants using SLUG
+      const sundryDebtorsGroups = getGroupDescendants(groupsData, 'sundry-debtors');
+
       // Build tree for filtered groups
       const buildTree = (groups) => {
         const groupMap = new Map();
@@ -220,12 +220,17 @@ export default function Customers() {
       };
 
       // Filter to only include Sundry Debtors hierarchy
-      const filteredGroups = groupsData.filter(g => {
-        const allDescendants = sundryDebtorsGroups.map(gr => gr.id);
-        return allDescendants.includes(g.id);
-      });
+      let groupsToDisplay = groupsData;
+      if (sundryDebtorsGroups.length > 0) {
+        groupsToDisplay = groupsData.filter(g => {
+          const allDescendants = sundryDebtorsGroups.map(gr => gr.id);
+          return allDescendants.includes(g.id);
+        });
+      } else {
+        console.warn('Sundry Debtors group not found by slug "sundry-debtors", displaying all groups');
+      }
 
-      const treeGroups = buildTree(filteredGroups);
+      const treeGroups = buildTree(groupsToDisplay);
       setFlatGroups(flattenGroups(treeGroups));
 
       setIsError(false);
@@ -316,8 +321,8 @@ export default function Customers() {
     setValue('shopName', customer.shopName || '');
     setValue('ownerName', customer.ownerName || '');
     // Remove +91 prefix for editing (show only 10 digits)
-    const contactNumber = customer.contact?.startsWith('+91') 
-      ? customer.contact.substring(3) 
+    const contactNumber = customer.contact?.startsWith('+91')
+      ? customer.contact.substring(3)
       : customer.contact || '';
     setValue('contact', contactNumber);
     setValue('address', customer.address || '');
@@ -354,12 +359,12 @@ export default function Customers() {
       contact: `+91${data.contact}`,
       tdsApplicable: data.tdsApplicable ?? false
     };
-    
+
     // For editing, remove password if it's empty (keep current password)
     if (editingCustomer && !data.password) {
       delete customerData.password;
     }
-    
+
     if (editingCustomer) {
       updateCustomer({ id: editingCustomer.id, ...customerData });
     } else {
@@ -386,13 +391,13 @@ export default function Customers() {
 
   const filteredCustomers = customers.filter(customer => {
     const matchesSearch = customer.shopName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.ownerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.contact.includes(searchTerm) ||
-                         customer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         customer.gstOrPanNumber?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'active' && customer.isActive) ||
-                         (statusFilter === 'inactive' && !customer.isActive);
+      customer.ownerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.contact.includes(searchTerm) ||
+      customer.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      customer.gstOrPanNumber?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = statusFilter === 'all' ||
+      (statusFilter === 'active' && customer.isActive) ||
+      (statusFilter === 'inactive' && !customer.isActive);
     const matchesType = shopTypeFilter === 'all' || customer.shopType === shopTypeFilter;
     return matchesSearch && matchesStatus && matchesType;
   });
@@ -409,7 +414,7 @@ export default function Customers() {
     return (
       <div className="text-center py-8">
         <p className="text-red-600 mb-4">{error}</p>
-        <button 
+        <button
           onClick={fetchCustomers}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
@@ -487,38 +492,35 @@ export default function Customers() {
               <Filter size={16} />
               More Filters
             </button> */}
-            
+
             {/* View Toggle Filters */}
             <div className="flex border border-gray-300 rounded-lg overflow-hidden">
               <button
                 onClick={() => setViewMode('table')}
-                className={`px-3 py-2 transition-colors ${
-                  viewMode === 'table' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
+                className={`px-3 py-2 transition-colors ${viewMode === 'table'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
                 title="Table View"
               >
                 <List size={16} />
               </button>
               <button
                 onClick={() => setViewMode('grid-small')}
-                className={`px-3 py-2 transition-colors ${
-                  viewMode === 'grid-small' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
+                className={`px-3 py-2 transition-colors ${viewMode === 'grid-small'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
                 title="Small Grid View"
               >
                 <LayoutGrid size={16} />
               </button>
               <button
                 onClick={() => setViewMode('grid-large')}
-                className={`px-3 py-2 transition-colors ${
-                  viewMode === 'grid-large' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-white text-gray-600 hover:bg-gray-50'
-                }`}
+                className={`px-3 py-2 transition-colors ${viewMode === 'grid-large'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
                 title="Large Grid View"
               >
                 <Grid3X3 size={16} />
@@ -529,87 +531,87 @@ export default function Customers() {
       </div>
 
       {/* Customers Display */}
-        {filteredCustomers.length === 0 ? (
+      {filteredCustomers.length === 0 ? (
         <div className="text-center py-10 text-gray-600 bg-white rounded-xl shadow-sm border border-gray-200">
-            <p>No customers found matching your criteria.</p>
-          </div>
-        ) : (
+          <p>No customers found matching your criteria.</p>
+        </div>
+      ) : (
         <>
           {/* Table View */}
           {viewMode === 'table' && (
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
               <div className="overflow-x-auto max-h-[70vh] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                 <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 sticky top-0 z-10">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop Name</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredCustomers.map((customer) => (
-                    <tr key={customer.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
-                            <Store className="w-5 h-5 text-green-600" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">{customer.shopName}</div>
-                            {customer.gstOrPanNumber && (
-                              <div className="text-xs text-gray-500">GST/PAN: {customer.gstOrPanNumber}</div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {customer.ownerName || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {customer.contact}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {customer.address || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
-                          {customer.isActive ? 'Active' : 'Inactive'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(customer.createdAt).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
-                        <button 
-                          onClick={() => handleView(customer)}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="View Details"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(customer)}
-                          className="text-green-600 hover:text-green-900"
-                          title="Edit Customer"
-                        >
-                          <Edit size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(customer)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete Customer"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </td>
+                  <thead className="bg-gray-50 sticky top-0 z-10">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Shop Name</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredCustomers.map((customer) => (
+                      <tr key={customer.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center mr-3">
+                              <Store className="w-5 h-5 text-green-600" />
+                            </div>
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{customer.shopName}</div>
+                              {customer.gstOrPanNumber && (
+                                <div className="text-xs text-gray-500">GST/PAN: {customer.gstOrPanNumber}</div>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {customer.ownerName || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {customer.contact}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {customer.address || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
+                            {customer.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {new Date(customer.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium flex gap-2">
+                          <button
+                            onClick={() => handleView(customer)}
+                            className="text-blue-600 hover:text-blue-900"
+                            title="View Details"
+                          >
+                            <Eye size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(customer)}
+                            className="text-green-600 hover:text-green-900"
+                            title="Edit Customer"
+                          >
+                            <Edit size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(customer)}
+                            className="text-red-600 hover:text-red-900"
+                            title="Delete Customer"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
                 </table>
               </div>
             </div>
@@ -633,14 +635,14 @@ export default function Customers() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button 
+                      <button
                         onClick={() => handleView(customer)}
                         className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
                         title="View"
                       >
                         <Eye size={14} />
                       </button>
-                      <button 
+                      <button
                         onClick={() => handleEdit(customer)}
                         className="p-1 text-gray-400 hover:text-green-600 transition-colors"
                         title="Edit"
@@ -663,7 +665,7 @@ export default function Customers() {
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
                       {customer.isActive ? 'Active' : 'Inactive'}
                     </span>
-                    <button 
+                    <button
                       onClick={() => handleDelete(customer)}
                       className="p-1 text-gray-400 hover:text-red-600 transition-colors"
                       title="Delete"
@@ -680,102 +682,102 @@ export default function Customers() {
           {viewMode === 'grid-large' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
               {filteredCustomers.map((customer) => (
-            <div key={customer.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-                      <Store className="w-6 h-6 text-green-600" />
+                <div key={customer.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-lg transition-all duration-200">
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
+                        <Store className="w-6 h-6 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-gray-900">{customer.shopName}</h3>
+                        {customer.ownerName && (
+                          <p className="text-sm text-gray-500">Owner: {customer.ownerName}</p>
+                        )}
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900">{customer.shopName}</h3>
-                      {customer.ownerName && (
-                        <p className="text-sm text-gray-500">Owner: {customer.ownerName}</p>
-                      )}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleView(customer)}
+                        className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleEdit(customer)}
+                        className="p-1 text-gray-400 hover:text-green-600 transition-colors"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(customer)}
+                        className="p-1 text-gray-400 hover:text-red-600 transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <button 
-                      onClick={() => handleView(customer)}
-                      className="p-1 text-gray-400 hover:text-blue-600 transition-colors"
-                    >
-                      <Eye size={16} />
-                    </button>
-                    <button 
-                      onClick={() => handleEdit(customer)}
-                      className="p-1 text-gray-400 hover:text-green-600 transition-colors"
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(customer)}
-                      className="p-1 text-gray-400 hover:text-red-600 transition-colors"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
 
-                {/* Contact Info */}
-                <div className="space-y-3 mb-4">
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <Phone className="w-4 h-4" />
-                    <span>{customer.contact}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                    <MapPin className="w-4 h-4" />
-                    <span>{customer.address}</span>
-                  </div>
-                  {customer.gstOrPanNumber && (
+                  {/* Contact Info */}
+                  <div className="space-y-3 mb-4">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <CreditCard className="w-4 h-4" />
-                      <span>GST/PAN: {customer.gstOrPanNumber}</span>
+                      <Phone className="w-4 h-4" />
+                      <span>{customer.contact}</span>
                     </div>
-                  )}
-                </div>
-
-                {/* Shop Type and Credit Info */}
-                <div className="space-y-3 mb-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Address:</span>
-                    <span className="text-sm font-medium text-gray-900">
-                      {customer.address || 'Not specified'}
-                    </span>
+                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                      <MapPin className="w-4 h-4" />
+                      <span>{customer.address}</span>
+                    </div>
+                    {customer.gstOrPanNumber && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <CreditCard className="w-4 h-4" />
+                        <span>GST/PAN: {customer.gstOrPanNumber}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">Status:</span>
+
+                  {/* Shop Type and Credit Info */}
+                  <div className="space-y-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">Address:</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {customer.address || 'Not specified'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">Status:</span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
+                        {customer.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Business Stats */}
+                  <div className="space-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Created:</span>
+                      <span className="font-medium text-gray-900">
+                        {new Date(customer.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-600">Last Updated:</span>
+                      <span className="font-medium text-gray-900">
+                        {new Date(customer.updatedAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Status and Actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
                       {customer.isActive ? 'Active' : 'Inactive'}
                     </span>
+                    <button onClick={() => handleView(customer)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
+                      View Details
+                    </button>
                   </div>
                 </div>
-
-                {/* Business Stats */}
-                <div className="space-y-3 mb-4 p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Created:</span>
-                    <span className="font-medium text-gray-900">
-                      {new Date(customer.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600">Last Updated:</span>
-                    <span className="font-medium text-gray-900">
-                      {new Date(customer.updatedAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Status and Actions */}
-                <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
-                    {customer.isActive ? 'Active' : 'Inactive'}
-                  </span>
-                  <button onClick={() => handleView(customer)} className="text-sm text-blue-600 hover:text-blue-700 font-medium">
-                    View Details
-                  </button>
-                </div>
-              </div>
               ))}
             </div>
           )}
@@ -902,7 +904,7 @@ export default function Customers() {
                     Enable this if TDS should be applied to this customer&apos;s transactions.
                   </p>
                 </div>
-                
+
                 {/* Show Opening Balance field only when creating new customer, not when editing */}
                 {/* {!isEdit && ( */}
                 <div>
@@ -910,14 +912,14 @@ export default function Customers() {
                     Opening Balance (₹)
                   </label>
                   <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="number"
-                    {...register('openingBalance', { valueAsNumber: true })}
-                    placeholder="0.00"
-                    min="0"
-                    step="0.01"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
+                    <input
+                      type="number"
+                      {...register('openingBalance', { valueAsNumber: true })}
+                      placeholder="0.00"
+                      min="0"
+                      step="0.01"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
                     <select
                       {...register('openingBalanceType')}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -929,7 +931,7 @@ export default function Customers() {
                   {errors.openingBalance && <p className="text-red-500 text-xs mt-1">{errors.openingBalance.message}</p>}
                   {errors.openingBalanceType && <p className="text-red-500 text-xs mt-1">{errors.openingBalanceType.message}</p>}
                   <p className="text-xs text-gray-500 mt-1">
-                      Customer's initial opening balance
+                    Customer's initial opening balance
                   </p>
                 </div>
                 <div>
@@ -949,7 +951,7 @@ export default function Customers() {
                   </select>
                   {errors.group && <p className="text-red-500 text-xs mt-1">{errors.group.message}</p>}
                 </div>
-                
+
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Address
