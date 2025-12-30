@@ -27,7 +27,8 @@ import {
   Eye,
   EyeOff,
   RefreshCw,
-  Columns
+  Columns,
+  Percent
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -45,7 +46,8 @@ const CustomerDashboard = () => {
     totalWeight: 0,
     pendingPayments: 0,
     openingBalance: 0,
-    outstandingBalance: 0
+    outstandingBalance: 0,
+    totalDiscountAndOther: 0
   });
   const [recentSales, setRecentSales] = useState([]);
   const [purchaseLedger, setPurchaseLedger] = useState([]);
@@ -687,7 +689,8 @@ const CustomerDashboard = () => {
         </div>
 
         {/* Second Row: Total Receipt | Outstanding Balance */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Second Row: Total Receipt | Discount & Other | Outstanding Balance */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-emerald-50 p-4 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
@@ -696,6 +699,18 @@ const CustomerDashboard = () => {
               </div>
               <div className="p-3 bg-emerald-100 rounded-lg">
                 <Receipt className="w-6 h-6 text-emerald-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-red-50 p-4 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600">Discount & Other</p>
+                <p className="text-2xl font-bold text-gray-900">₹{(stats.totalDiscountAndOther || 0).toLocaleString()}</p>
+              </div>
+              <div className="p-3 bg-red-100 rounded-lg">
+                <Percent className="w-6 h-6 text-red-600" />
               </div>
             </div>
           </div>

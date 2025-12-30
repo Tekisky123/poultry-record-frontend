@@ -24,7 +24,7 @@ import {
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Dropdown from './Dropdown';
-import chickenLogo from '../assets/chicken-logo.png';
+import chickenLogo from '../assets/chicken-logo.gif';
 
 const getMenuItems = (userRole) => {
   const baseItems = [
@@ -61,10 +61,13 @@ const getMenuItems = (userRole) => {
 
   // Only show Indirect Expenses and Indirect Purchase & Sales for admin/superadmin
   if (userRole === 'admin' || userRole === 'superadmin') {
-    baseItems.push({ name: 'Indirect Expenses', path: '/indirect-expenses', icon: FileText });
     baseItems.push({ name: 'Indirect Purchase & Sales', path: '/indirect-sales', icon: FileText });
     baseItems.push({ name: 'Security', path: '/security', icon: Shield });
+  }
 
+  // Settings for Superadmin only
+  if (userRole === 'superadmin') {
+    baseItems.push({ name: 'Settings', path: '/settings', icon: Settings });
   }
 
   return baseItems;
@@ -73,6 +76,7 @@ const getMenuItems = (userRole) => {
 export default function Sidebar() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedItems, setExpandedItems] = useState({});
   const { user: currentUser, logout } = useAuth();
 
@@ -106,6 +110,7 @@ export default function Sidebar() {
   }, []);
 
   const toggleExpanded = (itemName) => {
+    if (isCollapsed) return; // Disable expansion when collapsed
     setExpandedItems(prev => ({
       ...prev,
       [itemName]: !prev[itemName]
@@ -114,6 +119,8 @@ export default function Sidebar() {
 
   // Auto-expand parent menu when child route is active
   useEffect(() => {
+    if (isCollapsed) return;
+
     const menuItems = getMenuItems(currentUser?.role);
     menuItems.forEach(item => {
       if (item.isParent && item.children) {
@@ -126,7 +133,7 @@ export default function Sidebar() {
         }
       }
     });
-  }, [location.pathname, currentUser?.role, expandedItems]);
+  }, [location.pathname, currentUser?.role, expandedItems, isCollapsed]);
 
   return (
     <>
@@ -142,18 +149,42 @@ export default function Sidebar() {
       <aside
         className={`
           fixed lg:static inset-y-0 left-0 z-40
+          ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}
           w-64 bg-gradient-to-b from-blue-900 to-blue-800 text-white
-          transform transition-transform duration-300 ease-in-out
-          lg:translate-x-0
-          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
+          transform transition-all duration-300 ease-in-out
+          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
           flex flex-col h-full
         `}
       >
         {/* Header */}
-        <div className="p-6 border-b border-blue-700 flex-shrink-0">
-          <img src={chickenLogo} alt="logo" className="h-18 w-18 mx-10 mb-2" />
-          <h1 className="text-2xl font-bold text-white">Poultry Admin</h1>
-          <p className="text-blue-200 text-sm mt-1">RCC AND TRADING COMPANY</p>
+        <div className={`
+          relative border-b border-blue-700 flex-shrink-0 transition-all duration-300
+          ${isCollapsed ? 'p-4 flex flex-col items-center' : 'p-6'}
+        `}>
+          {/* Collapse Button (Desktop Only) */}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="hidden lg:flex absolute top-2 right-2 p-1.5 rounded-full hover:bg-blue-700 text-blue-200 hover:text-white transition-colors"
+            title={isCollapsed ? "Expand Sidebar" : "Collapse Sidebar"}
+          >
+            {isCollapsed ? <ChevronRight size={16} /> : <ChevronRight size={16} className="rotate-180" />}
+          </button>
+
+          <img
+            src={chickenLogo}
+            alt="logo"
+            className={`
+              transition-all duration-300
+              ${isCollapsed ? 'h-10 w-10 mb-0 mt-4' : 'h-18 w-18 mx-10 mb-2'}
+            `}
+          />
+
+          {!isCollapsed && (
+            <div className="text-center transition-opacity duration-200">
+              <h1 className="text-2xl font-bold text-white whitespace-nowrap">Poultry Admin</h1>
+              <p className="text-blue-200 text-sm mt-1 whitespace-nowrap">RCC AND TRADING COMPANY</p>
+            </div>
+          )}
         </div>
 
         {/* Navigation - Scrollable */}
@@ -175,26 +206,35 @@ export default function Sidebar() {
 
               if (item.isParent && item.children) {
                 return (
-                  <li key={item.name}>
+                  <li key={item.name} className="relative group">
                     <button
                       onClick={() => toggleExpanded(item.name)}
                       className={`
-                        w-full flex items-center justify-between gap-3 p-3 rounded-lg transition-all duration-200
+                        w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200
                         ${hasActiveChild
                           ? 'bg-blue-600 text-white shadow-lg'
                           : 'text-blue-100 hover:bg-blue-700 hover:text-white'
                         }
+                        ${isCollapsed ? 'justify-center' : 'justify-between'}
                       `}
+                      title={isCollapsed ? item.name : undefined}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center w-full' : ''}`}>
                         <Icon size={20} className="flex-shrink-0" />
-                        <span className="font-medium">{item.name}</span>
+                        {!isCollapsed && <span className="font-medium whitespace-nowrap">{item.name}</span>}
                       </div>
-                      {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      {!isCollapsed && (isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />)}
+
+                      {/* Tooltip for collapsed state */}
+                      {isCollapsed && (
+                        <div className="absolute left-full top-0 ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                          {item.name}
+                        </div>
+                      )}
                     </button>
 
                     {/* Sub-menu */}
-                    {isExpanded && (
+                    {((isExpanded && !isCollapsed) || (isCollapsed && false)) && (
                       <ul className="ml-6 mt-2 space-y-1">
                         {item.children.map((child) => {
                           const ChildIcon = child.icon;
@@ -221,13 +261,15 @@ export default function Sidebar() {
                         })}
                       </ul>
                     )}
+
+                    {/* Hover Sub-menu for Collapsed State if needed, or just let them expand sidebar */}
                   </li>
                 );
               }
 
               // Regular menu item
               return (
-                <li key={item.path}>
+                <li key={item.path} className="relative group">
                   <Link
                     to={item.path}
                     onClick={() => setIsMobileMenuOpen(false)}
@@ -237,10 +279,19 @@ export default function Sidebar() {
                         ? 'bg-blue-600 text-white shadow-lg'
                         : 'text-blue-100 hover:bg-blue-700 hover:text-white'
                       }
+                      ${isCollapsed ? 'justify-center' : ''}
                     `}
+                    title={isCollapsed ? item.name : undefined}
                   >
                     <Icon size={20} className="flex-shrink-0" />
-                    <span className="font-medium">{item.name}</span>
+                    {!isCollapsed && <span className="font-medium whitespace-nowrap">{item.name}</span>}
+
+                    {/* Tooltip for collapsed state */}
+                    {isCollapsed && (
+                      <div className="absolute left-full top-0 ml-2 px-2 py-1 bg-gray-900 text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none whitespace-nowrap z-50">
+                        {item.name}
+                      </div>
+                    )}
                   </Link>
                 </li>
               );
@@ -249,20 +300,25 @@ export default function Sidebar() {
         </nav>
 
         {/* User section at bottom - Fixed */}
-        <div className="p-4 border-t border-blue-700 flex-shrink-0">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+        <div className={`
+          border-t border-blue-700 flex-shrink-0 transition-all duration-300
+          ${isCollapsed ? 'p-2' : 'p-4'}
+        `}>
+          <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center flex-col' : 'justify-between'}`}>
+            <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
+              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
                 <span className="text-sm font-semibold">
                   {currentUser?.name.charAt(0).toUpperCase()}
                 </span>
               </div>
-              <div>
-                <p className="text-sm font-medium text-white">{currentUser?.name}</p>
-                <p className="text-xs text-blue-200">{currentUser?.email}</p>
-              </div>
+              {!isCollapsed && (
+                <div className="overflow-hidden">
+                  <p className="text-sm font-medium text-white truncate max-w-[120px]">{currentUser?.name}</p>
+                  <p className="text-xs text-blue-200 truncate max-w-[120px]">{currentUser?.email}</p>
+                </div>
+              )}
             </div>
-            <Dropdown onLogout={logout} user={currentUser} position="top" />
+            <Dropdown onLogout={logout} user={currentUser} position={isCollapsed ? "right" : "top"} />
           </div>
         </div>
       </aside>

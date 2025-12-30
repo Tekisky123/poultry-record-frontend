@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { useState, useEffect } from 'react';
 import Dashboard from './pages/Dashboard';
 import Trips from './pages/Trips';
+import TripMonthlySummary from './pages/TripMonthlySummary';
 import TripDetails from './pages/TripDetails';
 import Vendors from './pages/Vendors';
 import VendorDetails from './pages/VendorDetails';
@@ -15,7 +16,6 @@ import Reports from './pages/Reports';
 import Users from './pages/Users';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
-import IndirectExpenses from './pages/IndirectExpenses';
 import IndirectSales from './pages/IndirectSales';
 import IndirectSaleDetail from './pages/IndirectSaleDetail';
 import VoucherList from './pages/VoucherList';
@@ -24,10 +24,12 @@ import VoucherDetails from './pages/VoucherDetails';
 import Groups from './pages/Groups';
 import Ledgers from './pages/Ledgers';
 import DieselStations from './pages/DieselStations';
+import LedgerDetails from './pages/LedgerDetails';
 import BalanceSheet from './pages/BalanceSheet';
 import GroupSummary from './pages/GroupSummary';
 import MonthlySummary from './pages/MonthlySummary';
 import Security from './pages/Security';
+import SettingsPage from './pages/SettingsPage';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -136,7 +138,8 @@ const AppContent = () => {
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/users" element={<Users />} />
-              <Route path="/trips" element={<Trips />} />
+              <Route path="/trips" element={<TripMonthlySummary />} />
+              <Route path="/trips/list" element={<Trips />} />
               <Route path="/trips/:id" element={<TripDetails />} />
               <Route path="/vendors" element={<Vendors />} />
               <Route path="/vendors/:id" element={<VendorDetails />} />
@@ -146,7 +149,6 @@ const AppContent = () => {
               <Route path="/customer-payments" element={<CustomerPaymentsAdmin />} />
               <Route path="/vehicles" element={<Vehicles />} />
               <Route path="/reports" element={<Reports />} />
-              <Route path="/indirect-expenses" element={<IndirectExpenses />} />
               <Route path="/indirect-sales" element={<IndirectSales />} />
               <Route path="/indirect-sales/:id" element={<IndirectSaleDetail />} />
               <Route path="/vouchers" element={<VoucherList />} />
@@ -155,11 +157,13 @@ const AppContent = () => {
               <Route path="/vouchers/:id/edit" element={<AddEditVoucher />} />
               <Route path="/groups" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Groups /></ProtectedRoute>} />
               <Route path="/ledgers" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Ledgers /></ProtectedRoute>} />
+              <Route path="/ledgers/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LedgerDetails /></ProtectedRoute>} />
               <Route path="/diesel-stations" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><DieselStations /></ProtectedRoute>} />
               <Route path="/balance-sheet" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BalanceSheet /></ProtectedRoute>} />
               <Route path="/group-summary/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><GroupSummary /></ProtectedRoute>} />
               <Route path="/monthly-summary/:type/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><MonthlySummary /></ProtectedRoute>} />
               <Route path="/security" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Security /></ProtectedRoute>} />
+              <Route path="/settings" element={<ProtectedRoute allowedRoles={["superadmin"]}><SettingsPage /></ProtectedRoute>} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>

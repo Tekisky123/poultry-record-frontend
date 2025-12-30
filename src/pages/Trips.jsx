@@ -1,6 +1,6 @@
 // src/pages/Trips.jsx
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -349,6 +349,7 @@ const LOCKED_COLUMN_KEYS = new Set(REPORT_COLUMNS.filter((col) => col.locked).ma
 export default function Trips() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [trips, setTrips] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
@@ -356,8 +357,8 @@ export default function Trips() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [vehicleFilter, setVehicleFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState({
-    startDate: '',
-    endDate: ''
+    startDate: searchParams.get('startDate') || '',
+    endDate: searchParams.get('endDate') || ''
   });
   const [pagination, setPagination] = useState({
     currentPage: 1,

@@ -21,7 +21,8 @@ import {
   ChevronRight,
   RefreshCw,
   ChevronDown,
-  X
+  X,
+  Percent
 } from 'lucide-react';
 import api from '../lib/axios';
 import { downloadCustomerLedgerExcel } from '../utils/downloadCustomerLedgerExcel';
@@ -61,6 +62,7 @@ const CustomerDetails = () => {
     startDate: '',
     endDate: ''
   });
+  const [showNarration, setShowNarration] = useState(false); // State for narration toggle
 
   const downloadDropdownRef = useRef(null);
 
@@ -413,6 +415,7 @@ const CustomerDetails = () => {
   const totalBirds = ledgerTotals.totalBirds || 0;
   const totalWeight = ledgerTotals.totalWeight || 0;
   const totalReceipt = ledgerTotals.totalReceipt || 0;
+  const totalDiscountAndOther = ledgerTotals.totalDiscountAndOther || 0;
 
   return (
     <div className="space-y-6">
@@ -559,7 +562,7 @@ const CustomerDetails = () => {
       </div> */}
 
       {/* Sales Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {/* Total Birds / Total Weight */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
           <div className="flex items-center justify-between">
@@ -599,6 +602,19 @@ const CustomerDetails = () => {
             </div>
             <div className="p-3 bg-green-100 rounded-lg">
               <Receipt className="w-6 h-6 text-green-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Total Discount & Other */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">Discount & Other</p>
+              <p className="text-2xl font-bold text-red-600">₹{totalDiscountAndOther.toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-red-100 rounded-lg">
+              <Percent className="w-6 h-6 text-red-600" />
             </div>
           </div>
         </div>
@@ -654,8 +670,18 @@ const CustomerDetails = () => {
               )}
             </div>
 
-            <div className="px-4 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg bg-gray-50">
-              Showing: {isDateFilterActive ? `${displayedPurchaseLedger.length} filtered records` : `${purchaseLedger.length} records`}
+            <div className="px-4 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg bg-gray-50 flex items-center gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={showNarration}
+                  onChange={(e) => setShowNarration(e.target.checked)}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <span className="text-gray-700 font-medium">Show Narration</span>
+              </label>
+              <span>|</span>
+              <span>Showing: {isDateFilterActive ? `${displayedPurchaseLedger.length} filtered records` : `${purchaseLedger.length} records`}</span>
             </div>
           </div>
         </div>
@@ -699,6 +725,11 @@ const CustomerDetails = () => {
                         <span className={`px-2 py-1 text-xs font-medium rounded-full ${getParticularsColor(displayParticulars(entry))}`}>
                           {displayParticulars(entry)}
                         </span>
+                        {showNarration && entry.narration && (
+                          <div className="text-xs text-gray-500 mt-1 italic">
+                            {entry.narration}
+                          </div>
+                        )}
                       </td>
                       <td className="px-3 py-3 text-gray-900">{entry.invoiceNo || '-'}</td>
                       <td className="px-3 py-3 text-right text-gray-900">{entry.birds || 0}</td>

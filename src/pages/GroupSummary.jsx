@@ -85,12 +85,17 @@ export default function GroupSummary() {
         row['Total Weight'] = entry.weight ? parseFloat(entry.weight.toFixed(2)) : 0;
         row['Debit (Sales)'] = entry.transactionDebit || entry.debit || 0;
         row['Credit (Receipts)'] = entry.transactionCredit || entry.credit || 0;
+        row['Discount & Other'] = entry.discountAndOther || 0; // New Column
 
         const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
         row['Closing Balance'] = Math.abs(closingBal).toFixed(2) + (closingBal >= 0 ? ' Dr' : ' Cr');
       } else {
-        row['Debit'] = entry.debit || 0;
-        row['Credit'] = entry.credit || 0;
+        // Normal View: Show Transaction Totals + Closing Balance
+        row['Debit'] = entry.transactionDebit || 0;
+        row['Credit'] = entry.transactionCredit || 0;
+        row['Discount & Other'] = entry.discountAndOther || 0; // New Column
+        const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
+        row['Closing Balance'] = Math.abs(closingBal).toFixed(2) + (closingBal >= 0 ? ' Dr' : ' Cr');
       }
       return row;
     });
@@ -106,15 +111,26 @@ export default function GroupSummary() {
 
       const totalDebit = groupSummary.entries.reduce((sum, e) => sum + (e.transactionDebit || e.debit || 0), 0);
       const totalCredit = groupSummary.entries.reduce((sum, e) => sum + (e.transactionCredit || e.credit || 0), 0);
+      const totalDiscountAndOther = groupSummary.entries.reduce((sum, e) => sum + (e.discountAndOther || 0), 0);
 
       totalRow['Debit (Sales)'] = totalDebit;
       totalRow['Credit (Receipts)'] = totalCredit;
+      totalRow['Discount & Other'] = totalDiscountAndOther;
 
       const netBalance = groupSummary.entries.reduce((sum, e) => sum + (e.closingBalance || (e.debit - e.credit) || 0), 0);
       totalRow['Closing Balance'] = Math.abs(netBalance).toFixed(2) + (netBalance >= 0 ? ' Dr' : ' Cr');
     } else {
-      totalRow['Debit'] = groupSummary.totals.debit;
-      totalRow['Credit'] = groupSummary.totals.credit;
+      // Normal View Totals
+      const totalDebit = groupSummary.entries.reduce((sum, e) => sum + (e.transactionDebit || e.debit || 0), 0);
+      const totalCredit = groupSummary.entries.reduce((sum, e) => sum + (e.transactionCredit || e.credit || 0), 0);
+      const totalDiscountAndOther = groupSummary.entries.reduce((sum, e) => sum + (e.discountAndOther || 0), 0);
+
+      const netBalance = groupSummary.entries.reduce((sum, e) => sum + (e.closingBalance || (e.debit - e.credit) || 0), 0);
+
+      totalRow['Debit'] = totalDebit;
+      totalRow['Credit'] = totalCredit;
+      totalRow['Discount & Other'] = totalDiscountAndOther;
+      totalRow['Closing Balance'] = Math.abs(netBalance).toFixed(2) + (netBalance >= 0 ? ' Dr' : ' Cr');
     }
 
     exportData.push(totalRow);
@@ -192,6 +208,7 @@ export default function GroupSummary() {
     weight: groupSummary.totals.weight || 0,
     debitExpanded: groupSummary.entries.reduce((sum, e) => sum + (e.transactionDebit || e.debit || 0), 0),
     creditExpanded: groupSummary.entries.reduce((sum, e) => sum + (e.transactionCredit || e.credit || 0), 0),
+    discountAndOther: groupSummary.entries.reduce((sum, e) => sum + (e.discountAndOther || 0), 0),
     netBalance: groupSummary.entries.reduce((sum, e) => sum + (e.closingBalance || (e.debit - e.credit) || 0), 0),
     debitNormal: groupSummary.totals.debit || 0,
     creditNormal: groupSummary.totals.credit || 0
@@ -323,6 +340,7 @@ export default function GroupSummary() {
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Weight</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit (Sales)</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit (Receipts)</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Discount & Other</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
                   </>
                 )}
@@ -330,6 +348,8 @@ export default function GroupSummary() {
                   <>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Discount & Other</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
                   </>
                 )}
               </tr>
@@ -342,7 +362,7 @@ export default function GroupSummary() {
                     return (
                       <tr
                         key={entry.id}
-                        className={`border-b border-gray-200 hover:bg-gray-50 ${entry.type === 'subgroup' || entry.type === 'customer' || entry.type === 'vendor' ? 'cursor-pointer' : ''
+                        className={`border-b border-gray-200 hover:bg-gray-50 ${entry.type === 'subgroup' || entry.type === 'customer' || entry.type === 'vendor' || entry.type === 'ledger' ? 'cursor-pointer' : ''
                           }`}
                         onClick={() => {
                           const query = `?startDate=${dateFilter.startDate}&endDate=${dateFilter.endDate}`;
@@ -351,7 +371,13 @@ export default function GroupSummary() {
                           } else if (entry.type === 'customer') {
                             navigate(`/monthly-summary/customer/${entry.id}${query}`);
                           } else if (entry.type === 'vendor') {
-                            navigate(`/monthly-summary/vendor/${entry.id}${query}`);
+                            let qs = query;
+                            if (groupSummary.group.name.trim().toLowerCase() === 'purchase account' || groupSummary.group.name.trim().toLowerCase() === 'purchase accounts') {
+                              qs += '&filterType=PURCHASE';
+                            }
+                            navigate(`/monthly-summary/vendor/${entry.id}${qs}`);
+                          } else if (entry.type === 'ledger') {
+                            navigate(`/monthly-summary/ledger/${entry.id}${query}`);
                           }
                         }}
                       >
@@ -370,6 +396,10 @@ export default function GroupSummary() {
                             <span className="text-blue-600 hover:text-blue-800 hover:underline font-medium">
                               {entry.name}
                               <span className="ml-2 text-xs text-gray-500">(Vendor)</span>
+                            </span>
+                          ) : entry.type === 'ledger' ? (
+                            <span className="text-blue-600 hover:text-blue-800 hover:underline font-medium">
+                              {entry.name}
                             </span>
                           ) : (
                             entry.name
@@ -396,6 +426,13 @@ export default function GroupSummary() {
                                 return renderCellWithPercentage(val, totals.creditExpanded, 'currency');
                               })()}
                             </td>
+                            <td className="py-3 px-4 text-right text-gray-700">
+                              {/* Discount & Other */}
+                              {(() => {
+                                const val = entry.discountAndOther || 0;
+                                return renderCellWithPercentage(val, totals.discountAndOther, 'currency');
+                              })()}
+                            </td>
                             <td className="py-3 px-4 text-right font-semibold text-gray-900">
                               {(() => {
                                 const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
@@ -406,10 +443,31 @@ export default function GroupSummary() {
                         ) : (
                           <>
                             <td className="py-3 px-4 text-right text-gray-700">
-                              {renderCellWithPercentage(entry.debit, totals.debitNormal, 'currency')}
+                              {/* Use transaction totals instead of net balance cols */}
+                              {(() => {
+                                const val = entry.transactionDebit || 0;
+                                return renderCellWithPercentage(val, totals.debitExpanded, 'currency');
+                              })()}
                             </td>
                             <td className="py-3 px-4 text-right text-gray-700">
-                              {renderCellWithPercentage(entry.credit, totals.creditNormal, 'currency')}
+                              {/* Use transaction totals instead of net balance cols */}
+                              {(() => {
+                                const val = entry.transactionCredit || 0;
+                                return renderCellWithPercentage(val, totals.creditExpanded, 'currency');
+                              })()}
+                            </td>
+                            <td className="py-3 px-4 text-right text-gray-700">
+                              {/* Discount & Other */}
+                              {(() => {
+                                const val = entry.discountAndOther || 0;
+                                return renderCellWithPercentage(val, totals.discountAndOther, 'currency');
+                              })()}
+                            </td>
+                            <td className="py-3 px-4 text-right font-semibold text-gray-900">
+                              {(() => {
+                                const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
+                                return renderCellWithPercentage(closingBal, totals.netBalance, 'currency', true);
+                              })()}
                             </td>
                           </>
                         )}
@@ -433,6 +491,9 @@ export default function GroupSummary() {
                         {renderCellWithPercentage(totals.creditExpanded, totals.creditExpanded, 'currency')}
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
+                        {renderCellWithPercentage(totals.discountAndOther, totals.discountAndOther, 'currency')}
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-gray-900">
                         {renderCellWithPercentage(totals.netBalance, totals.netBalance, 'currency', true)}
                       </td>
                     </tr>
@@ -440,10 +501,18 @@ export default function GroupSummary() {
                     <tr className="border-t-2 border-gray-400 bg-gray-50">
                       <td className="py-3 px-4 font-bold text-gray-900">Grand Total</td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {renderCellWithPercentage(totals.debitNormal, totals.debitNormal, 'currency')}
+                        {/* Use Expanded totals (sums of transactions) */}
+                        {renderCellWithPercentage(totals.debitExpanded, totals.debitExpanded, 'currency')}
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {renderCellWithPercentage(totals.creditNormal, totals.creditNormal, 'currency')}
+                        {/* Use Expanded totals (sums of transactions) */}
+                        {renderCellWithPercentage(totals.creditExpanded, totals.creditExpanded, 'currency')}
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-gray-900">
+                        {renderCellWithPercentage(totals.discountAndOther, totals.discountAndOther, 'currency')}
+                      </td>
+                      <td className="py-3 px-4 text-right font-bold text-gray-900">
+                        {renderCellWithPercentage(totals.netBalance, totals.netBalance, 'currency', true)}
                       </td>
                     </tr>
                   )}

@@ -1,17 +1,19 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
+import {
+  Plus,
+  Search,
+  Filter,
   BookOpen,
   Edit,
   Trash2,
   Loader2,
   X,
-  Tag
+  Tag,
+  Eye
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -68,12 +70,12 @@ export default function Ledgers() {
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      
+
       // Fetch groups
       const groupsRes = await api.get('/group');
       const groupsData = groupsRes.data.data || [];
       setGroups(groupsData);
-      
+
       // Build tree and flatten for dropdown
       const buildTree = (groups) => {
         const groupMap = new Map();
@@ -91,11 +93,11 @@ export default function Ledgers() {
       };
       const treeGroups = buildTree(groupsData);
       setFlatGroups(flattenGroups(treeGroups));
-      
+
       // Fetch ledgers
       const ledgersRes = await api.get('/ledger');
       setLedgers(ledgersRes.data.data || []);
-      
+
       setIsError(false);
     } catch (err) {
       console.error('Error fetching data:', err);
@@ -211,7 +213,7 @@ export default function Ledgers() {
   // Filter ledgers
   const filteredLedgers = ledgers.filter(ledger => {
     const matchesSearch = ledger.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ledger.group?.name.toLowerCase().includes(searchTerm.toLowerCase());
+      ledger.group?.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesGroup = groupFilter === 'all' || ledger.group?.id === groupFilter;
     return matchesSearch && matchesGroup;
   });
@@ -228,7 +230,7 @@ export default function Ledgers() {
     return (
       <div className="text-center py-8">
         <p className="text-red-600 mb-4">{error}</p>
-        <button 
+        <button
           onClick={fetchData}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
@@ -257,7 +259,7 @@ export default function Ledgers() {
           <h1 className="text-3xl font-bold text-gray-900">Ledgers Management</h1>
           <p className="text-gray-600 mt-1">Manage accounting ledgers and assign them to groups</p>
         </div>
-        <button 
+        <button
           onClick={handleAddNew}
           className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
         >
@@ -345,14 +347,21 @@ export default function Ledgers() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
-                        <button 
+                        <Link
+                          to={`/ledgers/${ledger.id}`}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="View Transactions"
+                        >
+                          <Eye size={16} />
+                        </Link>
+                        <button
                           onClick={() => handleEdit(ledger)}
                           className="text-green-600 hover:text-green-900"
                           title="Edit"
                         >
                           <Edit size={16} />
                         </button>
-                        <button 
+                        <button
                           onClick={() => handleDelete(ledger)}
                           className="text-red-600 hover:text-red-900"
                           title="Delete"
@@ -403,16 +412,16 @@ export default function Ledgers() {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Ledger Name *
-                  </label>
-                  <input
-                    type="text"
-                    {...register('name')}
+                  Ledger Name *
+                </label>
+                <input
+                  type="text"
+                  {...register('name')}
                   placeholder="Enter ledger name"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
-                </div>
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                {errors.name && <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>}
+              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -437,14 +446,14 @@ export default function Ledgers() {
                   Opening Balance (optional)
                 </label>
                 <div className="grid grid-cols-2 gap-3">
-                <input
-                  type="number"
-                  step="0.01"
-                  {...register('openingBalance', { valueAsNumber: true })}
-                  placeholder="0.00"
-                  defaultValue={0}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
+                  <input
+                    type="number"
+                    step="0.01"
+                    {...register('openingBalance', { valueAsNumber: true })}
+                    placeholder="0.00"
+                    defaultValue={0}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
                   <select
                     {...register('openingBalanceType')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"

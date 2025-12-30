@@ -1,23 +1,44 @@
-import { Bell, Search } from 'lucide-react';
+import { Bell, Search, Home, FileText, Receipt } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import Dropdown from './Dropdown';
 
 export default function Header() {
   const { user: currentUser, logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
         {/* Search Bar */}
-        <div className="flex-1 max-w-md">
-          {/* <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-            <input
-              type="text"
-              placeholder="Search trips, vendors, customers..."
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div> */}
+        {/* Navigation Shortcuts */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100"
+            title="Go to Profit & Loss"
+          >
+            <Home size={18} />
+            <span className="hidden md:inline">Profit & Loss</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/balance-sheet')}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100"
+            title="Go to Balance Sheet"
+          >
+            <FileText size={18} />
+            <span className="hidden md:inline">Balance Sheet</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/vouchers')}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100"
+            title="Go to Vouchers"
+          >
+            <Receipt size={18} />
+            <span className="hidden md:inline">Vouchers</span>
+          </button>
         </div>
 
         {/* Right side actions */}

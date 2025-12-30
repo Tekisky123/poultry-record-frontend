@@ -72,6 +72,7 @@ const VendorDetails = () => {
         startDate: '',
         endDate: ''
     });
+    const [showNarration, setShowNarration] = useState(false); // State for narration toggle
 
     // Observer for infinite scroll
     const observer = useRef();
@@ -162,6 +163,9 @@ const VendorDetails = () => {
 
             if (dateFilter.startDate) query += `&startDate=${dateFilter.startDate}`;
             if (dateFilter.endDate) query += `&endDate=${dateFilter.endDate}`;
+
+            const filterType = searchParams.get('filterType');
+            if (filterType) query += `&filterType=${filterType}`;
 
             const response = await api.get(query);
 
@@ -390,8 +394,18 @@ const VendorDetails = () => {
                             )}
                         </div>
 
-                        <div className="px-4 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg bg-white">
-                            Showing: {isDateFilterActive ? `${ledger.length} filtered records` : `${ledgerPagination.totalItems} records`}
+                        <div className="px-4 py-2 text-sm text-gray-600 border border-dashed border-gray-300 rounded-lg bg-white flex items-center gap-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                    type="checkbox"
+                                    checked={showNarration}
+                                    onChange={(e) => setShowNarration(e.target.checked)}
+                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-gray-700 font-medium">Show Narration</span>
+                            </label>
+                            <span>|</span>
+                            <span>Showing: {isDateFilterActive ? `${ledger.length} filtered records` : `${ledgerPagination.totalItems} records`}</span>
                         </div>
                     </div>
                 </div>
@@ -433,6 +447,11 @@ const VendorDetails = () => {
                                             }`}>
                                             {entry.particulars}
                                         </span>
+                                        {showNarration && entry.narration && (
+                                            <div className="text-xs text-gray-500 mt-1 italic whitespace-normal max-w-[200px]">
+                                                {entry.narration}
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{entry.dcNumber}</td>
                                     <td className="px-3 py-3 text-right text-gray-900 whitespace-nowrap">{entry.type === 'OPENING' ? '-' : (entry.birds || 0)}</td>

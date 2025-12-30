@@ -820,7 +820,7 @@ const AddEditVoucher = () => {
                     <p className="text-sm text-gray-500 text-center py-4">No parties added. Click "+ ADD party" to add one.</p>
                   ) : (
                     formData.parties.map((party, index) => (
-                      <div key={index} className="grid grid-cols-2 gap-4 items-start p-3 bg-gray-50 rounded-lg">
+                      <div key={index} className="grid grid-cols-[1fr_200px_40px] gap-4 items-start p-3 bg-gray-50 rounded-lg">
                         <div className="space-y-2">
                           <label className="block text-xs font-medium text-gray-600">Party {index + 1}</label>
                           <select
@@ -850,25 +850,33 @@ const AddEditVoucher = () => {
                             </p>
                           )}
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-2 relative">
                           <label className="block text-xs font-medium text-gray-600">Amount</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={party.amount}
-                            onChange={(e) => handlePartyAmountChange(index, e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                            placeholder="0.00"
-                            required
-                          />
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={party.amount}
+                              onChange={(e) => handlePartyAmountChange(index, e.target.value)}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                              placeholder="0.00"
+                              required
+                            />
+                            <span className="text-sm font-medium text-gray-600">
+                              {formData.voucherType === 'Payment' ? 'Dr' : 'Cr'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="pt-7 flex justify-center">
                           {formData.parties.length > 1 && (
                             <button
                               type="button"
                               onClick={() => removeParty(index)}
-                              className="text-red-500 hover:text-red-700 text-xs"
+                              className="text-red-500 hover:text-red-700 p-2"
+                              title="Delete Party"
                             >
-                              <Trash2 size={14} className="inline" />
+                              <Trash2 size={16} />
                             </button>
                           )}
                         </div>
@@ -888,33 +896,53 @@ const AddEditVoucher = () => {
 
               {/* Account Selection */}
               <div className="border border-gray-200 rounded-lg p-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Account:</label>
-                <select
-                  value={formData.account}
-                  onChange={(e) => handleInputChange('account', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  required
-                >
-                  <option value="">Select Account (Cash or Bank)</option>
-                  {cashBankLedgers.map(ledger => (
-                    <option key={ledger.id} value={ledger.id}>
-                      {ledger.name}
-                    </option>
-                  ))}
-                </select>
-                {formData.account && (() => {
-                  const selectedLedger = cashBankLedgers.find(l => l.id === formData.account);
-                  if (selectedLedger) {
-                    const balance = selectedLedger.outstandingBalance || selectedLedger.openingBalance || 0;
-                    const balanceType = selectedLedger.outstandingBalanceType || selectedLedger.openingBalanceType || 'debit';
-                    return (
-                      <p className="text-xs text-gray-500 mt-1">
-                        current balance: {formatAmount(balance)} {balanceType === 'credit' ? 'Cr' : 'Dr'}
-                      </p>
-                    );
-                  }
-                  return null;
-                })()}
+                <div className="grid grid-cols-[1fr_200px_40px] gap-4 items-start">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Account:</label>
+                    <select
+                      value={formData.account}
+                      onChange={(e) => handleInputChange('account', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    >
+                      <option value="">Select Account (Cash or Bank)</option>
+                      {cashBankLedgers.map(ledger => (
+                        <option key={ledger.id} value={ledger.id}>
+                          {ledger.name}
+                        </option>
+                      ))}
+                    </select>
+                    {formData.account && (() => {
+                      const selectedLedger = cashBankLedgers.find(l => l.id === formData.account);
+                      if (selectedLedger) {
+                        const balance = selectedLedger.outstandingBalance || selectedLedger.openingBalance || 0;
+                        const balanceType = selectedLedger.outstandingBalanceType || selectedLedger.openingBalanceType || 'debit';
+                        return (
+                          <p className="text-xs text-gray-500 mt-1">
+                            current balance: {formatAmount(balance)} {balanceType === 'credit' ? 'Cr' : 'Dr'}
+                          </p>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Amount:</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={calculateTotalAmount() || ''}
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 focus:outline-none"
+                      />
+                      <span className="text-sm font-medium text-gray-600">
+                        {formData.voucherType === 'Payment' ? 'Cr' : 'Dr'}
+                      </span>
+                    </div>
+                  </div>
+                  {/* Empty column to match Party grid structure */}
+                  <div></div>
+                </div>
               </div>
             </div>
           ) : (
@@ -1026,8 +1054,10 @@ const AddEditVoucher = () => {
                                 .filter(ledger => {
                                   const groupSlug = ledger.group?.slug || '';
                                   const groupName = ledger.group?.name || '';
-                                  // Filter out "Bank Account" group ledgers
-                                  return groupSlug !== 'bank-accounts' || groupName !== 'Bank Accounts';
+                                  // Filter out "Bank Account" and "Cash-in-Hand" group ledgers
+                                  const isBank = groupSlug === 'bank-accounts' || groupName === 'Bank Accounts';
+                                  const isCash = groupSlug === 'cash-in-hand' || groupName === 'Cash-in-Hand';
+                                  return !isBank && !isCash;
                                 })
                                 .map((ledger) => (
                                   <option key={`ledger-${ledger.id}`} value={ledger.name}>{ledger.name}</option>

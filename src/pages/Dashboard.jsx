@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, memo, useCallback } from 'react';
-import { Calendar, Download, Loader2, X, Truck, TrendingUp, Users, DollarSign } from 'lucide-react';
+import { Calendar, Download, Loader2, X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -76,7 +76,6 @@ export default function ProfitAndLoss() {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [profitAndLoss, setProfitAndLoss] = useState(null);
-  const [stats, setStats] = useState(null);
 
   const [dateFilter, setDateFilter] = useState({
     startDate: searchParams.get('startDate') || '',
@@ -119,23 +118,14 @@ export default function ProfitAndLoss() {
       setIsLoading(true);
       setIsError(false);
 
-      const [plRes, statsRes] = await Promise.all([
-        api.get('/dashboard/profit-loss', {
-          params: {
-            startDate: dateFilter.startDate,
-            endDate: dateFilter.endDate
-          }
-        }),
-        api.get('/trip/stats/overview', {
-          params: {
-            startDate: dateFilter.startDate,
-            endDate: dateFilter.endDate
-          }
-        })
-      ]);
+      const response = await api.get('/dashboard/profit-loss', {
+        params: {
+          startDate: dateFilter.startDate,
+          endDate: dateFilter.endDate
+        }
+      });
 
-      setProfitAndLoss(plRes.data.data);
-      setStats(statsRes.data.data);
+      setProfitAndLoss(response.data.data);
 
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
@@ -281,7 +271,7 @@ export default function ProfitAndLoss() {
       <div className="text-center py-8">
         <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
         <p className="text-gray-600 mb-4">
-          You need admin privileges to access the Profit & Loss A/c.
+          You need admin privileges to access the Profit & Loss.
         </p>
       </div>
     );
@@ -327,89 +317,32 @@ export default function ProfitAndLoss() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Profit & Loss A/c</h1>
-          <p className="text-gray-600 mt-1">For the period ending {formatDateDisplay(dateFilter.endDate)}</p>
-        </div>
-        <div className="flex gap-3 mt-4 sm:mt-0">
-          <button
-            onClick={openDateFilterModal}
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 shadow-sm"
-          >
-            <Calendar size={20} className="text-gray-500" />
-            <span className="font-medium">
-              {dateFilter.startDate ? `${formatDateDisplay(dateFilter.startDate)} - ` : 'Up to '}
-              {formatDateDisplay(dateFilter.endDate)}
-            </span>
-          </button>
-          <button
-            onClick={downloadExcel}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            <Download size={20} />
-            Export Excel
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Truck className="w-6 h-6 text-blue-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Total Trips</p>
-              <p className="text-2xl font-bold text-gray-900">{stats?.totalTrips || 0}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-6 h-6 text-green-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">₹{Number(stats?.totalRevenue || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-6 h-6 text-purple-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Total Profit</p>
-              <p className="text-2xl font-bold text-gray-900">₹{Number(stats?.totalProfit || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-orange-100 rounded-lg flex items-center justify-center">
-              <Users className="w-6 h-6 text-orange-600" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Birds Sold</p>
-              <p className="text-2xl font-bold text-gray-900">{Number(stats?.totalBirdsSold || 0).toLocaleString('en-IN')}</p>
-            </div>
-          </div>
-        </div>
+      {/* Header Controls */}
+      <div className="flex justify-end gap-3">
+        <button
+          onClick={openDateFilterModal}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 shadow-sm"
+        >
+          <Calendar size={20} className="text-gray-500" />
+          <span className="font-medium">
+            {dateFilter.startDate ? `${formatDateDisplay(dateFilter.startDate)} - ` : 'Up to '}
+            {formatDateDisplay(dateFilter.endDate)}
+          </span>
+        </button>
+        <button
+          onClick={downloadExcel}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+        >
+          <Download size={20} />
+          Export Excel
+        </button>
       </div>
 
       {/* P&L Table */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
         {/* Header */}
         <div className="text-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Profit & Loss A/c</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Profit & Loss</h2>
           <p className="text-gray-600 mt-1">
             {dateFilter.startDate ? (
               <>Period: {formatDateDisplay(dateFilter.startDate)} to {formatDateDisplay(dateFilter.endDate)}</>
@@ -424,8 +357,6 @@ export default function ProfitAndLoss() {
           {/* Expenses Side (Left) */}
           <div className="border-r border-gray-200 pr-8">
             <div className="mb-4">
-              <h3 className="text-lg font-bold text-red-700 mb-3 text-center border-b pb-2">EXPENSES</h3>
-
               {/* Expense Groups */}
               <div className="space-y-1 min-h-[200px]">
                 {profitAndLoss.expenses.groups.map((group) => (
@@ -468,8 +399,6 @@ export default function ProfitAndLoss() {
           {/* Income Side (Right) */}
           <div className="pl-8">
             <div className="mb-4">
-              <h3 className="text-lg font-bold text-green-700 mb-3 text-center border-b pb-2">INCOME</h3>
-
               {/* Income Groups */}
               <div className="space-y-1 min-h-[200px]">
                 {profitAndLoss.income.groups.map((group) => (

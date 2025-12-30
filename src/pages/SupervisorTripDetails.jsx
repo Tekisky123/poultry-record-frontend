@@ -110,7 +110,8 @@ const SupervisorTripDetails = () => {
     cashPaid: '',
     onlinePaid: '',
     cashLedger: '',
-    onlineLedger: ''
+    onlineLedger: '',
+    sendSms: false
   });
 
   const [expenseData, setExpenseData] = useState({
@@ -854,7 +855,8 @@ const SupervisorTripDetails = () => {
           }
 
           setShowSaleModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
+          setShowSaleModal(false);
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', sendSms: false });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -881,7 +883,8 @@ const SupervisorTripDetails = () => {
           }
 
           setShowSaleModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
+          setShowSaleModal(false);
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', sendSms: false });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -3645,6 +3648,20 @@ const SupervisorTripDetails = () => {
                     />
                   </div>
                 </div>
+
+                {/* SMS Checkbox */}
+                <div className="flex items-center mt-3 bg-blue-50 p-2 rounded-lg border border-blue-100">
+                  <input
+                    type="checkbox"
+                    id="sendSaleSms"
+                    checked={saleData.sendSms || false}
+                    onChange={(e) => setSaleData(prev => ({ ...prev, sendSms: e.target.checked }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="sendSaleSms" className="ml-2 block text-sm font-medium text-blue-800">
+                    Send message to customer
+                  </label>
+                </div>
               </form>
 
               {/* Help Text */}
@@ -3689,8 +3706,8 @@ const SupervisorTripDetails = () => {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+          </div >
+        </div >
       )}
 
       {/* Receipt Modal */}
@@ -3738,8 +3755,6 @@ const SupervisorTripDetails = () => {
                       readOnly={editingSaleIndex !== null}
                       required
                     />
-
-
 
                     {selectedCustomer && editingSaleIndex === null && (
                       <button
@@ -3867,8 +3882,6 @@ const SupervisorTripDetails = () => {
                   </div>
                 </div>
 
-
-
                 {/* Online Ledger Dropdown - Show if onlinePaid > 0 */}
                 {Number(saleData.onlinePaid) > 0 && (
                   <div>
@@ -3922,6 +3935,20 @@ const SupervisorTripDetails = () => {
                     </div>
                   )}
                 </div>
+
+                {/* SMS Checkbox */}
+                <div className="flex items-center mt-3 bg-blue-50 p-2 rounded-lg border border-blue-100">
+                  <input
+                    type="checkbox"
+                    id="sendReceiptSms"
+                    checked={saleData.sendSms || false}
+                    onChange={(e) => setSaleData(prev => ({ ...prev, sendSms: e.target.checked }))}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <label htmlFor="sendReceiptSms" className="ml-2 block text-sm font-medium text-blue-800">
+                    Send message to customer
+                  </label>
+                </div>
               </form>
 
               {/* Help Text */}
@@ -3939,7 +3966,7 @@ const SupervisorTripDetails = () => {
                   type="button"
                   onClick={() => {
                     setShowReceiptModal(false);
-                    setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
+                    setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', sendSms: false });
                     setSelectedCustomer(null);
                     setCustomerSearchTerm('');
                     setShowCustomerDropdown(false);
@@ -3959,771 +3986,783 @@ const SupervisorTripDetails = () => {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
+          </div >
+        </div >
       )}
 
       {/* Expense Modal */}
-      {showExpenseModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">
-              {editingExpenseIndex !== null ? 'Edit Expense' : 'Add Expense'}
-            </h3>
-            <form onSubmit={handleExpenseSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
-                <select
-                  value={expenseData.category}
-                  onChange={(e) => setExpenseData(prev => ({ ...prev, category: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  required
-                >
-                  <option value="lunch/tea-snacks">Lunch/Tea Snacks</option>
-                  <option value="toll">Toll Tax</option>
-                  <option value="parking">Parking</option>
-                  <option value="loading/unloading">Loading/Unloading Charges</option>
-                  <option value="maintenance">Vehicle Maintenance</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
-                <input
-                  type="text"
-                  value={expenseData.description}
-                  onChange={(e) => setExpenseData(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  placeholder="e.g. Lunch at dhaba, Tea at hotel, snacks etc."
-                  required
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
+      {
+        showExpenseModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">
+                {editingExpenseIndex !== null ? 'Edit Expense' : 'Add Expense'}
+              </h3>
+              <form onSubmit={handleExpenseSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
-                  <input
-                    type="number"
-                    value={expenseData.amount}
-                    onChange={(e) => setExpenseData(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                  <select
+                    value={expenseData.category}
+                    onChange={(e) => setExpenseData(prev => ({ ...prev, category: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                     required
-                  />
+                  >
+                    <option value="lunch/tea-snacks">Lunch/Tea Snacks</option>
+                    <option value="toll">Toll Tax</option>
+                    <option value="parking">Parking</option>
+                    <option value="loading/unloading">Loading/Unloading Charges</option>
+                    <option value="maintenance">Vehicle Maintenance</option>
+                    <option value="other">Other</option>
+                  </select>
                 </div>
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowExpenseModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingExpenseIndex !== null ? 'Update Expense' : 'Add Expense')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Complete Trip Modal */}
-      {showCompleteModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Complete Trip</h3>
-            <form onSubmit={handleCompleteTrip} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Closing Odometer
-                  <span className="text-red-500 ml-1">*</span>
-                </label>
-                <input
-                  type="number"
-                  min={trip?.vehicleReadings?.opening || 0}
-                  value={completeData.closingOdometer}
-                  onChange={(e) => setCompleteData(prev => ({ ...prev, closingOdometer: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder={`Min: ${trip?.vehicleReadings?.opening || 0}`}
-                  required
-                />
-                {trip?.vehicleReadings?.opening && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Opening reading: {trip.vehicleReadings.opening}
-                  </p>
-                )}
-                {completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening &&
-                  completeData.closingOdometer < trip.vehicleReadings.opening && (
-                    <p className="text-xs text-red-500 mt-1">
-                      Closing reading must be greater than opening reading ({trip.vehicleReadings.opening})
-                    </p>
-                  )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Final Remarks</label>
-                <textarea
-                  value={completeData.finalRemarks}
-                  onChange={(e) => setCompleteData(prev => ({ ...prev, finalRemarks: e.target.value }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  rows="3"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mortality (Death Birds)</label>
-                <input
-                  type="number"
-                  value={completeData.mortality}
-                  onChange={(e) => setCompleteData(prev => ({ ...prev, mortality: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                  required
-                  placeholder="Enter number of birds that died"
-                />
-                <p className="text-sm text-gray-500 mt-1">
-                  This represents the remaining birds that are automatically considered as death birds.
-                </p>
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowCompleteModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || (completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening &&
-                    completeData.closingOdometer < trip.vehicleReadings.opening)}
-                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Complete Trip'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Diesel Modal */}
-      {showDieselModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">
-              {editingDieselIndex !== null ? 'Edit Diesel Record' : 'Add Diesel Record'}
-            </h3>
-
-            {/* Summary Section */}
-            {dieselData.volume > 0 && dieselData.rate > 0 && (
-              <div className="bg-blue-50 p-3 rounded-lg mb-4">
-                <div className="text-sm text-blue-800">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <span className="font-medium">Volume:</span> {dieselData.volume} liters
-                    </div>
-                    <div>
-                      <span className="font-medium">Rate:</span> ₹{dieselData.rate}/liter
-                    </div>
-                    <div className="col-span-2">
-                      <span className="font-medium">Total Amount:</span> ₹{(dieselData.volume * dieselData.rate).toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <form onSubmit={handleDieselSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Station *</label>
-                <select
-                  value={dieselData.useCustomStation ? OTHER_STATION_VALUE : (dieselData.selectedStationId || '')}
-                  onChange={(e) => handleDieselStationSelect(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
-                  required={!dieselData.useCustomStation}
-                >
-                  <option value="">Select station</option>
-                  {dieselStations.map((station) => (
-                    <option key={station.id} value={station.id}>
-                      {station.name}{station.location ? ` - ${station.location}` : ''}
-                    </option>
-                  ))}
-                  <option value={OTHER_STATION_VALUE}>Other</option>
-                </select>
-                {dieselStationsLoading && (
-                  <p className="text-xs text-gray-500 mt-1">Loading stations...</p>
-                )}
-              </div>
-
-              {dieselData.useCustomStation && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Custom Station Name *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Description *</label>
                   <input
                     type="text"
-                    value={dieselData.stationName}
-                    onChange={(e) => setDieselData(prev => ({ ...prev, stationName: e.target.value }))}
+                    value={expenseData.description}
+                    onChange={(e) => setExpenseData(prev => ({ ...prev, description: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    placeholder="e.g., HP Pump, Shell Station"
+                    placeholder="e.g. Lunch at dhaba, Tea at hotel, snacks etc."
                     required
                   />
                 </div>
-              )}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Volume (liters) *</label>
-                  <input
-                    type="number"
-                    value={dieselData.volume}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      // Allow only 2 decimal places
-                      if (value === '' || value === '0' || /^\d*\.?\d{0,2}$/.test(value)) {
-                        setDieselData(prev => ({ ...prev, volume: value === '' ? '' : Number(value) }));
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    required
-                    min="0"
-                    step="0.01"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Rate per liter *</label>
-                  <input
-                    type="number"
-                    value={dieselData.rate}
-                    onChange={(e) => setDieselData(prev => ({ ...prev, rate: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    required
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (Auto-calculated)</label>
-                  <input
-                    type="number"
-                    value={dieselData.amount.toFixed(2)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
-                    readOnly
-                    step="0.01"
-                    placeholder="Volume × Rate"
-                  />
-                </div>
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowDieselModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting || !dieselData.stationName || dieselData.volume <= 0 || dieselData.rate <= 0}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingDieselIndex !== null ? 'Update Diesel Record' : 'Add Diesel Record')}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Stock Modal */}
-      {showStockModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-xs max-h-[calc(80vh-56px)] flex flex-col">
-            <div className="p-4 pb-3 border-b border-gray-200 flex-shrink-0">
-              <h3 className="text-base font-semibold text-gray-900">
-                {editingStockIndex !== null ? 'Edit Stock Entry' : 'Add to Stock'}
-              </h3>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
-
-              {/* Stock Availability Info */}
-              {(() => {
-                const { remainingBirds, remainingWeight, totalStockBirds, totalStockWeight, availableForStockBirds, availableForStockWeight } = getRemainingStockStats();
-                return (
-                  <div className="bg-gray-50 p-3 rounded-lg mb-3">
-                    <div className="text-sm font-medium text-gray-700 mb-2">Stock Availability</div>
-
-                    {/* Birds Summary */}
-                    <div className="mb-3">
-                      <div className="text-xs font-medium text-gray-600 mb-2">BIRDS</div>
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div className="text-center">
-                          <div className="text-gray-500">Remaining</div>
-                          <div className="font-semibold text-blue-600">{remainingBirds}</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-gray-500">In Stock</div>
-                          <div className="font-semibold text-green-600">{totalStockBirds}</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-gray-500">Available</div>
-                          <div className={`font-semibold ${availableForStockBirds > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                            {availableForStockBirds}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Weight Summary */}
-                    <div>
-                      <div className="text-xs font-medium text-gray-600 mb-2">WEIGHT (kg)</div>
-                      <div className="grid grid-cols-3 gap-2 text-xs">
-                        <div className="text-center">
-                          <div className="text-gray-500">Remaining</div>
-                          <div className="font-semibold text-blue-600">{remainingWeight.toFixed(2)}</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-gray-500">In Stock</div>
-                          <div className="font-semibold text-green-600">{totalStockWeight.toFixed(2)}</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-gray-500">Available</div>
-                          <div className={`font-semibold ${availableForStockWeight > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                            {availableForStockWeight.toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {(availableForStockBirds <= 0 || availableForStockWeight <= 0) && (
-                      <div className="mt-2 text-xs text-red-600 font-medium text-center">
-                        ⚠️ No birds/weight available for stock
-                      </div>
-                    )}
-                  </div>
-                );
-              })()}
-
-              {/* Summary Section */}
-              {stockData.birds > 0 && stockData.weight > 0 && stockData.rate > 0 && (
-                <div className="bg-cyan-50 p-1.5 rounded-lg mb-2">
-                  <div className="text-xs text-cyan-800">
-                    <div className="grid grid-cols-2 gap-1">
-                      <div><span className="font-medium">Birds:</span> {stockData.birds}</div>
-                      <div><span className="font-medium">Weight:</span> {stockData.weight} kg</div>
-                      <div><span className="font-medium">Avg:</span> {stockData.avgWeight} kg/bird</div>
-                      <div><span className="font-medium">Rate:</span> ₹{stockData.rate}/kg</div>
-                      <div className="col-span-2"><span className="font-medium">Value:</span> ₹{stockData.value.toFixed(2)}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <form onSubmit={handleStockSubmit} className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Birds in Stock *</label>
-                    {(() => {
-                      const { availableForStockBirds } = getRemainingStockStats();
-                      // When editing, add back the current stock entry's birds to available count
-                      let adjustedAvailableBirds = availableForStockBirds;
-                      if (editingStockIndex !== null) {
-                        const currentStockEntry = trip.stocks[editingStockIndex];
-                        adjustedAvailableBirds += (currentStockEntry?.birds || 0);
-                      }
-                      const isExceeding = stockData.birds > adjustedAvailableBirds;
-                      const isZero = stockData.birds === 0;
-
-                      return (
-                        <>
-                          <input
-                            type="number"
-                            value={stockData.birds}
-                            onChange={(e) => setStockData(prev => ({ ...prev, birds: Number(e.target.value) }))}
-                            className={`w-full px-2 py-1 border rounded text-xs ${isZero || isExceeding
-                              ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
-                              : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                              }`}
-                            required
-                            min="1"
-                            step="1"
-                            max={adjustedAvailableBirds}
-                          />
-                          <div className="mt-1 text-xs">
-                            <span className="text-gray-500">Available: </span>
-                            <span className={`font-medium ${adjustedAvailableBirds > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                              {adjustedAvailableBirds}
-                            </span>
-                            {isZero && (
-                              <span className="ml-2 text-red-600 font-medium">
-                                ⚠️ Birds cannot be zero
-                              </span>
-                            )}
-                            {isExceeding && !isZero && (
-                              <span className="ml-2 text-red-600 font-medium">
-                                ⚠️ Exceeds available birds
-                              </span>
-                            )}
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Total Weight (kg) *</label>
-                    {(() => {
-                      const { availableForStockWeight } = getRemainingStockStats();
-                      // When editing, add back the current stock entry's weight to available count
-                      let adjustedAvailableWeight = availableForStockWeight;
-                      if (editingStockIndex !== null) {
-                        const currentStockEntry = trip.stocks[editingStockIndex];
-                        adjustedAvailableWeight += (currentStockEntry?.weight || 0);
-                      }
-                      const isExceeding = stockData.weight > adjustedAvailableWeight;
-                      const isZero = stockData.weight === 0;
-
-                      return (
-                        <>
-                          <input
-                            type="number"
-                            value={stockData.weight}
-                            onChange={(e) => setStockData(prev => ({ ...prev, weight: Number(e.target.value) }))}
-                            className={`w-full px-2 py-1 border rounded text-xs ${isZero || isExceeding
-                              ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
-                              : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                              }`}
-                            required
-                            min="0.01"
-                            step="0.01"
-                            max={adjustedAvailableWeight}
-                          />
-                          <div className="mt-1 text-xs">
-                            <span className="text-gray-500">Available: </span>
-                            <span className={`font-medium ${adjustedAvailableWeight > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                              {adjustedAvailableWeight.toFixed(2)} kg
-                            </span>
-                            {isZero && (
-                              <span className="ml-2 text-red-600 font-medium">
-                                ⚠️ Weight cannot be zero
-                              </span>
-                            )}
-                            {isExceeding && !isZero && (
-                              <span className="ml-2 text-red-600 font-medium">
-                                ⚠️ Exceeds available weight
-                              </span>
-                            )}
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Rate per kg (₹) *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Amount *</label>
                     <input
                       type="number"
-                      value={stockData.rate}
-                      onChange={(e) => setStockData(prev => ({ ...prev, rate: Number(e.target.value) }))}
-                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                      value={expenseData.amount}
+                      onChange={(e) => setExpenseData(prev => ({ ...prev, amount: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                       required
-                      min="0"
-                      step="0.01"
-                      placeholder="Enter purchase rate per kg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Avg Weight (Auto-calc)</label>
-                    <input
-                      type="number"
-                      value={stockData.avgWeight.toFixed(2)}
-                      className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-xs"
-                      readOnly
-                      step="0.01"
-                      placeholder="Weight ÷ Birds"
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Stock Value (Auto-calc)</label>
-                  <input
-                    type="number"
-                    value={stockData.value.toFixed(2)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-xs"
-                    readOnly
-                    step="0.01"
-                    placeholder="Weight × Rate"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Notes (Optional)</label>
-                  <textarea
-                    value={stockData.notes}
-                    onChange={(e) => setStockData(prev => ({ ...prev, notes: e.target.value }))}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
-                    rows="2"
-                    placeholder="Add any notes about this stock entry..."
-                  />
-                </div>
-                <div className="bg-yellow-50 p-1 rounded text-xs text-yellow-800">
-                  <div className="font-medium mb-0.5">Note:</div>
-                  <div className="space-y-0.5">
-                    <div>• Stock represents birds kept for future sales</div>
-                    <div>• Stock value calculated at purchase rate</div>
-                    {/* <div>• Not included in current profit calculations</div> */}
-                    <div>• Death birds calculated automatically</div>
-                  </div>
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowExpenseModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+                  >
+                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingExpenseIndex !== null ? 'Update Expense' : 'Add Expense')}
+                  </button>
                 </div>
               </form>
             </div>
+          </div>
+        )
+      }
 
-            {/* Modal Footer */}
-            <div className="p-4 pt-3 border-t border-gray-200 bg-gray-50 rounded-b-lg flex-shrink-0">
-              <div className="flex space-x-2">
-                <button
-                  type="button"
-                  onClick={() => setShowStockModal(false)}
-                  className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleStockSubmit}
-                  disabled={isSubmitting || (() => {
-                    const { availableForStockBirds, availableForStockWeight } = getRemainingStockStats();
-                    // When editing, add back the current stock entry's birds/weight to available count
-                    let adjustedAvailableBirds = availableForStockBirds;
-                    let adjustedAvailableWeight = availableForStockWeight;
-
-                    if (editingStockIndex !== null) {
-                      const currentStockEntry = trip.stocks[editingStockIndex];
-                      adjustedAvailableBirds += (currentStockEntry?.birds || 0);
-                      adjustedAvailableWeight += (currentStockEntry?.weight || 0);
-                    }
-
-                    return stockData.birds <= 0 || stockData.weight <= 0 || stockData.rate <= 0 ||
-                      stockData.birds > adjustedAvailableBirds || stockData.weight > adjustedAvailableWeight;
-                  })()}
-                  className="flex-1 px-2 py-1 bg-cyan-600 text-white rounded hover:bg-cyan-700 disabled:opacity-50 text-xs font-medium"
-                >
-                  {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : (editingStockIndex !== null ? 'Update' : 'Add')}
-                </button>
-              </div>
+      {/* Complete Trip Modal */}
+      {
+        showCompleteModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">Complete Trip</h3>
+              <form onSubmit={handleCompleteTrip} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Closing Odometer
+                    <span className="text-red-500 ml-1">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={trip?.vehicleReadings?.opening || 0}
+                    value={completeData.closingOdometer}
+                    onChange={(e) => setCompleteData(prev => ({ ...prev, closingOdometer: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder={`Min: ${trip?.vehicleReadings?.opening || 0}`}
+                    required
+                  />
+                  {trip?.vehicleReadings?.opening && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Opening reading: {trip.vehicleReadings.opening}
+                    </p>
+                  )}
+                  {completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening &&
+                    completeData.closingOdometer < trip.vehicleReadings.opening && (
+                      <p className="text-xs text-red-500 mt-1">
+                        Closing reading must be greater than opening reading ({trip.vehicleReadings.opening})
+                      </p>
+                    )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Final Remarks</label>
+                  <textarea
+                    value={completeData.finalRemarks}
+                    onChange={(e) => setCompleteData(prev => ({ ...prev, finalRemarks: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    rows="3"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Mortality (Death Birds)</label>
+                  <input
+                    type="number"
+                    value={completeData.mortality}
+                    onChange={(e) => setCompleteData(prev => ({ ...prev, mortality: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    required
+                    placeholder="Enter number of birds that died"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    This represents the remaining birds that are automatically considered as death birds.
+                  </p>
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowCompleteModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || (completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening &&
+                      completeData.closingOdometer < trip.vehicleReadings.opening)}
+                    className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Complete Trip'}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
-      {/* Transfer Trip Modal */}
-      {showTransferModal && (
-        <TransferTripModal
-          isOpen={showTransferModal}
-          onClose={() => setShowTransferModal(false)}
-          trip={trip}
-          tripId={id}
-          onTransferSuccess={async (data) => {
-            // Refresh the trip data
-            await handleRefresh();
-            alert(`Trip transferred successfully to ${data.newTrip?.supervisor?.name || 'selected supervisor'}!`);
-          }}
-        />
-      )}
+      {/* Diesel Modal */}
+      {
+        showDieselModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 w-full max-w-md">
+              <h3 className="text-lg font-semibold mb-4">
+                {editingDieselIndex !== null ? 'Edit Diesel Record' : 'Add Diesel Record'}
+              </h3>
 
-      {/* Complete Trip Details Modal - For Transferred Trips */}
-      {showCompleteTripDetailsModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b bg-blue-50">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">Complete Trip Details</h2>
-                <p className="text-sm text-blue-600 mt-1">
-                  This is a transferred trip. Please complete the missing details to start managing it.
-                </p>
-              </div>
-              <button
-                onClick={() => setShowCompleteTripDetailsModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                disabled={isSubmitting}
-              >
-                <X size={24} />
-              </button>
+              {/* Summary Section */}
+              {dieselData.volume > 0 && dieselData.rate > 0 && (
+                <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                  <div className="text-sm text-blue-800">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <span className="font-medium">Volume:</span> {dieselData.volume} liters
+                      </div>
+                      <div>
+                        <span className="font-medium">Rate:</span> ₹{dieselData.rate}/liter
+                      </div>
+                      <div className="col-span-2">
+                        <span className="font-medium">Total Amount:</span> ₹{(dieselData.volume * dieselData.rate).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleDieselSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Station *</label>
+                  <select
+                    value={dieselData.useCustomStation ? OTHER_STATION_VALUE : (dieselData.selectedStationId || '')}
+                    onChange={(e) => handleDieselStationSelect(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white"
+                    required={!dieselData.useCustomStation}
+                  >
+                    <option value="">Select station</option>
+                    {dieselStations.map((station) => (
+                      <option key={station.id} value={station.id}>
+                        {station.name}{station.location ? ` - ${station.location}` : ''}
+                      </option>
+                    ))}
+                    <option value={OTHER_STATION_VALUE}>Other</option>
+                  </select>
+                  {dieselStationsLoading && (
+                    <p className="text-xs text-gray-500 mt-1">Loading stations...</p>
+                  )}
+                </div>
+
+                {dieselData.useCustomStation && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Custom Station Name *</label>
+                    <input
+                      type="text"
+                      value={dieselData.stationName}
+                      onChange={(e) => setDieselData(prev => ({ ...prev, stationName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="e.g., HP Pump, Shell Station"
+                      required
+                    />
+                  </div>
+                )}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Volume (liters) *</label>
+                    <input
+                      type="number"
+                      value={dieselData.volume}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        // Allow only 2 decimal places
+                        if (value === '' || value === '0' || /^\d*\.?\d{0,2}$/.test(value)) {
+                          setDieselData(prev => ({ ...prev, volume: value === '' ? '' : Number(value) }));
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                      min="0"
+                      step="0.01"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Rate per liter *</label>
+                    <input
+                      type="number"
+                      value={dieselData.rate}
+                      onChange={(e) => setDieselData(prev => ({ ...prev, rate: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                      min="0"
+                      step="0.01"
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (Auto-calculated)</label>
+                    <input
+                      type="number"
+                      value={dieselData.amount.toFixed(2)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                      readOnly
+                      step="0.01"
+                      placeholder="Volume × Rate"
+                    />
+                  </div>
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowDieselModal(false)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting || !dieselData.stationName || dieselData.volume <= 0 || dieselData.rate <= 0}
+                    className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : (editingDieselIndex !== null ? 'Update Diesel Record' : 'Add Diesel Record')}
+                  </button>
+                </div>
+              </form>
             </div>
+          </div>
+        )
+      }
 
-            {/* Content */}
-            <form onSubmit={handleCompleteTripDetails} className="p-6">
-              <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
-                <div className="flex">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <p className="text-sm text-yellow-700">
-                      <strong>Transferred Trip:</strong> This trip was transferred to you. Please provide the following details for your new trip with the assigned vehicle.
-                    </p>
-                  </div>
-                </div>
+      {/* Stock Modal */}
+      {
+        showStockModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-xs max-h-[calc(80vh-56px)] flex flex-col">
+              <div className="p-4 pb-3 border-b border-gray-200 flex-shrink-0">
+                <h3 className="text-base font-semibold text-gray-900">
+                  {editingStockIndex !== null ? 'Edit Stock Entry' : 'Add to Stock'}
+                </h3>
               </div>
+              <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
 
-              <div className="space-y-4">
-                {/* Route Information */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-3">Route Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Start Location ( Route ) *
-                      </label>
-                      <input
-                        type="text"
-                        value={completeTripDetailsData.route.from}
-                        onChange={(e) => setCompleteTripDetailsData(prev => ({
-                          ...prev,
-                          route: { ...prev.route, from: e.target.value }
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="e.g., SNK, Hyderabad"
-                        required
-                      />
+                {/* Stock Availability Info */}
+                {(() => {
+                  const { remainingBirds, remainingWeight, totalStockBirds, totalStockWeight, availableForStockBirds, availableForStockWeight } = getRemainingStockStats();
+                  return (
+                    <div className="bg-gray-50 p-3 rounded-lg mb-3">
+                      <div className="text-sm font-medium text-gray-700 mb-2">Stock Availability</div>
+
+                      {/* Birds Summary */}
+                      <div className="mb-3">
+                        <div className="text-xs font-medium text-gray-600 mb-2">BIRDS</div>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div className="text-center">
+                            <div className="text-gray-500">Remaining</div>
+                            <div className="font-semibold text-blue-600">{remainingBirds}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-gray-500">In Stock</div>
+                            <div className="font-semibold text-green-600">{totalStockBirds}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-gray-500">Available</div>
+                            <div className={`font-semibold ${availableForStockBirds > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                              {availableForStockBirds}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Weight Summary */}
+                      <div>
+                        <div className="text-xs font-medium text-gray-600 mb-2">WEIGHT (kg)</div>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div className="text-center">
+                            <div className="text-gray-500">Remaining</div>
+                            <div className="font-semibold text-blue-600">{remainingWeight.toFixed(2)}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-gray-500">In Stock</div>
+                            <div className="font-semibold text-green-600">{totalStockWeight.toFixed(2)}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-gray-500">Available</div>
+                            <div className={`font-semibold ${availableForStockWeight > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                              {availableForStockWeight.toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {(availableForStockBirds <= 0 || availableForStockWeight <= 0) && (
+                        <div className="mt-2 text-xs text-red-600 font-medium text-center">
+                          ⚠️ No birds/weight available for stock
+                        </div>
+                      )}
                     </div>
+                  );
+                })()}
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        End Location ( Route ) *
-                      </label>
-                      <input
-                        type="text"
-                        value={completeTripDetailsData.route.to}
-                        onChange={(e) => setCompleteTripDetailsData(prev => ({
-                          ...prev,
-                          route: { ...prev.route, to: e.target.value }
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="e.g., SNK, Hyderabad"
-                        required
-                      />
+                {/* Summary Section */}
+                {stockData.birds > 0 && stockData.weight > 0 && stockData.rate > 0 && (
+                  <div className="bg-cyan-50 p-1.5 rounded-lg mb-2">
+                    <div className="text-xs text-cyan-800">
+                      <div className="grid grid-cols-2 gap-1">
+                        <div><span className="font-medium">Birds:</span> {stockData.birds}</div>
+                        <div><span className="font-medium">Weight:</span> {stockData.weight} kg</div>
+                        <div><span className="font-medium">Avg:</span> {stockData.avgWeight} kg/bird</div>
+                        <div><span className="font-medium">Rate:</span> ₹{stockData.rate}/kg</div>
+                        <div className="col-span-2"><span className="font-medium">Value:</span> ₹{stockData.value.toFixed(2)}</div>
+                      </div>
                     </div>
-
                   </div>
-                </div>
+                )}
 
-                {/* Team Information */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-semibold text-gray-900 mb-3">Team & Vehicle Information</h3>
-                  <div className="space-y-4">
+                <form onSubmit={handleStockSubmit} className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Driver Name *
-                      </label>
-                      <input
-                        type="text"
-                        value={completeTripDetailsData.driver}
-                        onChange={(e) => setCompleteTripDetailsData(prev => ({
-                          ...prev,
-                          driver: e.target.value
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter driver name"
-                        required
-                      />
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Birds in Stock *</label>
+                      {(() => {
+                        const { availableForStockBirds } = getRemainingStockStats();
+                        // When editing, add back the current stock entry's birds to available count
+                        let adjustedAvailableBirds = availableForStockBirds;
+                        if (editingStockIndex !== null) {
+                          const currentStockEntry = trip.stocks[editingStockIndex];
+                          adjustedAvailableBirds += (currentStockEntry?.birds || 0);
+                        }
+                        const isExceeding = stockData.birds > adjustedAvailableBirds;
+                        const isZero = stockData.birds === 0;
+
+                        return (
+                          <>
+                            <input
+                              type="number"
+                              value={stockData.birds}
+                              onChange={(e) => setStockData(prev => ({ ...prev, birds: Number(e.target.value) }))}
+                              className={`w-full px-2 py-1 border rounded text-xs ${isZero || isExceeding
+                                ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                                }`}
+                              required
+                              min="1"
+                              step="1"
+                              max={adjustedAvailableBirds}
+                            />
+                            <div className="mt-1 text-xs">
+                              <span className="text-gray-500">Available: </span>
+                              <span className={`font-medium ${adjustedAvailableBirds > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                                {adjustedAvailableBirds}
+                              </span>
+                              {isZero && (
+                                <span className="ml-2 text-red-600 font-medium">
+                                  ⚠️ Birds cannot be zero
+                                </span>
+                              )}
+                              {isExceeding && !isZero && (
+                                <span className="ml-2 text-red-600 font-medium">
+                                  ⚠️ Exceeds available birds
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
-
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Opening Odometer Reading *
-                      </label>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Total Weight (kg) *</label>
+                      {(() => {
+                        const { availableForStockWeight } = getRemainingStockStats();
+                        // When editing, add back the current stock entry's weight to available count
+                        let adjustedAvailableWeight = availableForStockWeight;
+                        if (editingStockIndex !== null) {
+                          const currentStockEntry = trip.stocks[editingStockIndex];
+                          adjustedAvailableWeight += (currentStockEntry?.weight || 0);
+                        }
+                        const isExceeding = stockData.weight > adjustedAvailableWeight;
+                        const isZero = stockData.weight === 0;
+
+                        return (
+                          <>
+                            <input
+                              type="number"
+                              value={stockData.weight}
+                              onChange={(e) => setStockData(prev => ({ ...prev, weight: Number(e.target.value) }))}
+                              className={`w-full px-2 py-1 border rounded text-xs ${isZero || isExceeding
+                                ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                                : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                                }`}
+                              required
+                              min="0.01"
+                              step="0.01"
+                              max={adjustedAvailableWeight}
+                            />
+                            <div className="mt-1 text-xs">
+                              <span className="text-gray-500">Available: </span>
+                              <span className={`font-medium ${adjustedAvailableWeight > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                                {adjustedAvailableWeight.toFixed(2)} kg
+                              </span>
+                              {isZero && (
+                                <span className="ml-2 text-red-600 font-medium">
+                                  ⚠️ Weight cannot be zero
+                                </span>
+                              )}
+                              {isExceeding && !isZero && (
+                                <span className="ml-2 text-red-600 font-medium">
+                                  ⚠️ Exceeds available weight
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Rate per kg (₹) *</label>
                       <input
                         type="number"
-                        value={completeTripDetailsData.vehicleReadings.opening}
-                        onChange={(e) => setCompleteTripDetailsData(prev => ({
-                          ...prev,
-                          vehicleReadings: { opening: e.target.value }
-                        }))}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter opening odometer reading"
+                        value={stockData.rate}
+                        onChange={(e) => setStockData(prev => ({ ...prev, rate: Number(e.target.value) }))}
+                        className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
                         required
                         min="0"
+                        step="0.01"
+                        placeholder="Enter purchase rate per kg"
                       />
-                      <p className="text-xs text-gray-500 mt-1">
-                        Enter the odometer reading of the assigned vehicle: <strong>{trip?.vehicle?.vehicleNumber}</strong>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">Avg Weight (Auto-calc)</label>
+                      <input
+                        type="number"
+                        value={stockData.avgWeight.toFixed(2)}
+                        className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-xs"
+                        readOnly
+                        step="0.01"
+                        placeholder="Weight ÷ Birds"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Stock Value (Auto-calc)</label>
+                    <input
+                      type="number"
+                      value={stockData.value.toFixed(2)}
+                      className="w-full px-2 py-1 border border-gray-300 rounded bg-gray-50 text-xs"
+                      readOnly
+                      step="0.01"
+                      placeholder="Weight × Rate"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Notes (Optional)</label>
+                    <textarea
+                      value={stockData.notes}
+                      onChange={(e) => setStockData(prev => ({ ...prev, notes: e.target.value }))}
+                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                      rows="2"
+                      placeholder="Add any notes about this stock entry..."
+                    />
+                  </div>
+                  <div className="bg-yellow-50 p-1 rounded text-xs text-yellow-800">
+                    <div className="font-medium mb-0.5">Note:</div>
+                    <div className="space-y-0.5">
+                      <div>• Stock represents birds kept for future sales</div>
+                      <div>• Stock value calculated at purchase rate</div>
+                      {/* <div>• Not included in current profit calculations</div> */}
+                      <div>• Death birds calculated automatically</div>
+                    </div>
+                  </div>
+                </form>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 pt-3 border-t border-gray-200 bg-gray-50 rounded-b-lg flex-shrink-0">
+                <div className="flex space-x-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowStockModal(false)}
+                    className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStockSubmit}
+                    disabled={isSubmitting || (() => {
+                      const { availableForStockBirds, availableForStockWeight } = getRemainingStockStats();
+                      // When editing, add back the current stock entry's birds/weight to available count
+                      let adjustedAvailableBirds = availableForStockBirds;
+                      let adjustedAvailableWeight = availableForStockWeight;
+
+                      if (editingStockIndex !== null) {
+                        const currentStockEntry = trip.stocks[editingStockIndex];
+                        adjustedAvailableBirds += (currentStockEntry?.birds || 0);
+                        adjustedAvailableWeight += (currentStockEntry?.weight || 0);
+                      }
+
+                      return stockData.birds <= 0 || stockData.weight <= 0 || stockData.rate <= 0 ||
+                        stockData.birds > adjustedAvailableBirds || stockData.weight > adjustedAvailableWeight;
+                    })()}
+                    className="flex-1 px-2 py-1 bg-cyan-600 text-white rounded hover:bg-cyan-700 disabled:opacity-50 text-xs font-medium"
+                  >
+                    {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin mx-auto" /> : (editingStockIndex !== null ? 'Update' : 'Add')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      }
+
+      {/* Transfer Trip Modal */}
+      {
+        showTransferModal && (
+          <TransferTripModal
+            isOpen={showTransferModal}
+            onClose={() => setShowTransferModal(false)}
+            trip={trip}
+            tripId={id}
+            onTransferSuccess={async (data) => {
+              // Refresh the trip data
+              await handleRefresh();
+              alert(`Trip transferred successfully to ${data.newTrip?.supervisor?.name || 'selected supervisor'}!`);
+            }}
+          />
+        )
+      }
+
+      {/* Complete Trip Details Modal - For Transferred Trips */}
+      {
+        showCompleteTripDetailsModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b bg-blue-50">
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-900">Complete Trip Details</h2>
+                  <p className="text-sm text-blue-600 mt-1">
+                    This is a transferred trip. Please complete the missing details to start managing it.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowCompleteTripDetailsModal(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  disabled={isSubmitting}
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {/* Content */}
+              <form onSubmit={handleCompleteTripDetails} className="p-6">
+                <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
+                  <div className="flex">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm text-yellow-700">
+                        <strong>Transferred Trip:</strong> This trip was transferred to you. Please provide the following details for your new trip with the assigned vehicle.
                       </p>
                     </div>
+                  </div>
+                </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Labour Worker (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={completeTripDetailsData.labour}
-                        onChange={(e) => setCompleteTripDetailsData(prev => ({
-                          ...prev,
-                          labour: e.target.value
-                        }))}
-                        placeholder="Enter labour worker name (optional)"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                      />
-                      <p className="text-xs text-gray-500 mt-1">You can add a labour worker if needed</p>
+                <div className="space-y-4">
+                  {/* Route Information */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-gray-900 mb-3">Route Information</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Start Location ( Route ) *
+                        </label>
+                        <input
+                          type="text"
+                          value={completeTripDetailsData.route.from}
+                          onChange={(e) => setCompleteTripDetailsData(prev => ({
+                            ...prev,
+                            route: { ...prev.route, from: e.target.value }
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., SNK, Hyderabad"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          End Location ( Route ) *
+                        </label>
+                        <input
+                          type="text"
+                          value={completeTripDetailsData.route.to}
+                          onChange={(e) => setCompleteTripDetailsData(prev => ({
+                            ...prev,
+                            route: { ...prev.route, to: e.target.value }
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., SNK, Hyderabad"
+                          required
+                        />
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* Team Information */}
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="font-semibold text-gray-900 mb-3">Team & Vehicle Information</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Driver Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={completeTripDetailsData.driver}
+                          onChange={(e) => setCompleteTripDetailsData(prev => ({
+                            ...prev,
+                            driver: e.target.value
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter driver name"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Opening Odometer Reading *
+                        </label>
+                        <input
+                          type="number"
+                          value={completeTripDetailsData.vehicleReadings.opening}
+                          onChange={(e) => setCompleteTripDetailsData(prev => ({
+                            ...prev,
+                            vehicleReadings: { opening: e.target.value }
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter opening odometer reading"
+                          required
+                          min="0"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          Enter the odometer reading of the assigned vehicle: <strong>{trip?.vehicle?.vehicleNumber}</strong>
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Labour Worker (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={completeTripDetailsData.labour}
+                          onChange={(e) => setCompleteTripDetailsData(prev => ({
+                            ...prev,
+                            labour: e.target.value
+                          }))}
+                          placeholder="Enter labour worker name (optional)"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">You can add a labour worker if needed</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Trip Summary Info */}
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <h4 className="font-medium text-green-900 mb-2">Transferred Stock Details</h4>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-green-700">Birds:</span>
+                        <div className="font-semibold text-green-900">{trip?.summary?.totalBirdsPurchased || 0} birds</div>
+                      </div>
+                      <div>
+                        <span className="text-green-700">Weight:</span>
+                        <div className="font-semibold text-green-900">{trip?.summary?.totalWeightPurchased?.toFixed(2) || '0.00'} kg</div>
+                      </div>
+                      <div>
+                        <span className="text-green-700">Assigned Vehicle:</span>
+                        <div className="font-semibold text-green-900">{trip?.vehicle?.vehicleNumber}</div>
+                      </div>
+                      <div>
+                        <span className="text-green-700">Transferred From:</span>
+                        <div className="font-semibold text-green-900">{trip?.transferredFrom?.tripId || 'N/A'}</div>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Trip Summary Info */}
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h4 className="font-medium text-green-900 mb-2">Transferred Stock Details</h4>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-green-700">Birds:</span>
-                      <div className="font-semibold text-green-900">{trip?.summary?.totalBirdsPurchased || 0} birds</div>
-                    </div>
-                    <div>
-                      <span className="text-green-700">Weight:</span>
-                      <div className="font-semibold text-green-900">{trip?.summary?.totalWeightPurchased?.toFixed(2) || '0.00'} kg</div>
-                    </div>
-                    <div>
-                      <span className="text-green-700">Assigned Vehicle:</span>
-                      <div className="font-semibold text-green-900">{trip?.vehicle?.vehicleNumber}</div>
-                    </div>
-                    <div>
-                      <span className="text-green-700">Transferred From:</span>
-                      <div className="font-semibold text-green-900">{trip?.transferredFrom?.tripId || 'N/A'}</div>
-                    </div>
-                  </div>
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Are you sure? You need to complete these details to manage this trip.')) {
+                        setShowCompleteTripDetailsModal(false);
+                      }
+                    }}
+                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                    disabled={isSubmitting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {isSubmitting && <Loader2 size={16} className="animate-spin" />}
+                    {isSubmitting ? 'Saving...' : 'Complete Trip Details'}
+                  </button>
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-3 mt-6 pt-6 border-t">
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (window.confirm('Are you sure? You need to complete these details to manage this trip.')) {
-                      setShowCompleteTripDetailsModal(false);
-                    }
-                  }}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  disabled={isSubmitting}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                >
-                  {isSubmitting && <Loader2 size={16} className="animate-spin" />}
-                  {isSubmitting ? 'Saving...' : 'Complete Trip Details'}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      }
 
       {/* Edit Trip Modal */}
       <EditTripModal
@@ -4735,7 +4774,7 @@ const SupervisorTripDetails = () => {
         }}
       />
 
-    </div>
+    </div >
   );
 };
 
