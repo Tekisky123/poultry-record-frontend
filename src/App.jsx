@@ -41,6 +41,7 @@ import SupervisorCreateTrip from './pages/SupervisorCreateTrip';
 import SupervisorTripDetails from './pages/SupervisorTripDetails';
 import SupervisorProfile from './pages/SupervisorProfile';
 import SupervisorHeader from './components/SupervisorHeader';
+import ManageStocks from './pages/ManageStocks';
 import BottomNavigation from './components/BottomNavigation';
 
 // Customer Components
@@ -97,6 +98,7 @@ const AppContent = () => {
             <Route path="/supervisor/trips" element={<SupervisorTrips />} />
             <Route path="/supervisor/trips/create" element={<SupervisorCreateTrip />} />
             <Route path="/supervisor/trips/:id" element={<SupervisorTripDetails />} />
+            <Route path="/supervisor/stocks" element={<ManageStocks />} />
             <Route path="/supervisor/profile" element={<SupervisorProfile />} />
             <Route path="*" element={<Navigate to="/supervisor" replace />} />
           </Routes>
@@ -164,6 +166,8 @@ const AppContent = () => {
               <Route path="/monthly-summary/:type/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><MonthlySummary /></ProtectedRoute>} />
               <Route path="/security" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Security /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute allowedRoles={["superadmin"]}><SettingsPage /></ProtectedRoute>} />
+
+              <Route path="/stocks" element={<ManageStocks />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>

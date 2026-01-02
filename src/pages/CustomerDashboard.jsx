@@ -486,8 +486,10 @@ const CustomerDashboard = () => {
   const getParticularsColor = (particulars) => {
     switch (particulars) {
       case 'SALES':
+      case 'STOCK_SALE':
         return 'text-blue-600 bg-blue-100';
       case 'PURCHASE':
+      case 'STOCK_PURCHASE':
         return 'text-blue-600 bg-blue-100';
       case 'INDIRECT_PURCHASE':
         return 'text-red-600 bg-red-100';

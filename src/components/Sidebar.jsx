@@ -19,7 +19,8 @@ import {
   Fuel,
   FileText as FileTextIcon,
   Home,
-  Shield
+  Shield,
+  Package
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
@@ -34,6 +35,7 @@ const getMenuItems = (userRole) => {
     { name: 'Customer Payments', path: '/customer-payments', icon: CreditCard },
     { name: 'Balance Sheet', path: '/balance-sheet', icon: FileTextIcon },
     { name: 'Vouchers', path: '/vouchers', icon: Receipt },
+    { name: 'Stock', path: '/stocks', icon: Package },
     {
       name: 'Create And Alter',
       icon: Settings,

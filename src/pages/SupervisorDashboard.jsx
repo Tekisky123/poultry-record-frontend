@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { 
-  Truck, 
+import {
+  Truck,
   Plus,
   MapPin,
   Clock,
@@ -27,7 +27,7 @@ const SupervisorDashboard = () => {
         api.post('/dashboard/stats').catch(() => ({ data: { success: false } })),
         api.get('/trip?limit=5').catch(() => ({ data: { success: false } }))
       ]);
-      
+
       if (statsResponse.data.success) {
         const dashboardData = statsResponse?.data?.data;
         setStats(dashboardData?.stats || { totalTrips: 0, completedTrips: 0 });
@@ -35,7 +35,7 @@ const SupervisorDashboard = () => {
         // If API call fails, ensure we have default values
         setStats({ totalTrips: 0, completedTrips: 0 });
       }
-      
+
       if (tripsResponse.data.success) {
         const tripsData = tripsResponse.data.trips || [];
         setRecentTrips(tripsData);
@@ -73,7 +73,7 @@ const SupervisorDashboard = () => {
       <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-lg p-6 text-white">
         <h1 className="text-2xl font-bold mb-2">Welcome back!</h1>
         <p className="text-primary-100">Ready to create your next round trip?</p>
-        
+
         {/* Quick Actions */}
         <div className="mt-4 flex space-x-3">
           <Link
@@ -89,6 +89,13 @@ const SupervisorDashboard = () => {
           >
             <MapPin size={16} />
             <span>View Trips</span>
+          </Link>
+          <Link
+            to="/supervisor/stocks"
+            className="border border-white text-white px-4 py-2 rounded-lg font-medium hover:bg-white hover:text-primary-600 transition-colors flex items-center space-x-2"
+          >
+            <div className="w-4 h-4 flex items-center justify-center border-2 border-current rounded-sm text-[10px] font-bold">S</div>
+            <span>Manage Stocks</span>
           </Link>
         </div>
       </div>

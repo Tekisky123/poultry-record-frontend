@@ -1553,14 +1553,14 @@ const SupervisorTripDetails = () => {
                 <Fuel size={16} />
                 Add Diesel
               </button>
-              {/* <button
+              <button
                 onClick={() => {
                   setEditingStockIndex(null);
-                  setStockData({ 
-                    birds: '', 
-                    weight: '', 
-                    avgWeight: 0, 
-                    rate: trip.summary?.avgPurchaseRate || '', 
+                  setStockData({
+                    birds: '',
+                    weight: '',
+                    avgWeight: 0,
+                    rate: trip.summary?.avgPurchaseRate || '',
                     value: 0,
                     notes: ''
                   });
@@ -1570,7 +1570,7 @@ const SupervisorTripDetails = () => {
               >
                 <Plus size={16} />
                 Add to Stock
-              </button> */}
+              </button>
               {/* Transfer Trip Button - Only show if there are remaining birds */}
               {(() => {
                 const remainingBirds = (trip.summary?.totalBirdsPurchased || 0) -
@@ -1640,8 +1640,7 @@ const SupervisorTripDetails = () => {
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="border-b border-gray-200">
           <nav className="flex overflow-x-auto scrollbar-hide px-6">
-            {/* 'stock' is removed */}
-            {['overview', 'purchases', 'sales', 'receipts', 'expenses', 'diesel', 'losses', 'financials', 'transfers'].map((tab) => (
+            {['overview', 'purchases', 'sales', 'receipts', 'stock', 'expenses', 'diesel', 'losses', 'financials', 'transfers'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
@@ -2049,6 +2048,98 @@ const SupervisorTripDetails = () => {
                 </div>
               ) : (
                 <p className="text-gray-500 text-center py-8">No sales recorded yet</p>
+              )}
+
+              {/* Stock Additions Section */}
+              {trip.stocks && trip.stocks.length > 0 && (
+                <div className="space-y-4 pt-4 border-t border-gray-200">
+                  <div className="bg-cyan-50 p-4 rounded-lg border border-cyan-200">
+                    <h4 className="font-medium text-cyan-900 mb-2">Stock Details</h4>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                      <div>
+                        <div className="text-sm text-cyan-600">Total Stock Birds</div>
+                        <div className="font-medium text-cyan-800">
+                          {trip.stocks.reduce((sum, stock) => sum + (stock.birds || 0), 0)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-cyan-600">Total Stock Weight</div>
+                        <div className="font-medium text-cyan-800">
+                          {trip.stocks.reduce((sum, stock) => sum + (stock.weight || 0), 0).toFixed(2)} kg
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-cyan-600">Total Stock Value</div>
+                        <div className="font-medium text-cyan-800">
+                          ₹{trip.stocks.reduce((sum, stock) => sum + (stock.value || 0), 0).toFixed(2)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-cyan-600">Entries</div>
+                        <div className="font-medium text-cyan-800">{trip.stocks.length}</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border border-gray-200 rounded-lg">
+                    <div className="bg-gray-100 px-4 py-2 border-b border-gray-200">
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-medium text-gray-800">Stock Additions</h4>
+                        <div className="text-sm text-gray-600">
+                          {trip.stocks.length} entr{trip.stocks.length !== 1 ? 'ies' : 'y'}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-4 space-y-3">
+                      {trip.stocks.map((stock, index) => (
+                        <div key={index} className="bg-white p-3 rounded border border-gray-100">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">
+                                Stock Addition
+                              </div>
+                              <div className="text-sm text-gray-600">
+                                {stock.birds} birds | {stock.weight} kg
+                                {stock.avgWeight && ` (Avg: ${stock.avgWeight} kg/bird)`}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Notes: {stock.notes || 'N/A'}
+                              </div>
+                            </div>
+                            <div className="flex flex-col items-end space-y-2">
+                              <div className="text-right">
+                                <div className="font-medium">₹{(stock.value || 0).toFixed(2)}</div>
+                                <div className="text-sm text-gray-500">₹{(stock.rate || 0).toFixed(2)}/kg</div>
+                              </div>
+                              <div className="flex space-x-2">
+                                {trip.status !== 'completed' && (
+                                  <button
+                                    onClick={() => {
+                                      setEditingStockIndex(index);
+                                      setStockData({
+                                        birds: stock.birds,
+                                        weight: stock.weight,
+                                        avgWeight: stock.avgWeight,
+                                        rate: stock.rate,
+                                        value: stock.value,
+                                        notes: stock.notes || ''
+                                      });
+                                      setShowStockModal(true);
+                                    }}
+                                    className="px-3 py-1 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 flex items-center gap-1"
+                                  >
+                                    <Edit size={12} />
+                                    Edit
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           )}
