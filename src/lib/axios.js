@@ -7,8 +7,8 @@ const api = axios.create({
 	// baseURL: "https://poultry-record-backend.vercel.app/api",
 	// baseURL: "http://localhost:8889/api",
 	baseURL: isLocalhost
-    ? "http://localhost:6060/api"
-    : "https://poultry-record-backend.vercel.app/api", 
+		? "http://localhost:6060/api"
+		: "https://poultry-record-backend-qa.vercel.app/api",
 	withCredentials: true,
 	headers: {
 		'Content-Type': 'application/json',
@@ -38,12 +38,12 @@ api.interceptors.request.use(
 		// Try to get token from cookies first, then localStorage as fallback
 		let token = getTokenFromCookies();
 		let tokenSource = 'cookies';
-		
+
 		if (!token) {
 			token = getTokenFromLocalStorage();
 			tokenSource = 'localStorage';
 		}
-		
+
 		if (token) {
 			config.headers.Authorization = `Bearer ${token}`;
 			// console.log(`✅ Token attached to request from ${tokenSource}:`, token.substring(0, 20) + '...');
@@ -53,7 +53,7 @@ api.interceptors.request.use(
 			// console.log('🔍 Available cookies:', document.cookie);
 			// console.log('🔍 localStorage token:', localStorage.getItem('token'));
 		}
-		
+
 		// console.log('📤 Request config headers:', config.headers);
 		// console.log('🌐 Request URL:', config.url);
 		// console.log('📋 Request method:', config.method);
@@ -78,7 +78,7 @@ api.interceptors.response.use(
 			method: error.config?.method,
 			headers: error.config?.headers
 		});
-		
+
 		// Normalize error
 		const message =
 			error?.response?.data?.message ||
