@@ -37,14 +37,11 @@ export default function TripMonthlySummary() {
     };
 
     const handleMonthClick = (month) => {
-        const startDate = new Date(month.startDate).toISOString().split('T')[0];
-        // backend returns endDate as 1st of next month.
-        // We want the last day of current month for the filter.
-        const actualEndDate = new Date(month.endDate);
-        actualEndDate.setDate(actualEndDate.getDate() - 1);
-        const endDateStr = actualEndDate.toISOString().split('T')[0];
+        const date = new Date(month.startDate);
+        const year = date.getFullYear();
+        const monthNum = date.getMonth() + 1; // 1-indexed for backend/query
 
-        navigate(`/trips/list?startDate=${startDate}&endDate=${endDateStr}`);
+        navigate(`/trips/daily?year=${year}&month=${monthNum}`);
     };
 
     const handleExportToExcel = () => {

@@ -205,11 +205,11 @@ export default function Vendors() {
       setGroups(groupsData);
 
       // Filter groups to show only "Sundry Creditors" and its descendants
-      let sundryCreditorsGroups = getGroupDescendants(groupsData, 'sundry-creditors');
+      let sundryCreditorsGroups = getGroupDescendants(groupsData, 'current-liabilities');
 
       // Fallback to name if slug search returns empty (though slug should exist)
       if (sundryCreditorsGroups.length === 0) {
-        sundryCreditorsGroups = getGroupDescendants(groupsData, 'Sundry Creditors');
+        sundryCreditorsGroups = getGroupDescendants(groupsData, 'Current Liabilities');
       }
 
       // Build tree for filtered groups
@@ -349,7 +349,7 @@ export default function Vendors() {
   };
 
   const handleView = (vendor) => {
-    navigate(`/vendors/${vendor.id}`);
+    navigate(`/vendors/${vendor.id}/monthly`);
   };
 
   const onSubmit = (data) => {

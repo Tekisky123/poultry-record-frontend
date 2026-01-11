@@ -20,7 +20,8 @@ import {
   FileText as FileTextIcon,
   Home,
   Shield,
-  Package
+  Package,
+  Calendar,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';

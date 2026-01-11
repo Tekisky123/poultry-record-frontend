@@ -1251,20 +1251,54 @@ export default function TripDetails() {
                       );
                     })}
                     {/* Total Sales Row - Only Customer Sales for Display */}
+                    {/* Total Sales Row - Includes Sales + Stock Points */}
                     <tr className="bg-black text-white font-bold">
-                      <td className="px-4 py-3 border-r">TOTAL SALE</td>
+                      <td className="px-4 py-3 border-r">TOTAL</td>
                       <td className="px-4 py-3 border-r"></td>
                       <td className="px-4 py-3 border-r"></td>
-                      <td className="px-4 py-3 border-r">{trip.summary?.customerBirdsSold || 0}</td>
-                      <td className="px-4 py-3 border-r">{(trip.summary?.customerWeightSold || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 border-r">
-                        {trip.summary?.customerBirdsSold && trip.summary?.customerWeightSold
-                          ? (trip.summary.customerWeightSold / trip.summary.customerBirdsSold).toFixed(2)
-                          : '0.00'}
+                        {(() => {
+                          const salesBirds = trip.summary?.customerBirdsSold || 0;
+                          const stockBirds = trip.stocks?.reduce((sum, s) => sum + (Number(s.birds) || 0), 0) || 0;
+                          return salesBirds + stockBirds;
+                        })()}
                       </td>
-                      {/* <td className="px-4 py-3 border-r">₹{(trip.summary?.averageRate || (trip.sales?.length > 0 ? trip.sales.reduce((acc, sale) => acc + sale.rate, 0) / trip.sales.length : 0)).toFixed(2)}</td> */}
-                      <td className="px-4 py-3 border-r">₹{Math.floor((trip.summary?.customerSalesAmount / trip.summary?.customerWeightSold) * 100) / 100 || 0}</td>
-                      <td className="px-4 py-3 border-r">₹{(trip.summary?.customerSalesAmount || 0).toFixed(2)}</td>
+                      <td className="px-4 py-3 border-r">
+                        {(() => {
+                          const salesWeight = trip.summary?.customerWeightSold || 0;
+                          const stockWeight = trip.stocks?.reduce((sum, s) => sum + (Number(s.weight) || 0), 0) || 0;
+                          return (salesWeight + stockWeight).toFixed(2);
+                        })()}
+                      </td>
+                      <td className="px-4 py-3 border-r">
+                        {(() => {
+                          const salesBirds = trip.summary?.customerBirdsSold || 0;
+                          const stockBirds = trip.stocks?.reduce((sum, s) => sum + (Number(s.birds) || 0), 0) || 0;
+                          const salesWeight = trip.summary?.customerWeightSold || 0;
+                          const stockWeight = trip.stocks?.reduce((sum, s) => sum + (Number(s.weight) || 0), 0) || 0;
+                          const totalBirds = salesBirds + stockBirds;
+                          const totalWeight = salesWeight + stockWeight;
+                          return totalBirds > 0 ? (totalWeight / totalBirds).toFixed(2) : '0.00';
+                        })()}
+                      </td>
+                      <td className="px-4 py-3 border-r">
+                        {(() => {
+                          const salesAmount = trip.summary?.customerSalesAmount || 0;
+                          const stockAmount = trip.stocks?.reduce((sum, s) => sum + (Number(s.value) || 0), 0) || 0;
+                          const salesWeight = trip.summary?.customerWeightSold || 0;
+                          const stockWeight = trip.stocks?.reduce((sum, s) => sum + (Number(s.weight) || 0), 0) || 0;
+                          const totalAmount = salesAmount + stockAmount;
+                          const totalWeight = salesWeight + stockWeight;
+                          return totalWeight > 0 ? (totalAmount / totalWeight).toFixed(2) : '0.00';
+                        })()}
+                      </td>
+                      <td className="px-4 py-3 border-r">
+                        ₹{(() => {
+                          const salesAmount = trip.summary?.customerSalesAmount || 0;
+                          const stockAmount = trip.stocks?.reduce((sum, s) => sum + (Number(s.value) || 0), 0) || 0;
+                          return (salesAmount + stockAmount).toFixed(2);
+                        })()}
+                      </td>
                       <td className="px-4 py-3 border-r">₹{(trip.summary?.totalCashPaid || 0).toFixed(2)}</td>
                       <td className="px-4 py-3 border-r">₹{(trip.summary?.totalOnlinePaid || 0).toFixed(2)}</td>
                       <td className="px-4 py-3">₹{(trip.summary?.totalDiscount || 0).toFixed(2)}</td>

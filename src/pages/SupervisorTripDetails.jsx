@@ -1640,7 +1640,7 @@ const SupervisorTripDetails = () => {
       <div className="bg-white rounded-lg border border-gray-200">
         <div className="border-b border-gray-200">
           <nav className="flex overflow-x-auto scrollbar-hide px-6">
-            {['overview', 'purchases', 'sales', 'receipts', 'stock', 'expenses', 'diesel', 'losses', 'financials', 'transfers'].map((tab) => (
+            {['overview', 'purchases', 'sales', 'receipts', 'stock', 'expenses', 'diesel', 'losses', /* 'financials', */ 'transfers'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}

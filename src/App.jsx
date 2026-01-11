@@ -4,10 +4,15 @@ import { useState, useEffect } from 'react';
 import Dashboard from './pages/Dashboard';
 import Trips from './pages/Trips';
 import TripMonthlySummary from './pages/TripMonthlySummary';
+import TripDailySummary from './pages/TripDailySummary';
 import TripDetails from './pages/TripDetails';
 import Vendors from './pages/Vendors';
+import VendorMonthlySummary from './pages/VendorMonthlySummary';
+import VendorDailySummary from './pages/VendorDailySummary';
 import VendorDetails from './pages/VendorDetails';
 import Customers from './pages/Customers';
+import CustomerMonthlySummary from './pages/CustomerMonthlySummary';
+import CustomerDailySummary from './pages/CustomerDailySummary';
 import AddCustomer from './pages/AddCustomer';
 import CustomerDetails from './pages/CustomerDetails';
 import CustomerPaymentsAdmin from './pages/CustomerPaymentsAdmin';
@@ -17,6 +22,8 @@ import Users from './pages/Users';
 import SignIn from './pages/SignIn';
 import SignUp from './pages/SignUp';
 import IndirectSales from './pages/IndirectSales';
+import IndirectSalesMonthlySummary from './pages/IndirectSalesMonthlySummary';
+import IndirectSalesDailySummary from './pages/IndirectSalesDailySummary';
 import IndirectSaleDetail from './pages/IndirectSaleDetail';
 import VoucherList from './pages/VoucherList';
 import AddEditVoucher from './pages/AddEditVoucher';
@@ -25,6 +32,8 @@ import Groups from './pages/Groups';
 import Ledgers from './pages/Ledgers';
 import DieselStations from './pages/DieselStations';
 import LedgerDetails from './pages/LedgerDetails';
+import LedgerMonthlySummary from './pages/LedgerMonthlySummary';
+import LedgerDailySummary from './pages/LedgerDailySummary';
 import BalanceSheet from './pages/BalanceSheet';
 import GroupSummary from './pages/GroupSummary';
 import MonthlySummary from './pages/MonthlySummary';
@@ -141,17 +150,24 @@ const AppContent = () => {
               <Route path="/" element={<Dashboard />} />
               <Route path="/users" element={<Users />} />
               <Route path="/trips" element={<TripMonthlySummary />} />
+              <Route path="/trips/daily" element={<TripDailySummary />} />
               <Route path="/trips/list" element={<Trips />} />
               <Route path="/trips/:id" element={<TripDetails />} />
               <Route path="/vendors" element={<Vendors />} />
+              <Route path="/vendors/:id/monthly" element={<VendorMonthlySummary />} />
+              <Route path="/vendors/:id/daily" element={<VendorDailySummary />} />
               <Route path="/vendors/:id" element={<VendorDetails />} />
               <Route path="/customers" element={<Customers />} />
+              <Route path="/customers/:id/monthly" element={<CustomerMonthlySummary />} />
+              <Route path="/customers/:id/daily" element={<CustomerDailySummary />} />
               <Route path="/add-customer" element={<AddCustomer />} />
               <Route path="/customers/:id" element={<CustomerDetails />} />
               <Route path="/customer-payments" element={<CustomerPaymentsAdmin />} />
               <Route path="/vehicles" element={<Vehicles />} />
               <Route path="/reports" element={<Reports />} />
-              <Route path="/indirect-sales" element={<IndirectSales />} />
+              <Route path="/indirect-sales" element={<IndirectSalesMonthlySummary />} />
+              <Route path="/indirect-sales/daily" element={<IndirectSalesDailySummary />} />
+              <Route path="/indirect-sales/list" element={<IndirectSales />} />
               <Route path="/indirect-sales/:id" element={<IndirectSaleDetail />} />
               <Route path="/vouchers" element={<VoucherList />} />
               <Route path="/vouchers/add" element={<AddEditVoucher />} />
@@ -159,6 +175,8 @@ const AppContent = () => {
               <Route path="/vouchers/:id/edit" element={<AddEditVoucher />} />
               <Route path="/groups" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Groups /></ProtectedRoute>} />
               <Route path="/ledgers" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Ledgers /></ProtectedRoute>} />
+              <Route path="/ledgers/:id/monthly" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LedgerMonthlySummary /></ProtectedRoute>} />
+              <Route path="/ledgers/:id/daily" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LedgerDailySummary /></ProtectedRoute>} />
               <Route path="/ledgers/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LedgerDetails /></ProtectedRoute>} />
               <Route path="/diesel-stations" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><DieselStations /></ProtectedRoute>} />
               <Route path="/balance-sheet" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BalanceSheet /></ProtectedRoute>} />

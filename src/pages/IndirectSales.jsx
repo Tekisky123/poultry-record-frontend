@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Filter, PlusCircle, Loader2 } from 'lucide-react';
 import api from '../lib/axios';
 import dayjs from 'dayjs';
@@ -16,10 +16,13 @@ const INITIAL_FORM = {
 
 export default function IndirectSales() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [records, setRecords] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState(searchParams.get('startDate') || '');
+  const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -52,7 +55,9 @@ export default function IndirectSales() {
         params: {
           page,
           limit: pagination.itemsPerPage,
-          search: query || undefined
+          search: query || undefined,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined
         }
       });
 
@@ -77,8 +82,8 @@ export default function IndirectSales() {
   useEffect(() => {
     fetchRecords(1);
     loadCustomersAndVendors();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate]);
 
   const handleSearch = (event) => {
     event.preventDefault();
@@ -193,9 +198,20 @@ export default function IndirectSales() {
             type="button"
             className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 text-gray-700"
           >
-            <Filter size={16} />
             Filters
           </button>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          />
         </form>
       </div>
 

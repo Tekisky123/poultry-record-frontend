@@ -349,7 +349,7 @@ export default function Customers() {
   };
 
   const handleView = (customer) => {
-    navigate(`/customers/${customer.id}`);
+    navigate(`/customers/${customer.id}/monthly`);
   };
 
   const onSubmit = (data) => {
