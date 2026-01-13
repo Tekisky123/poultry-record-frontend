@@ -1,10 +1,15 @@
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Search, Calendar, FileText, CheckCircle, Save, X, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, Calendar, FileText, CheckCircle, Save, X, Edit, Trash2, Download, ArrowLeft } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 
 const ManageStocks = () => {
+    const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const dateParam = searchParams.get('date');
+
     const [loading, setLoading] = useState(true);
     const [stocks, setStocks] = useState([]);
     const [vendors, setVendors] = useState([]);
@@ -29,6 +34,8 @@ const ManageStocks = () => {
     const [isEditMode, setIsEditMode] = useState(false);
     const [currentStockId, setCurrentStockId] = useState(null);
 
+    const defaultDate = dateParam || new Date().toISOString().split('T')[0];
+
     const [purchaseData, setPurchaseData] = useState({
         vendorId: '',
         vehicleNumber: '', // Text input as per requirement
@@ -38,7 +45,7 @@ const ManageStocks = () => {
         rate: '',
         amount: 0,
         refNo: '',
-        date: new Date().toISOString().split('T')[0]
+        date: defaultDate
     });
 
     const [saleData, setSaleData] = useState({
@@ -57,7 +64,8 @@ const ManageStocks = () => {
         cashLedgerId: '',
         onlineLedgerId: '',
         saleOutBalance: 0,
-        date: new Date().toISOString().split('T')[0]
+        saleOutBalance: 0,
+        date: defaultDate
     });
 
     const [openingStockData, setOpeningStockData] = useState({
@@ -65,7 +73,8 @@ const ManageStocks = () => {
         weight: '',
         rate: '',
         refNo: '',
-        date: new Date().toISOString().split('T')[0]
+        refNo: '',
+        date: defaultDate
     });
 
     // Calculate Avg and Amount Effects
@@ -76,7 +85,8 @@ const ManageStocks = () => {
         avgWeight: 0,
         rate: 0,
         amount: 0,
-        date: new Date().toISOString().split('T')[0]
+        amount: 0,
+        date: defaultDate
     });
 
     useEffect(() => {
@@ -111,7 +121,8 @@ const ManageStocks = () => {
         avgWeight: 0,
         rate: 0,
         amount: 0,
-        date: new Date().toISOString().split('T')[0]
+        amount: 0,
+        date: defaultDate
     });
 
     // Auto-calculate Weight Loss Amount
@@ -130,10 +141,12 @@ const ManageStocks = () => {
     const [showFeedPurchaseModal, setShowFeedPurchaseModal] = useState(false);
     const [feedPurchaseData, setFeedPurchaseData] = useState({
         vendorId: '',
+        bags: '',
         weight: '',
         rate: '',
         amount: 0,
-        date: new Date().toISOString().split('T')[0]
+        amount: 0,
+        date: defaultDate
     });
 
     // Auto-calculate Feed Purchase Amount
@@ -149,10 +162,12 @@ const ManageStocks = () => {
 
     const [showFeedConsumeModal, setShowFeedConsumeModal] = useState(false);
     const [feedConsumeData, setFeedConsumeData] = useState({
+        bags: '',
         weight: '',
         rate: '',
         amount: 0,
-        date: new Date().toISOString().split('T')[0]
+        amount: 0,
+        date: defaultDate
     });
 
     // Auto-calculate Feed Consume Amount
@@ -168,9 +183,11 @@ const ManageStocks = () => {
 
     const [showFeedOpeningStockModal, setShowFeedOpeningStockModal] = useState(false);
     const [feedOpeningStockData, setFeedOpeningStockData] = useState({
+        bags: '',
         weight: '',
         rate: '',
-        date: new Date().toISOString().split('T')[0]
+        rate: '',
+        date: defaultDate
     });
 
     useEffect(() => {
@@ -211,13 +228,13 @@ const ManageStocks = () => {
     // Fetch Data
     useEffect(() => {
         fetchInitialData();
-    }, []);
+    }, [dateParam]);
 
     const fetchInitialData = async () => {
         setLoading(true);
         try {
             const [stocksRes, vendorsRes, customersRes, ledgersRes] = await Promise.all([
-                api.get('/inventory-stock'),
+                api.get('/inventory-stock', { params: dateParam ? { startDate: dateParam, endDate: dateParam } : {} }),
                 api.get('/vendor?limit=1000'),
                 api.get('/customer'),
                 api.get('/ledger')
@@ -227,8 +244,8 @@ const ManageStocks = () => {
                 const fetchedStocks = stocksRes.data.data;
                 setStocks(fetchedStocks);
 
-                // Check for Opening Stock (Admin only check)
-                if (user?.role === 'admin' || user?.role === 'superadmin') {
+                // Check for Opening Stock (Admin only check) - Only when not filtering by date
+                if (!dateParam && (user?.role === 'admin' || user?.role === 'superadmin')) {
                     const hasBirdOpening = fetchedStocks.some(s => s.type === 'opening' && s.inventoryType !== 'feed');
                     const hasFeedOpening = fetchedStocks.some(s => s.type === 'opening' && s.inventoryType === 'feed');
 
@@ -277,7 +294,7 @@ const ManageStocks = () => {
                 rate: '',
                 amount: 0,
                 refNo: '',
-                date: new Date().toISOString().split('T')[0]
+                date: defaultDate
             });
             setSelectedVendor(null);
             setVendorSearchTerm('');
@@ -320,7 +337,8 @@ const ManageStocks = () => {
                 cashLedgerId: '',
                 onlineLedgerId: '',
                 saleOutBalance: 0,
-                date: new Date().toISOString().split('T')[0]
+                saleOutBalance: 0,
+                date: defaultDate
             });
             setIsEditMode(false);
             setCurrentStockId(null);
@@ -362,7 +380,8 @@ const ManageStocks = () => {
                 cashLedgerId: '',
                 onlineLedgerId: '',
                 saleOutBalance: 0,
-                date: new Date().toISOString().split('T')[0]
+                saleOutBalance: 0,
+                date: defaultDate
             });
             setIsEditMode(false);
             setCurrentStockId(null);
@@ -384,7 +403,7 @@ const ManageStocks = () => {
             });
 
             setShowOpeningStockModal(false);
-            setOpeningStockData({ birds: '', weight: '', rate: '', refNo: '', date: new Date().toISOString().split('T')[0] });
+            setOpeningStockData({ birds: '', weight: '', rate: '', refNo: '', date: defaultDate });
             fetchInitialData();
             alert("Opening Stock added successfully!");
         } catch (error) {
@@ -418,7 +437,7 @@ const ManageStocks = () => {
             }
 
             setShowFeedOpeningStockModal(false);
-            setFeedOpeningStockData({ weight: '', rate: '', date: new Date().toISOString().split('T')[0] });
+            setFeedOpeningStockData({ weight: '', rate: '', date: defaultDate });
             setIsEditMode(false);
             setCurrentStockId(null);
             fetchInitialData();
@@ -439,7 +458,7 @@ const ManageStocks = () => {
             }
             setShowMortalityModal(false);
             fetchInitialData();
-            setMortalityData({ birds: '', weight: '', avgWeight: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
+            setMortalityData({ birds: '', weight: '', avgWeight: 0, rate: 0, amount: 0, date: defaultDate });
             setIsEditMode(false);
             setCurrentStockId(null);
         } catch (error) {
@@ -459,7 +478,7 @@ const ManageStocks = () => {
             }
             setShowWeightLossModal(false);
             fetchInitialData();
-            setWeightLossData({ birds: 0, weight: '', avgWeight: 0, rate: 0, amount: 0, date: new Date().toISOString().split('T')[0] });
+            setWeightLossData({ birds: 0, weight: '', avgWeight: 0, rate: 0, amount: 0, date: defaultDate });
             setIsEditMode(false);
             setCurrentStockId(null);
         } catch (error) {
@@ -644,9 +663,76 @@ const ManageStocks = () => {
     const totalSaleAvg = totalSaleBirds > 0 ? (totalSaleWeight / totalSaleBirds) : 0;
     const totalSaleRate = totalSaleWeight > 0 ? (totalSaleAmount / totalSaleWeight) : 0;
 
+    const handleExportToExcel = () => {
+        // Prepare data matching the visible tables
+        const wb = XLSX.utils.book_new();
+
+        // 1. Purchase Sheet
+        const purchaseSheetData = sortedPurchaseStocks.map((s, i) => ({
+            'S N': i + 1,
+            'Supplier': s.vendorId?.vendorName || 'N/A',
+            'DC No': s.refNo || '-',
+            'Birds': s.birds,
+            'Weight': s.weight,
+            'Avg': s.avgWeight,
+            'Rate': s.rate,
+            'Amount': s.amount
+        }));
+        purchaseSheetData.push({
+            'S N': 'TOTAL', 'Birds': totalBirds, 'Weight': totalWeight, 'Avg': totalAvg, 'Rate': totalRate, 'Amount': totalAmount
+        });
+        const wsPurchase = XLSX.utils.json_to_sheet(purchaseSheetData);
+        XLSX.utils.book_append_sheet(wb, wsPurchase, "Purchases");
+
+        // 2. Sales Sheet
+        const saleSheetData = saleStocks.map((s, i) => ({
+            'S N': i + 1, 'Date': new Date(s.date).toLocaleDateString(), 'Customer': s.customerId?.shopName, 'Bill No': s.billNumber,
+            'Birds': s.birds, 'Weight': s.weight, 'Avg': s.avgWeight, 'Rate': s.rate, 'Amount': s.amount,
+            'Cash': s.cashPaid, 'Online': s.onlinePaid, 'Discount': s.discount
+        }));
+        saleSheetData.push({
+            'S N': 'TOTAL', 'Birds': totalSaleBirds, 'Weight': totalSaleWeight, 'Avg': totalSaleAvg, 'Rate': totalSaleRate, 'Amount': totalSaleAmount,
+            'Cash': totalSaleCash, 'Online': totalSaleOnline, 'Discount': totalSaleDiscount
+        });
+        const wsSale = XLSX.utils.json_to_sheet(saleSheetData);
+        XLSX.utils.book_append_sheet(wb, wsSale, "Sales");
+
+        XLSX.writeFile(wb, `Stock_Report_${dateParam || 'All'}.xlsx`);
+    };
+
     return (
         <div className="p-6">
-            <h1 className="text-2xl font-bold mb-6">Manage Stocks</h1>
+            <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center gap-4">
+                    {dateParam && (
+                        <button
+                            onClick={() => {
+                                const dateObj = new Date(dateParam);
+                                const y = dateObj.getFullYear();
+                                const m = dateObj.getMonth() + 1;
+                                const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/daily' : '/stocks/daily';
+                                navigate(`${basePath}?year=${y}&month=${m}`);
+                            }}
+                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                        >
+                            <ArrowLeft size={20} />
+                        </button>
+                    )}
+                    <div>
+                        <h1 className="text-2xl font-bold">{dateParam ? `Report - ${new Date(dateParam).toLocaleDateString()}` : 'Manage Stocks'}</h1>
+                        {dateParam && <p className="text-gray-500">Daily Stock Report</p>}
+                    </div>
+                </div>
+                {dateParam && (
+                    <button
+                        onClick={handleExportToExcel}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
+                    >
+                        <Download size={20} />
+                        Download
+                    </button>
+                )}
+            </div>
 
             {/* Action Buttons - Only for Supervisor */}
             {isSupervisor && (
@@ -663,7 +749,7 @@ const ManageStocks = () => {
                             rate: '',
                             amount: 0,
                             refNo: '',
-                            date: new Date().toISOString().split('T')[0]
+                            date: defaultDate
                         });
                         setSelectedVendor(null);
                         setVendorSearchTerm('');
@@ -688,7 +774,8 @@ const ManageStocks = () => {
                             cashLedgerId: '',
                             onlineLedgerId: '',
                             saleOutBalance: 0,
-                            date: new Date().toISOString().split('T')[0]
+                            saleOutBalance: 0,
+                            date: defaultDate
                         });
                         setShowSaleModal(true);
                     }} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Add Sale</button>
@@ -711,7 +798,8 @@ const ManageStocks = () => {
                             cashLedgerId: '',
                             onlineLedgerId: '',
                             saleOutBalance: 0,
-                            date: new Date().toISOString().split('T')[0]
+                            saleOutBalance: 0,
+                            date: defaultDate
                         });
                         setShowReceiptModal(true);
                     }} className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700">Add Receipt</button>
@@ -740,7 +828,8 @@ const ManageStocks = () => {
                                     avgWeight: 0,
                                     rate: totalRate.toFixed(2),
                                     amount: 0,
-                                    date: new Date().toISOString().split('T')[0]
+                                    amount: 0,
+                                    date: defaultDate
                                 });
                                 setShowMortalityModal(true);
                             }
@@ -774,7 +863,8 @@ const ManageStocks = () => {
                                     avgWeight: 0,
                                     rate: totalRate.toFixed(2), // Use Total Purchase Rate
                                     amount: 0,
-                                    date: new Date().toISOString().split('T')[0]
+                                    amount: 0,
+                                    date: defaultDate
                                 });
                                 setShowWeightLossModal(true);
                             }
@@ -794,7 +884,8 @@ const ManageStocks = () => {
                             });
                             setShowFeedPurchaseModal(true);
                         }}
-                        className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700"
+                        disabled={dateParam && feedPurchaseStocks.some(s => new Date(s.date).toISOString().split('T')[0] === dateParam)}
+                        className={`px-4 py-2 text-white rounded ${dateParam && feedPurchaseStocks.some(s => new Date(s.date).toISOString().split('T')[0] === dateParam) ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-600 hover:bg-gray-700'}`}
                     >
                         Add Feed Purchase
                     </button>
@@ -804,11 +895,12 @@ const ManageStocks = () => {
                                 weight: '',
                                 rate: '',
                                 amount: 0,
-                                date: new Date().toISOString().split('T')[0]
+                                date: defaultDate
                             });
                             setShowFeedConsumeModal(true);
                         }}
-                        className="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700"
+                        disabled={dateParam && feedConsumeStocks.some(s => new Date(s.date).toISOString().split('T')[0] === dateParam)}
+                        className={`px-4 py-2 text-white rounded ${dateParam && feedConsumeStocks.some(s => new Date(s.date).toISOString().split('T')[0] === dateParam) ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700'}`}
                     >
                         Add Feed Consume
                     </button>
@@ -1258,65 +1350,146 @@ const ManageStocks = () => {
                     </div>
                 </div>
 
-                {/* FEED CONSUME DETAILS TABLE */}
+                {/* FEED STOCK SUMMARY TABLE */}
                 <div className="flex-1 bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-bold mb-4 text-orange-600">FEED CONSUME DETAILS</h2>
+                    <h2 className="text-xl font-bold mb-4 text-orange-600">FEED STOCK SUMMARY</h2>
                     <div className="overflow-x-auto">
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr className="bg-gray-100 text-gray-700">
-                                    <th className="border p-2 text-center">Particular</th>
-                                    <th className="border p-2 text-center">Weight (Kg)</th>
-                                    <th className="border p-2 text-center">Rate</th>
-                                    <th className="border p-2 text-center">Amount</th>
-                                    <th className="border p-2 text-center">Action</th>
+                                    <th className="border p-2 text-center"></th>
+                                    <th className="border p-2 text-center">BAG</th>
+                                    <th className="border p-2 text-center">QTTY</th>
+                                    <th className="border p-2 text-center">RATE</th>
+                                    <th className="border p-2 text-center">AMOUNT</th>
+                                    {isSupervisor && <th className="border p-2 text-center">ACTION</th>}
                                 </tr>
                             </thead>
                             <tbody>
-                                {sortedFeedConsumeStocks.map((stock, index) => (
-                                    <tr key={index} className="text-center">
-                                        <td className="border p-2 font-medium">Feed Consume</td>
-                                        <td className="border p-2">{stock.weight?.toFixed(2)}</td>
-                                        <td className="border p-2">{stock.rate?.toFixed(2)}</td>
-                                        <td className="border p-2">{stock.amount?.toFixed(0)}</td>
-                                        <td className="border p-2">
-                                            <button
-                                                onClick={() => {
-                                                    setIsEditMode(true);
-                                                    setCurrentStockId(stock._id);
-                                                    setFeedConsumeData({
-                                                        weight: stock.weight,
-                                                        rate: stock.rate,
-                                                        amount: stock.amount,
-                                                        date: stock.date ? new Date(stock.date).toISOString().split('T')[0] : ''
-                                                    });
-                                                    setShowFeedConsumeModal(true);
-                                                }}
-                                                className="text-blue-600 hover:text-blue-800 font-medium"
-                                            >
-                                                Edit
-                                            </button>
-                                        </td>
-                                    </tr>
-                                ))}
-                                {/* Total Row */}
-                                <tr className="bg-orange-600 text-white font-bold text-center">
-                                    <td className="border p-2">Total</td>
-                                    <td className="border p-2">
-                                        {sortedFeedConsumeStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0).toFixed(2)} Kg
-                                    </td>
-                                    <td className="border p-2">
-                                        {(() => {
-                                            const totalWeight = sortedFeedConsumeStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
-                                            const totalAmount = sortedFeedConsumeStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-                                            return totalWeight > 0 ? (totalAmount / totalWeight).toFixed(2) : '-';
-                                        })()}
-                                    </td>
-                                    <td className="border p-2">
-                                        {sortedFeedConsumeStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0).toFixed(0)}
-                                    </td>
-                                    <td className="border p-2">-</td>
-                                </tr>
+                                {(() => {
+                                    // Calculate Totals
+                                    const opStocks = sortedFeedStocks.filter(s => s.type === 'opening');
+                                    const purchStocks = sortedFeedStocks.filter(s => s.type !== 'opening');
+                                    const consStocks = sortedFeedConsumeStocks;
+
+                                    const opStats = {
+                                        bags: opStocks.reduce((sum, s) => sum + (Number(s.bags) || 0), 0),
+                                        weight: opStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0),
+                                        amount: opStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
+                                    };
+                                    opStats.rate = opStats.weight > 0 ? opStats.amount / opStats.weight : 0;
+
+                                    const purchStats = {
+                                        bags: purchStocks.reduce((sum, s) => sum + (Number(s.bags) || 0), 0),
+                                        weight: purchStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0),
+                                        amount: purchStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
+                                    };
+                                    purchStats.rate = purchStats.weight > 0 ? purchStats.amount / purchStats.weight : 0;
+
+                                    const consStats = {
+                                        bags: consStocks.reduce((sum, s) => sum + (Number(s.bags) || 0), 0),
+                                        weight: consStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0),
+                                        amount: consStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
+                                    };
+                                    consStats.rate = consStats.weight > 0 ? consStats.amount / consStats.weight : 0;
+
+                                    const closingStats = {
+                                        bags: opStats.bags + purchStats.bags - consStats.bags,
+                                        weight: opStats.weight + purchStats.weight - consStats.weight,
+                                        amount: opStats.amount + purchStats.amount - consStats.amount
+                                    };
+                                    closingStats.rate = closingStats.weight > 0 ? closingStats.amount / closingStats.weight : 0;
+
+                                    return (
+                                        <>
+                                            {/* OP */}
+                                            <tr className="text-center font-bold">
+                                                <td className="border p-2">OP</td>
+                                                <td className="border p-2">{opStats.bags}</td>
+                                                <td className="border p-2">{opStats.weight.toFixed(2)}</td>
+                                                <td className="border p-2">{opStats.rate.toFixed(2)}</td>
+                                                <td className="border p-2">{opStats.amount.toFixed(0)}</td>
+                                                {isSupervisor && <td className="border p-2"></td>}
+                                            </tr>
+                                            {/* FEED PURCHASE */}
+                                            <tr className="text-center">
+                                                <td className="border p-2 font-medium">FEED PURCHASE</td>
+                                                <td className="border p-2">{purchStats.bags}</td>
+                                                <td className="border p-2">{purchStats.weight.toFixed(2)}</td>
+                                                <td className="border p-2">{purchStats.rate.toFixed(2)}</td>
+                                                <td className="border p-2">{purchStats.amount.toFixed(0)}</td>
+                                                {isSupervisor && (
+                                                    <td className="border p-2">
+                                                        {purchStocks.length > 0 && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    // Only allow edit if dateParam is present or logic permits
+                                                                    // For now, picking the first one as implied by requirements
+                                                                    const stockToEdit = purchStocks[0];
+                                                                    setIsEditMode(true);
+                                                                    setCurrentStockId(stockToEdit._id);
+                                                                    setFeedPurchaseData({
+                                                                        vendorId: stockToEdit.vendorId?._id || stockToEdit.vendorId || '',
+                                                                        weight: stockToEdit.weight,
+                                                                        rate: stockToEdit.rate,
+                                                                        amount: stockToEdit.amount,
+                                                                        bags: stockToEdit.bags || '',
+                                                                        date: stockToEdit.date ? new Date(stockToEdit.date).toISOString().split('T')[0] : ''
+                                                                    });
+                                                                    setShowFeedPurchaseModal(true);
+                                                                }}
+                                                                className="text-blue-600 hover:text-blue-800 font-medium"
+                                                            >
+                                                                Edit
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                            {/* FEED CONSUME */}
+                                            <tr className="text-center">
+                                                <td className="border p-2 font-medium">FEED CONSUME</td>
+                                                <td className="border p-2">{consStats.bags}</td>
+                                                <td className="border p-2">{consStats.weight.toFixed(2)}</td>
+                                                <td className="border p-2">{consStats.rate.toFixed(2)}</td>
+                                                <td className="border p-2">{consStats.amount.toFixed(0)}</td>
+                                                {isSupervisor && (
+                                                    <td className="border p-2">
+                                                        {consStocks.length > 0 && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    const stockToEdit = consStocks[0];
+                                                                    setIsEditMode(true);
+                                                                    setCurrentStockId(stockToEdit._id);
+                                                                    setFeedConsumeData({
+                                                                        weight: stockToEdit.weight,
+                                                                        rate: stockToEdit.rate,
+                                                                        amount: stockToEdit.amount,
+                                                                        bags: stockToEdit.bags || '',
+                                                                        date: stockToEdit.date ? new Date(stockToEdit.date).toISOString().split('T')[0] : ''
+                                                                    });
+                                                                    setShowFeedConsumeModal(true);
+                                                                }}
+                                                                className="text-blue-600 hover:text-blue-800 font-medium"
+                                                            >
+                                                                Edit
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                )}
+                                            </tr>
+                                            {/* CLOSING */}
+                                            <tr className="text-center font-bold">
+                                                <td className="border p-2">CLOSING</td>
+                                                <td className="border p-2">{closingStats.bags}</td>
+                                                <td className="border p-2">{closingStats.weight.toFixed(2)}</td>
+                                                <td className="border p-2">{closingStats.rate.toFixed(2)}</td>
+                                                <td className="border p-2">{closingStats.amount.toFixed(0)}</td>
+                                                {isSupervisor && <td className="border p-2"></td>}
+                                            </tr>
+                                        </>
+                                    );
+                                })()}
                             </tbody>
                         </table>
                     </div>
@@ -1385,140 +1558,12 @@ const ManageStocks = () => {
                 </div>
             </div>
 
-            {/* Feed Purchase  Details Table */}
-            <div className="mb-8">
-                <h2 className="text-lg font-semibold mb-4 bg-gray-100 p-2">FEED PURCHASE DETAILS</h2>
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse border border-gray-300">
-                        <thead>
-                            <tr className="bg-green-100">
-                                <th className="border p-2">Feed Purchase</th>
-                                <th className="border p-2">Quantity (Kg)</th>
-                                <th className="border p-2">Rate</th>
-                                <th className="border p-2">Amt</th>
-                                <th className="border p-2">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sortedFeedStocks.map((stock, index) => (
-                                <tr key={index} className="text-center">
-                                    <td className="border p-2 font-medium">
-                                        {stock.type === 'opening' ? 'OP STOCK' : (stock.vendorId?.vendorName || stock.vendorId?.name || (typeof stock.vendorId === 'object' ? stock.vendorId.vendorName : '') || 'N/A')}
-                                    </td>
-                                    <td className="border p-2">{stock.weight?.toFixed(2)}</td>
-                                    <td className="border p-2">{stock.rate?.toFixed(2)}</td>
-                                    <td className="border p-2">{stock.amount?.toFixed(0)}</td>
-                                    <td className="border p-2">
-                                        <button
-                                            onClick={() => {
-                                                setIsEditMode(true);
-                                                setCurrentStockId(stock._id);
 
-                                                if (stock.type === 'opening') {
-                                                    setFeedOpeningStockData({
-                                                        weight: stock.weight,
-                                                        rate: stock.rate,
-                                                        amount: stock.amount,
-                                                        date: stock.date ? new Date(stock.date).toISOString().split('T')[0] : ''
-                                                    });
-                                                    setShowFeedOpeningStockModal(true);
-                                                } else {
-                                                    // Find vendor object to pre-select
-                                                    const v = vendors.find(v => v._id === (stock.vendorId?._id || stock.vendorId?.id));
-                                                    if (v) setSelectedVendor(v);
-
-                                                    setFeedPurchaseData({
-                                                        vendorId: stock.vendorId?._id || stock.vendorId?.id || '',
-                                                        weight: stock.weight,
-                                                        rate: stock.rate,
-                                                        amount: stock.amount,
-                                                        date: stock.date ? new Date(stock.date).toISOString().split('T')[0] : ''
-                                                    });
-                                                    setShowFeedPurchaseModal(true);
-                                                }
-                                            }}
-                                            className="text-blue-600 hover:text-blue-800 font-medium"
-                                        >
-                                            Edit
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                            {/* Total Row */}
-                            <tr className="bg-black text-white font-bold text-center">
-                                <td className="border p-2">Total</td>
-                                <td className="border p-2">
-                                    {sortedFeedStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0).toFixed(2)} Kg
-                                </td>
-                                <td className="border p-2">
-                                    {(() => {
-                                        const totalWeight = sortedFeedStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
-                                        const totalAmount = sortedFeedStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-                                        return totalWeight > 0 ? (totalAmount / totalWeight).toFixed(2) : '-';
-                                    })()}
-                                </td>
-                                <td className="border p-2">
-                                    {sortedFeedStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0).toFixed(0)}
-                                </td>
-                                <td className="border p-2">-</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
 
             {/* FEED CONSUME DETAILS TABLE */}
 
 
-            {/* FEED CLOSING STOCK DETAILS */}
-            <div className="bg-white rounded-lg shadow-md p-6 mt-6">
-                <h2 className="text-xl font-bold mb-4 text-purple-600">FEED CLOSING STOCK</h2>
-                <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="bg-purple-100 text-purple-900">
-                                <th className="border p-2 text-center">Particulars</th>
-                                <th className="border p-2 text-center">Weight (Kg)</th>
-                                <th className="border p-2 text-center">Rate</th>
-                                <th className="border p-2 text-center">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr className="text-center font-bold">
-                                <td className="border p-2">CLOSING STOCK</td>
-                                <td className="border p-2">
-                                    {(() => {
-                                        const totalPurchasedWeight = sortedFeedStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
-                                        const totalConsumedWeight = sortedFeedConsumeStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
-                                        return (totalPurchasedWeight - totalConsumedWeight).toFixed(2);
-                                    })()} Kg
-                                </td>
-                                <td className="border p-2">
-                                    {(() => {
-                                        const totalPurchasedWeight = sortedFeedStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
-                                        const totalPurchasedAmount = sortedFeedStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
 
-                                        const totalConsumedWeight = sortedFeedConsumeStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
-                                        const totalConsumedAmount = sortedFeedConsumeStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-
-                                        const closingWeight = totalPurchasedWeight - totalConsumedWeight;
-                                        const closingAmount = totalPurchasedAmount - totalConsumedAmount;
-
-                                        return closingWeight > 0 ? (closingAmount / closingWeight).toFixed(2) : '-';
-                                    })()}
-                                </td>
-                                <td className="border p-2">
-                                    {(() => {
-                                        const totalPurchasedAmount = sortedFeedStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-                                        const totalConsumedAmount = sortedFeedConsumeStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-                                        return (totalPurchasedAmount - totalConsumedAmount).toFixed(0);
-                                    })()}
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
 
             {/* Modals */}
             {
@@ -1796,6 +1841,10 @@ const ManageStocks = () => {
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
+                                        <label className="block text-sm font-medium">Bags <span className="text-red-500">*</span></label>
+                                        <input type="number" value={feedOpeningStockData.bags} onChange={e => setFeedOpeningStockData({ ...feedOpeningStockData, bags: e.target.value })} className="w-full border p-2 rounded" required />
+                                    </div>
+                                    <div>
                                         <label className="block text-sm font-medium">Weight (Kg) <span className="text-red-500">*</span></label>
                                         <input type="number" step="0.01" value={feedOpeningStockData.weight} onChange={e => setFeedOpeningStockData({ ...feedOpeningStockData, weight: e.target.value })} className="w-full border p-2 rounded" required />
                                     </div>
@@ -1897,6 +1946,113 @@ const ManageStocks = () => {
                     </div>
                 )
             }
+            {/* Feed Purchase Modal */}
+            {showFeedPurchaseModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                    <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                        <div className="flex justify-between items-center mb-4">
+                            <h2 className="text-xl font-bold">{isEditMode ? 'Edit Feed Purchase' : 'Add Feed Purchase'}</h2>
+                            <button onClick={() => setShowFeedPurchaseModal(false)} className="text-gray-500 hover:text-gray-700">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        <form onSubmit={handleFeedPurchaseSubmit} className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Vendor <span className="text-red-500">*</span></label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={selectedVendor ? `${selectedVendor.vendorName}` : vendorSearchTerm}
+                                        onChange={(e) => {
+                                            setVendorSearchTerm(e.target.value);
+                                            setSelectedVendor(null);
+                                            setFeedPurchaseData(prev => ({ ...prev, vendorId: '' }));
+                                        }}
+                                        onFocus={() => setShowVendorDropdown(true)}
+                                        onBlur={() => setTimeout(() => setShowVendorDropdown(false), 200)}
+                                        placeholder="Search vendor..."
+                                        className="w-full border p-2 rounded"
+                                    />
+                                    {showVendorDropdown && filteredVendors.length > 0 && (
+                                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-y-auto">
+                                            {filteredVendors.map((vendor) => (
+                                                <div
+                                                    key={vendor._id}
+                                                    onMouseDown={() => {
+                                                        setSelectedVendor(vendor);
+                                                        setFeedPurchaseData(prev => ({ ...prev, vendorId: vendor._id }));
+                                                        setShowVendorDropdown(false);
+                                                    }}
+                                                    className="px-3 py-2 cursor-pointer hover:bg-gray-100"
+                                                >
+                                                    {vendor.vendorName}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Date</label>
+                                <input
+                                    type="date"
+                                    value={feedPurchaseData.date}
+                                    onChange={(e) => setFeedPurchaseData({ ...feedPurchaseData, date: e.target.value })}
+                                    className={`w-full border rounded p-2 ${isEditMode ? 'bg-gray-100' : ''}`}
+                                    required
+                                    readOnly={isEditMode}
+                                />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Bags</label>
+                                    <input
+                                        type="number"
+                                        value={feedPurchaseData.bags}
+                                        onChange={(e) => setFeedPurchaseData({ ...feedPurchaseData, bags: e.target.value })}
+                                        className="w-full border rounded p-2"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Quantity (Kg)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={feedPurchaseData.weight}
+                                        onChange={(e) => setFeedPurchaseData({ ...feedPurchaseData, weight: e.target.value })}
+                                        className="w-full border rounded p-2"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Rate (per Kg)</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    value={feedPurchaseData.rate}
+                                    onChange={(e) => setFeedPurchaseData({ ...feedPurchaseData, rate: e.target.value })}
+                                    className="w-full border rounded p-2"
+                                    required
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Amount</label>
+                                <input
+                                    type="number"
+                                    value={feedPurchaseData.amount}
+                                    readOnly
+                                    className="w-full border rounded p-2 bg-gray-100"
+                                />
+                            </div>
+                            <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
+                                {isEditMode ? 'Update Purchase' : 'Add Purchase'}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
             {/* Feed Consume Modal */}
             {showFeedConsumeModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -1914,20 +2070,33 @@ const ManageStocks = () => {
                                     type="date"
                                     value={feedConsumeData.date}
                                     onChange={(e) => setFeedConsumeData({ ...feedConsumeData, date: e.target.value })}
-                                    className="w-full border rounded p-2"
+                                    className={`w-full border rounded p-2 ${isEditMode ? 'bg-gray-100' : ''}`}
                                     required
+                                    readOnly={isEditMode}
                                 />
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium mb-1">Quantity (Kg)</label>
-                                <input
-                                    type="number"
-                                    step="0.01"
-                                    value={feedConsumeData.weight}
-                                    onChange={(e) => setFeedConsumeData({ ...feedConsumeData, weight: e.target.value })}
-                                    className="w-full border rounded p-2"
-                                    required
-                                />
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Bags</label>
+                                    <input
+                                        type="number"
+                                        value={feedConsumeData.bags}
+                                        onChange={(e) => setFeedConsumeData({ ...feedConsumeData, bags: e.target.value })}
+                                        className="w-full border rounded p-2"
+                                        required
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Quantity (Kg)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={feedConsumeData.weight}
+                                        onChange={(e) => setFeedConsumeData({ ...feedConsumeData, weight: e.target.value })}
+                                        className="w-full border rounded p-2"
+                                        required
+                                    />
+                                </div>
                             </div>
                             <div>
                                 <label className="block text-sm font-medium mb-1">Rate (per Kg)</label>
