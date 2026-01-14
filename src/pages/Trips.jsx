@@ -235,15 +235,15 @@ const REPORT_COLUMNS = [
     label: 'Lifting Date',
     render: (trip) => formatDateDisplay(trip?.liftingDate || trip?.createdAt)
   },
-  {
-    key: 'startEndPoint',
-    label: 'Start & End Point',
-    render: (trip) => {
-      const from = trip?.route?.from || 'N/A';
-      const to = trip?.route?.to || 'N/A';
-      return `${from} → ${to}`;
-    }
-  },
+  // {
+  //   key: 'startEndPoint',
+  //   label: 'Start & End Point',
+  //   render: (trip) => {
+  //     const from = trip?.route?.from || 'N/A';
+  //     const to = trip?.route?.to || 'N/A';
+  //     return `${from} → ${to}`;
+  //   }
+  // },
   {
     key: 'birdsTotal',
     label: 'No of Birds (Total)',
