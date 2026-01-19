@@ -1,15 +1,16 @@
 import axios from 'axios';
 
 // const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8888/api';
-const isLocalhost = window.location.hostname === "localhost";
+// const isLocalhost = window.location.hostname === "localhost";
 
 const api = axios.create({
 	// baseURL: "https://poultry-record-backend.vercel.app/api",
 	// baseURL: "http://localhost:8889/api",
-	baseURL: isLocalhost
-		? "http://localhost:6060/api"
-		: "https://poultry-record-backend-qa.vercel.app/api",
-	withCredentials: true,
+	baseURL: "https://poultry-record-backend-qa.vercel.app/api",
+	//baseURL: isLocalhost
+	// 	? "http://localhost:6061/api"
+	// 	: "https://poultry-record-backend-qa.vercel.app/api",
+	//withCredentials: true,
 	headers: {
 		'Content-Type': 'application/json',
 	},
