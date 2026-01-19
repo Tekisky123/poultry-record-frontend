@@ -9,7 +9,7 @@ const api = axios.create({
 	baseURL: isLocalhost
     ? "http://localhost:6060/api"
     : "https://poultry-record-backend-qa.vercel.app/api", 
-	withCredentials: true,
+	// withCredentials: true,
 	headers: {
 		'Content-Type': 'application/json',
 	},
