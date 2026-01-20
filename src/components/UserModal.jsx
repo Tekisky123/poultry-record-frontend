@@ -17,7 +17,9 @@ const UserModal = ({
         email: '',
         mobileNumber: '',
         role: 'supervisor',
+        role: 'supervisor',
         isActive: true,
+        canManageStock: false,
     });
     const [showPassword, setShowPassword] = useState(false);
 
@@ -29,6 +31,7 @@ const UserModal = ({
                 mobileNumber: user.mobileNumber || '',
                 role: user.role || 'supervisor',
                 isActive: user.isActive ?? true,
+                canManageStock: user.canManageStock ?? false,
             });
         } else {
             setFormData({
@@ -37,6 +40,7 @@ const UserModal = ({
                 mobileNumber: '',
                 role: 'supervisor',
                 isActive: true,
+                canManageStock: false,
             });
         }
     }, [user, isEdit, show]);
@@ -182,6 +186,23 @@ const UserModal = ({
                                     Active
                                 </label>
                             </div>
+
+                            {/* Manage Stock Permission - Only relevant for supervisors usually, but can be for others if needed */}
+                            {formData.role === 'supervisor' && (
+                                <div className="flex items-center">
+                                    <input
+                                        type="checkbox"
+                                        name="canManageStock"
+                                        id="canManageStock"
+                                        checked={formData.canManageStock}
+                                        onChange={handleChange}
+                                        className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                    />
+                                    <label htmlFor="canManageStock" className="ml-2 block text-sm text-gray-700">
+                                        Can Manage Stock?
+                                    </label>
+                                </div>
+                            )}
                             {error && (
                                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
                                     {error}

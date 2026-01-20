@@ -23,21 +23,27 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Check session on initial load
+  // Check session on initial load and poll
   useEffect(() => {
     const checkSession = async () => {
       try {
         const { data } = await api.get("/auth/verify", { withCredentials: true });
         setUser(data?.data);
-      } catch(err) {
-        setUser(null);
-        setError(err.message+` Please login again!`);
-        setShowFailureModal(true);
+      } catch (err) {
+        if (loading) {
+          setUser(null);
+        }
       } finally {
         setLoading(false);
       }
     };
 
     checkSession();
+
+    // Poll for session updates every 10 seconds to sync permissions
+    const intervalId = setInterval(checkSession, 10000);
+
+    return () => clearInterval(intervalId);
   }, []);
 
   const login = async (credentials) => {
@@ -48,7 +54,7 @@ export const AuthProvider = ({ children }) => {
       };
       const { data } = await api.post('/auth/login', payload);
       console.log('Login response:', data);
-      
+
       // Store the token in localStorage for frontend use
       if (data?.data?.token) {
         localStorage.setItem('token', data.data.token);
@@ -59,7 +65,7 @@ export const AuthProvider = ({ children }) => {
       } else {
         console.log('No token found in response');
       }
-      
+
       setUser(data?.data);
       return { success: true, data: data?.data };
     } catch (error) {
@@ -107,7 +113,7 @@ export const AuthProvider = ({ children }) => {
     hasToken,
     showFailureModal,
     setShowFailureModal,
-    error  
+    error
   };
 
   return (

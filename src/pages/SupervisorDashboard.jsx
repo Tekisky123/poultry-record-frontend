@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Truck,
   Plus,
@@ -11,9 +12,9 @@ import api from '../lib/axios';
 
 const SupervisorDashboard = () => {
   const [stats, setStats] = useState({
-    totalTrips: 0,
     completedTrips: 0
   });
+  const { user } = useAuth();
   const [recentTrips, setRecentTrips] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -90,13 +91,15 @@ const SupervisorDashboard = () => {
             <MapPin size={16} />
             <span>View Trips</span>
           </Link>
-          <Link
-            to="/supervisor/stocks"
-            className="border border-white text-white px-4 py-2 rounded-lg font-medium hover:bg-white hover:text-primary-600 transition-colors flex items-center space-x-2"
-          >
-            <div className="w-4 h-4 flex items-center justify-center border-2 border-current rounded-sm text-[10px] font-bold">S</div>
-            <span>Manage Stocks</span>
-          </Link>
+          {user?.canManageStock && (
+            <Link
+              to="/supervisor/stocks"
+              className="border border-white text-white px-4 py-2 rounded-lg font-medium hover:bg-white hover:text-primary-600 transition-colors flex items-center space-x-2"
+            >
+              <div className="w-4 h-4 flex items-center justify-center border-2 border-current rounded-sm text-[10px] font-bold">S</div>
+              <span>Manage Stocks</span>
+            </Link>
+          )}
         </div>
       </div>
 

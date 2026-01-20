@@ -28,7 +28,8 @@ import { useAuth } from '../contexts/AuthContext';
 import Dropdown from './Dropdown';
 import chickenLogo from '../assets/chicken-logo.gif';
 
-const getMenuItems = (userRole) => {
+const getMenuItems = (user) => {
+  const userRole = user?.role;
   const baseItems = [
     { name: 'Profit & Loss', path: '/', icon: Home },
     { name: 'Trips', path: '/trips', icon: Truck },
@@ -36,26 +37,30 @@ const getMenuItems = (userRole) => {
     { name: 'Customer Payments', path: '/customer-payments', icon: CreditCard },
     { name: 'Balance Sheet', path: '/balance-sheet', icon: FileTextIcon },
     { name: 'Vouchers', path: '/vouchers', icon: Receipt },
-    { name: 'Stock', path: '/stocks', icon: Package },
-    {
-      name: 'Create And Alter',
-      icon: Settings,
-      isParent: true,
-      children: [
-        { name: 'Customers', path: '/customers', icon: Store },
-        { name: '+ Add Customer', path: '/add-customer', icon: Store },
-        { name: 'Vehicles', path: '/vehicles', icon: Car },
-        { name: 'Vendors', path: '/vendors', icon: UsersIcon },
-        { name: 'Diesel Stations', path: '/diesel-stations', icon: Fuel },
-
-        // Add Accounting section for Groups and Ledgers
-
-        { name: 'Groups', path: '/groups', icon: FolderTree },
-        { name: 'Ledgers', path: '/ledgers', icon: BookOpen },
-        ,
-      ]
-    },
   ];
+
+  if (userRole === 'admin' || userRole === 'superadmin' || (userRole === 'supervisor' && user?.canManageStock)) {
+    baseItems.push({ name: 'Stock', path: '/stocks', icon: Package });
+  }
+
+  baseItems.push({
+    name: 'Create And Alter',
+    icon: Settings,
+    isParent: true,
+    children: [
+      { name: 'Customers', path: '/customers', icon: Store },
+      { name: '+ Add Customer', path: '/add-customer', icon: Store },
+      { name: 'Vehicles', path: '/vehicles', icon: Car },
+      { name: 'Vendors', path: '/vendors', icon: UsersIcon },
+      { name: 'Diesel Stations', path: '/diesel-stations', icon: Fuel },
+
+      // Add Accounting section for Groups and Ledgers
+
+      { name: 'Groups', path: '/groups', icon: FolderTree },
+      { name: 'Ledgers', path: '/ledgers', icon: BookOpen },
+      ,
+    ]
+  });
 
   // Only show Trips for admin/superadmin (view only) and supervisor (full access)
   // if (userRole === 'supervisor' || userRole === 'admin' || userRole === 'superadmin') {
@@ -124,7 +129,7 @@ export default function Sidebar() {
   useEffect(() => {
     if (isCollapsed) return;
 
-    const menuItems = getMenuItems(currentUser?.role);
+    const menuItems = getMenuItems(currentUser);
     menuItems.forEach(item => {
       if (item.isParent && item.children) {
         const hasActiveChild = item.children.some(child => location.pathname === child.path);
@@ -199,7 +204,7 @@ export default function Sidebar() {
           }}
         >
           <ul className="space-y-2">
-            {getMenuItems(currentUser?.role).map((item) => {
+            {getMenuItems(currentUser).map((item) => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path;
               const isExpanded = expandedItems[item.name];

@@ -22,6 +22,12 @@ const ManageStocks = () => {
     const [showVendorDropdown, setShowVendorDropdown] = useState(false);
     const [highlightedVendorIndex, setHighlightedVendorIndex] = useState(-1);
 
+    // Customer Search State
+    const [selectedCustomer, setSelectedCustomer] = useState(null);
+    const [customerSearchTerm, setCustomerSearchTerm] = useState('');
+    const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+    const [highlightedCustomerIndex, setHighlightedCustomerIndex] = useState(-1);
+
     // Modals
     const [showPurchaseModal, setShowPurchaseModal] = useState(false);
     const [showSaleModal, setShowSaleModal] = useState(false);
@@ -29,6 +35,12 @@ const ManageStocks = () => {
     const [showOpeningStockModal, setShowOpeningStockModal] = useState(false);
     const { user } = useAuth();
     const isSupervisor = user?.role === 'supervisor';
+
+    useEffect(() => {
+        if (user?.role === 'supervisor' && !user?.canManageStock) {
+            navigate('/');
+        }
+    }, [user, navigate]);
 
     // Forms Data
     const [isEditMode, setIsEditMode] = useState(false);
@@ -64,7 +76,6 @@ const ManageStocks = () => {
         cashLedgerId: '',
         onlineLedgerId: '',
         saleOutBalance: 0,
-        saleOutBalance: 0,
         date: defaultDate
     });
 
@@ -72,7 +83,6 @@ const ManageStocks = () => {
         birds: '',
         weight: '',
         rate: '',
-        refNo: '',
         refNo: '',
         date: defaultDate
     });
@@ -84,7 +94,6 @@ const ManageStocks = () => {
         weight: '',
         avgWeight: 0,
         rate: 0,
-        amount: 0,
         amount: 0,
         date: defaultDate
     });
@@ -121,7 +130,6 @@ const ManageStocks = () => {
         avgWeight: 0,
         rate: 0,
         amount: 0,
-        amount: 0,
         date: defaultDate
     });
 
@@ -144,7 +152,6 @@ const ManageStocks = () => {
         bags: '',
         weight: '',
         rate: '',
-        amount: 0,
         amount: 0,
         date: defaultDate
     });
@@ -185,7 +192,6 @@ const ManageStocks = () => {
     const [feedOpeningStockData, setFeedOpeningStockData] = useState({
         bags: '',
         weight: '',
-        rate: '',
         rate: '',
         date: defaultDate
     });
@@ -600,6 +606,50 @@ const ManageStocks = () => {
             }
         } else if (e.key === 'Escape') {
             setShowVendorDropdown(false);
+        }
+    };
+
+    // Customer Search Logic
+    const filteredCustomers = customers.filter(customer =>
+        (customer.shopName || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+        (customer.ownerName || '').toLowerCase().includes(customerSearchTerm.toLowerCase()) ||
+        (customer.contact || '').includes(customerSearchTerm)
+    );
+
+    const handleCustomerInputFocus = () => {
+        setShowCustomerDropdown(true);
+    };
+
+    const handleCustomerInputBlur = () => {
+        setTimeout(() => {
+            setShowCustomerDropdown(false);
+        }, 200);
+    };
+
+    const handleCustomerSelectItem = (customer) => {
+        setSelectedCustomer(customer);
+        setCustomerSearchTerm('');
+        handleCustomerSelect(customer._id || customer.id); // Call existing handler
+        setShowCustomerDropdown(false);
+        setHighlightedCustomerIndex(-1);
+    };
+
+    const handleCustomerKeyDown = (e) => {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setHighlightedCustomerIndex(prev =>
+                prev < filteredCustomers.length - 1 ? prev + 1 : prev
+            );
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setHighlightedCustomerIndex(prev => (prev > 0 ? prev - 1 : 0));
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (highlightedCustomerIndex >= 0 && highlightedCustomerIndex < filteredCustomers.length) {
+                handleCustomerSelectItem(filteredCustomers[highlightedCustomerIndex]);
+            }
+        } else if (e.key === 'Escape') {
+            setShowCustomerDropdown(false);
         }
     };
 
@@ -1149,9 +1199,10 @@ const ManageStocks = () => {
                         <thead>
                             <tr className="bg-gray-200">
                                 <th className="border p-2">S N</th>
-                                <th className="border p-2">DATE</th>
-                                <th className="border p-2">PARTICULAR</th>
-                                <th className="border p-2">DELIVERY DETAILS</th>
+                                {/* <th className="border p-2">DATE</th> */}
+                                {/* <th className="border p-2">PARTICULAR</th> */}
+                                {/* <th className="border p-2">DELIVERY DETAILS</th> */}
+                                <th className="border p-2">CUSTOMERS</th>
                                 <th className="border p-2">BILL NO</th>
                                 <th className="border p-2">BIRDS</th>
                                 <th className="border p-2">WEIGHT</th>
@@ -1168,13 +1219,13 @@ const ManageStocks = () => {
                             {[...saleStocks].sort((a, b) => new Date(b.date) - new Date(a.date)).map((sale, index) => (
                                 <tr key={index} className="text-center">
                                     <td className="border p-2">{index + 1}</td>
-                                    <td className="border p-2">{new Date(sale.date).toLocaleDateString()}</td>
-                                    <td className="border p-2">
+                                    {/* <td className="border p-2">{new Date(sale.date).toLocaleDateString()}</td> */}
+                                    {/* <td className="border p-2">
                                         <span className={`px-2 py-1 rounded text-xs font-semibold ${sale.type === 'sale' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                                             }`}>
                                             {sale.type === 'sale' ? 'STOCK_SALE' : 'STOCK_RECEIPT'}
                                         </span>
-                                    </td>
+                                    </td> */}
                                     <td className="border p-2 font-medium">{sale.customerId?.shopName || sale.customerId?.ownerName || 'N/A'}</td>
                                     <td className="border p-2">{sale.billNumber || '-'}</td>
                                     <td className="border p-2">{sale.birds}</td>
@@ -1226,7 +1277,8 @@ const ManageStocks = () => {
                                 </tr>
                             ))}
                             <tr className="bg-black text-white font-bold text-center">
-                                <td className="border p-2" colSpan={5}>TOTAL</td>
+                                {/* <td className="border p-2" colSpan={5}>TOTAL</td> */}
+                                <td className="border p-2" colSpan={3}>TOTAL</td>
                                 <td className="border p-2">{totalSaleBirds}</td>
                                 <td className="border p-2">{totalSaleWeight.toFixed(2)}</td>
                                 <td className="border p-2">{totalSaleAvg.toFixed(2)}</td>
@@ -1565,58 +1617,90 @@ const ManageStocks = () => {
 
 
 
-            {/* Modals */}
+            {/* Purchase Modal */}
             {
                 showPurchaseModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white p-6 rounded-lg w-full max-w-lg">
-                            <h3 className="text-xl font-bold mb-4">{isEditMode ? 'Edit Purchase' : 'Add Purchase'}</h3>
-                            <form onSubmit={handlePurchaseSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Vendor <span className="text-red-500">*</span></label>
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-lg shadow-lg w-full max-w-xs max-h-[calc(80vh-56px)] flex flex-col">
+                            <div className="p-4 pb-3 border-b border-gray-200 flex-shrink-0">
+                                <h3 className="text-base font-semibold text-gray-900">
+                                    {isEditMode ? 'Edit Purchase' : 'Add Purchase'}
+                                </h3>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
+
+                                {/* Summary Section */}
+                                {purchaseData.birds > 0 && purchaseData.weight > 0 && (
+                                    <div className="bg-blue-50 p-1.5 rounded-lg mb-2">
+                                        <div className="text-xs text-blue-800">
+                                            <div className="grid grid-cols-2 gap-1">
+                                                <div><span className="font-medium">DC:</span> {purchaseData.refNo}</div>
+                                                <div><span className="font-medium">Birds:</span> {purchaseData.birds}</div>
+                                                <div><span className="font-medium">Weight:</span> {purchaseData.weight} kg</div>
+                                                <div><span className="font-medium">Avg:</span> {purchaseData.avgWeight} kg/bird</div>
+                                                <div><span className="font-medium">Rate:</span> ₹{purchaseData.rate}/kg</div>
+                                                <div><span className="font-medium">Amount:</span> ₹{purchaseData.amount?.toLocaleString() || '0'}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <form onSubmit={handlePurchaseSubmit} className="space-y-2">
                                     <div className="relative">
-                                        <input
-                                            type="text"
-                                            value={selectedVendor ? `${selectedVendor.vendorName} - ${selectedVendor.contactNumber || 'N/A'}` : vendorSearchTerm}
-                                            onChange={(e) => {
-                                                setVendorSearchTerm(e.target.value);
-                                                setSelectedVendor(null);
-                                                setPurchaseData(prev => ({ ...prev, vendorId: '' }));
-                                                setHighlightedVendorIndex(-1);
-                                            }}
-                                            onFocus={handleVendorInputFocus}
-                                            onBlur={handleVendorInputBlur}
-                                            onKeyDown={handleVendorKeyDown}
-                                            placeholder="Search vendor by name, contact or place..."
-                                            className={`w-full border p-2 rounded ${!purchaseData.vendorId ? 'border-red-300' : 'border-gray-300'}`}
-                                            autoComplete="off"
-                                        />
-                                        {selectedVendor && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Vendor *</label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={selectedVendor ? `${selectedVendor.vendorName} - ${selectedVendor.contactNumber || 'N/A'}` : vendorSearchTerm}
+                                                onChange={(e) => {
+                                                    setVendorSearchTerm(e.target.value);
                                                     setSelectedVendor(null);
-                                                    setVendorSearchTerm('');
                                                     setPurchaseData(prev => ({ ...prev, vendorId: '' }));
                                                     setHighlightedVendorIndex(-1);
                                                 }}
-                                                className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                                            >
-                                                <X size={16} />
-                                            </button>
-                                        )}
+                                                onFocus={handleVendorInputFocus}
+                                                onBlur={handleVendorInputBlur}
+                                                onKeyDown={handleVendorKeyDown}
+                                                placeholder="Search vendor by name, contact or place..."
+                                                className={`w-full px-2 py-1 border rounded text-xs pr-8 ${!purchaseData.vendorId
+                                                    ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                                                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                                                    }`}
+                                                autoComplete="off"
+                                            />
+
+                                            {selectedVendor && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedVendor(null);
+                                                        setVendorSearchTerm('');
+                                                        setPurchaseData(prev => ({ ...prev, vendorId: '' }));
+                                                        setHighlightedVendorIndex(-1);
+                                                    }}
+                                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            )}
+                                        </div>
 
                                         {showVendorDropdown && filteredVendors.length > 0 && (
-                                            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-y-auto">
+                                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-y-auto">
                                                 {filteredVendors.map((vendor, index) => (
                                                     <div
                                                         key={vendor._id || vendor.id}
+                                                        ref={index === highlightedVendorIndex ? (el) => {
+                                                            if (el) {
+                                                                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                                            }
+                                                        } : null}
                                                         onMouseDown={(e) => {
-                                                            e.preventDefault(); // Prevent blur before click
+                                                            e.preventDefault();
                                                             handleVendorSelect(vendor);
                                                         }}
                                                         onMouseEnter={() => setHighlightedVendorIndex(index)}
-                                                        className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 text-sm ${index === highlightedVendorIndex
+                                                        className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 text-xs ${index === highlightedVendorIndex
                                                             ? 'bg-blue-100 border-blue-200'
                                                             : 'hover:bg-gray-100'
                                                             }`}
@@ -1633,53 +1717,113 @@ const ManageStocks = () => {
 
                                         {showVendorDropdown && filteredVendors.length === 0 && vendorSearchTerm.trim() !== '' && (
                                             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg">
-                                                <div className="px-3 py-2 text-gray-500 text-center text-sm">
+                                                <div className="px-3 py-2 text-gray-500 text-center text-xs">
                                                     No vendors found
                                                 </div>
                                             </div>
                                         )}
+                                        {!purchaseData.vendorId && (
+                                            <p className="text-xs text-red-600 mt-1">Please select a vendor</p>
+                                        )}
                                     </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium">Vehicle Number <span className="text-red-500">*</span></label>
-                                        <input type="text" value={purchaseData.vehicleNumber} onChange={e => setPurchaseData({ ...purchaseData, vehicleNumber: e.target.value })} className="w-full border p-2 rounded" required />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium">DC NO <span className="text-red-500">*</span></label>
-                                        <input type="text" value={purchaseData.refNo} onChange={e => setPurchaseData({ ...purchaseData, refNo: e.target.value })} className="w-full border p-2 rounded" required />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium">Birds <span className="text-red-500">*</span></label>
-                                        <input type="number" value={purchaseData.birds} onChange={e => setPurchaseData({ ...purchaseData, birds: e.target.value })} className="w-full border p-2 rounded" required />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium">Weight <span className="text-red-500">*</span></label>
-                                        <input type="number" value={purchaseData.weight} onChange={e => setPurchaseData({ ...purchaseData, weight: e.target.value })} className="w-full border p-2 rounded" required />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium">AVG (Kg/bird)</label>
-                                        <input type="number" value={purchaseData.avgWeight} className="w-full border p-2 rounded bg-gray-100" readOnly />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium">Rate <span className="text-red-500">*</span></label>
-                                        <input type="number" value={purchaseData.rate} onChange={e => setPurchaseData({ ...purchaseData, rate: e.target.value })} className="w-full border p-2 rounded" required />
-                                    </div>
-                                </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium">Amount</label>
-                                    <input type="number" value={purchaseData.amount} className="w-full border p-2 rounded bg-gray-100" readOnly />
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Vehicle No *</label>
+                                            <input
+                                                type="text"
+                                                value={purchaseData.vehicleNumber}
+                                                onChange={e => setPurchaseData({ ...purchaseData, vehicleNumber: e.target.value })}
+                                                className={`w-full px-2 py-1 border rounded text-xs ${!purchaseData.vehicleNumber ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">DC NO *</label>
+                                            <input
+                                                type="text"
+                                                value={purchaseData.refNo}
+                                                onChange={e => setPurchaseData({ ...purchaseData, refNo: e.target.value })}
+                                                className={`w-full px-2 py-1 border rounded text-xs ${!purchaseData.refNo ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Birds *</label>
+                                            <input
+                                                type="number"
+                                                value={purchaseData.birds}
+                                                onChange={e => setPurchaseData({ ...purchaseData, birds: e.target.value })}
+                                                className={`w-full px-2 py-1 border rounded text-xs ${!purchaseData.birds ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                                                required
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Weight *</label>
+                                            <input
+                                                type="number"
+                                                value={purchaseData.weight}
+                                                onChange={e => setPurchaseData({ ...purchaseData, weight: e.target.value })}
+                                                className={`w-full px-2 py-1 border rounded text-xs ${!purchaseData.weight ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">AVG (Kg/bird)</label>
+                                            <input
+                                                type="number"
+                                                value={purchaseData.avgWeight}
+                                                className="w-full px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-xs"
+                                                readOnly
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Rate *</label>
+                                            <input
+                                                type="number"
+                                                value={purchaseData.rate}
+                                                onChange={e => setPurchaseData({ ...purchaseData, rate: e.target.value })}
+                                                className={`w-full px-2 py-1 border rounded text-xs ${!purchaseData.rate ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                                                required
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Amount</label>
+                                        <input
+                                            type="number"
+                                            value={purchaseData.amount}
+                                            className="w-full px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-xs"
+                                            readOnly
+                                        />
+                                    </div>
+                                </form>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="p-4 pt-3 border-t border-gray-200 bg-gray-50 rounded-b-lg flex-shrink-0">
+                                <div className="flex space-x-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPurchaseModal(false)}
+                                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handlePurchaseSubmit}
+                                        className="flex-1 px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-medium"
+                                    >
+                                        {isEditMode ? 'Update' : 'Add'}
+                                    </button>
                                 </div>
-                                <div className="flex justify-end gap-2 mt-4">
-                                    <button type="button" onClick={() => setShowPurchaseModal(false)} className="px-4 py-2 border rounded">Cancel</button>
-                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Submit</button>
-                                </div>
-                            </form>
+                            </div>
                         </div>
                     </div>
                 )
@@ -1688,99 +1832,285 @@ const ManageStocks = () => {
             {/* Sale Modal */}
             {
                 (showSaleModal || showReceiptModal) && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white p-6 rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-                            <h3 className="text-xl font-bold mb-4">{showReceiptModal ? 'Add Receipt' : 'Add Sale'}</h3>
-                            <form onSubmit={showReceiptModal ? handleReceiptSubmit : handleSaleSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium">Customer <span className="text-red-500">*</span></label>
-                                    <select
-                                        value={saleData.customerId}
-                                        onChange={e => handleCustomerSelect(e.target.value)}
-                                        className="w-full border p-2 rounded"
-                                        required
-                                    >
-                                        <option value="">Select Customer</option>
-                                        {customers.map(c => (
-                                            <option key={c._id || c.id} value={c._id || c.id}>{c.shopName} - {c.ownerName}</option>
-                                        ))}
-                                    </select>
-                                    <p className="text-sm text-gray-500 mt-1">Current Balance: {saleData.saleOutBalance}</p>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium">Bill Number</label>
-                                    <input type="text" value={saleData.billNumber} className="w-full border p-2 rounded bg-gray-100" readOnly />
-                                </div>
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-lg shadow-lg w-full max-w-sm max-h-[calc(90vh-56px)] flex flex-col">
+                            <div className="p-4 pb-3 border-b border-gray-200 flex-shrink-0">
+                                <h3 className="text-base font-semibold text-gray-900">
+                                    {showReceiptModal ? (isEditMode ? 'Edit Receipt' : 'Add Receipt') : (isEditMode ? 'Edit Sale' : 'Add Sale')}
+                                </h3>
+                            </div>
+                            <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
 
-                                {!showReceiptModal && (
-                                    <>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium">Birds <span className="text-red-500">*</span></label>
-                                                <input type="number" value={saleData.birds} onChange={e => setSaleData({ ...saleData, birds: e.target.value })} className="w-full border p-2 rounded" required />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium">Weight <span className="text-red-500">*</span></label>
-                                                <input type="number" value={saleData.weight} onChange={e => setSaleData({ ...saleData, weight: e.target.value })} className="w-full border p-2 rounded" required />
-                                            </div>
+                                {/* Receipt Info Header */}
+                                {showReceiptModal && (
+                                    <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+                                        <div className="flex items-center gap-2 text-green-700">
+                                            <FileText size={14} />
+                                            <span className="text-xs font-medium">Payment Receipt</span>
                                         </div>
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-sm font-medium">AVG (Kg/bird)</label>
-                                                <input type="number" value={saleData.avgWeight} className="w-full border p-2 rounded bg-gray-100" readOnly />
-                                            </div>
-                                            <div>
-                                                <label className="block text-sm font-medium">Rate <span className="text-red-500">*</span></label>
-                                                <input type="number" value={saleData.rate} onChange={e => setSaleData({ ...saleData, rate: e.target.value })} className="w-full border p-2 rounded" required />
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium">Amount</label>
-                                            <input type="number" value={saleData.amount} className="w-full border p-2 rounded bg-gray-100" readOnly />
-                                        </div>
-                                    </>
+                                        <p className="text-[10px] text-green-600 mt-0.5">
+                                            Customer paying remaining balance without purchasing birds
+                                        </p>
+                                    </div>
                                 )}
 
-                                <div className="border-t pt-4 mt-4">
-                                    <h4 className="font-semibold mb-2">Payment Details</h4>
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium">Cash Paid</label>
-                                            <input type="number" value={saleData.cashPaid} onChange={e => setSaleData({ ...saleData, cashPaid: e.target.value })} className="w-full border p-2 rounded" />
+                                {/* Sales Summary Header */}
+                                {!showReceiptModal && saleData.birds > 0 && saleData.weight > 0 && (
+                                    <div className="bg-blue-50 p-1.5 rounded-lg mb-2">
+                                        <div className="text-xs text-blue-800">
+                                            <div className="grid grid-cols-2 gap-1">
+                                                <div><span className="font-medium">Bill:</span> {saleData.billNumber}</div>
+                                                <div><span className="font-medium">Birds:</span> {saleData.birds}</div>
+                                                <div><span className="font-medium">Weight:</span> {saleData.weight} kg</div>
+                                                <div><span className="font-medium">Avg:</span> {saleData.avgWeight} kg/bird</div>
+                                                <div><span className="font-medium">Rate:</span> ₹{saleData.rate}/kg</div>
+                                                <div><span className="font-medium">Total:</span> ₹{saleData.amount?.toLocaleString()}</div>
+                                            </div>
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-4 mt-2">
-                                        <div>
-                                            <label className="block text-sm font-medium">Online Paid</label>
-                                            <input type="number" value={saleData.onlinePaid} onChange={e => setSaleData({ ...saleData, onlinePaid: e.target.value })} className="w-full border p-2 rounded" />
+                                )}
+
+                                <form onSubmit={showReceiptModal ? handleReceiptSubmit : handleSaleSubmit} className="space-y-2">
+                                    {/* Customer Selection */}
+                                    <div className="relative">
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Customer *</label>
+                                        <div className="relative">
+                                            <input
+                                                type="text"
+                                                value={selectedCustomer ? `${selectedCustomer.shopName} - ${selectedCustomer.ownerName || 'N/A'}` : customerSearchTerm}
+                                                onChange={(e) => {
+                                                    setCustomerSearchTerm(e.target.value);
+                                                    setSelectedCustomer(null);
+                                                    setSaleData(prev => ({ ...prev, customerId: '' }));
+                                                    setHighlightedCustomerIndex(-1);
+                                                }}
+                                                onFocus={handleCustomerInputFocus}
+                                                onBlur={handleCustomerInputBlur}
+                                                onKeyDown={handleCustomerKeyDown}
+                                                placeholder="Search customer by name, owner, or contact..."
+                                                className={`w-full px-2 py-1 border rounded text-xs pr-8 ${!saleData.customerId
+                                                    ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
+                                                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                                                    }`}
+                                                autoComplete="off"
+                                            />
+
+                                            {selectedCustomer && (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setSelectedCustomer(null);
+                                                        setCustomerSearchTerm('');
+                                                        setSaleData(prev => ({ ...prev, customerId: '' }));
+                                                        setHighlightedCustomerIndex(-1);
+                                                    }}
+                                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                                >
+                                                    <X size={14} />
+                                                </button>
+                                            )}
                                         </div>
-                                        {Number(saleData.onlinePaid) > 0 && (
+
+                                        {showCustomerDropdown && filteredCustomers.length > 0 && (
+                                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-y-auto">
+                                                {filteredCustomers.map((customer, index) => (
+                                                    <div
+                                                        key={customer._id || customer.id}
+                                                        ref={index === highlightedCustomerIndex ? (el) => {
+                                                            if (el) {
+                                                                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                                                            }
+                                                        } : null}
+                                                        onMouseDown={(e) => {
+                                                            e.preventDefault();
+                                                            handleCustomerSelectItem(customer);
+                                                        }}
+                                                        onMouseEnter={() => setHighlightedCustomerIndex(index)}
+                                                        className={`px-3 py-2 cursor-pointer border-b border-gray-100 last:border-b-0 text-xs ${index === highlightedCustomerIndex
+                                                            ? 'bg-blue-100 border-blue-200'
+                                                            : 'hover:bg-gray-100'
+                                                            }`}
+                                                    >
+                                                        <div className="font-medium text-gray-900">{customer.shopName}</div>
+                                                        <div className="text-xs text-gray-500">{customer.ownerName}</div>
+                                                        <div className="text-xs text-gray-500">{customer.contact}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {showCustomerDropdown && filteredCustomers.length === 0 && customerSearchTerm.trim() !== '' && (
+                                            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg">
+                                                <div className="px-3 py-2 text-gray-500 text-center text-xs">
+                                                    No customers found
+                                                </div>
+                                            </div>
+                                        )}
+                                        {!saleData.customerId && (
+                                            <p className="text-xs text-red-600 mt-1">Please select a customer</p>
+                                        )}
+                                    </div>
+
+                                    {/* Customer Balance Display */}
+                                    {saleData.customerId && (
+                                        <div className="p-2 bg-gray-50 rounded border border-gray-200">
+                                            <div className="flex items-center justify-between text-xs">
+                                                <span className="text-gray-600">Customer Balance:</span>
+                                                <span className={`font-semibold ${saleData.saleOutBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                                                    ₹{Number(saleData.saleOutBalance).toLocaleString()}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div>
+                                        <label className="block text-xs font-medium text-gray-700 mb-1">Bill Number</label>
+                                        <div className="w-full px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-xs text-gray-700">
+                                            {saleData.billNumber}
+                                        </div>
+                                    </div>
+
+                                    {!showReceiptModal && (
+                                        <>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">Birds *</label>
+                                                    <input
+                                                        type="number"
+                                                        value={saleData.birds}
+                                                        onChange={e => setSaleData({ ...saleData, birds: e.target.value })}
+                                                        className={`w-full px-2 py-1 border rounded text-xs ${!saleData.birds ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                                                        required
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">Weight *</label>
+                                                    <input
+                                                        type="number"
+                                                        value={saleData.weight}
+                                                        onChange={e => setSaleData({ ...saleData, weight: e.target.value })}
+                                                        className={`w-full px-2 py-1 border rounded text-xs ${!saleData.weight ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">AVG (Kg/bird)</label>
+                                                    <input
+                                                        type="number"
+                                                        value={saleData.avgWeight}
+                                                        className="w-full px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-xs"
+                                                        readOnly
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-xs font-medium text-gray-700 mb-1">Rate *</label>
+                                                    <input
+                                                        type="number"
+                                                        value={saleData.rate}
+                                                        onChange={e => setSaleData({ ...saleData, rate: e.target.value })}
+                                                        className={`w-full px-2 py-1 border rounded text-xs ${!saleData.rate ? 'border-red-300 bg-red-50' : 'border-gray-300'}`}
+                                                        required
+                                                    />
+                                                </div>
+                                            </div>
                                             <div>
-                                                <label className="block text-sm font-medium">Bank Ledger <span className="text-red-500">*</span></label>
-                                                <select value={saleData.onlineLedgerId} onChange={e => setSaleData({ ...saleData, onlineLedgerId: e.target.value })} className="w-full border p-2 rounded" required>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Amount</label>
+                                                <input
+                                                    type="number"
+                                                    value={saleData.amount}
+                                                    className="w-full px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-xs"
+                                                    readOnly
+                                                />
+                                            </div>
+                                        </>
+                                    )}
+
+                                    <div className="border-t border-gray-100 pt-2 mt-2">
+                                        <h4 className="text-xs font-semibold text-gray-700 mb-2">Payment Details</h4>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Cash Paid (₹)</label>
+                                                <input
+                                                    type="number"
+                                                    value={saleData.cashPaid}
+                                                    onChange={e => setSaleData({ ...saleData, cashPaid: e.target.value })}
+                                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Online Paid (₹)</label>
+                                                <input
+                                                    type="number"
+                                                    value={saleData.onlinePaid}
+                                                    onChange={e => setSaleData({ ...saleData, onlinePaid: e.target.value })}
+                                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {Number(saleData.onlinePaid) > 0 && (
+                                            <div className="mt-2">
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Bank Ledger *</label>
+                                                <select
+                                                    value={saleData.onlineLedgerId}
+                                                    onChange={e => setSaleData({ ...saleData, onlineLedgerId: e.target.value })}
+                                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                                    required
+                                                >
                                                     <option value="">Select Bank Ledger</option>
                                                     {bankLedgers.map(l => <option key={l._id || l.id} value={l._id || l.id}>{l.name}</option>)}
                                                 </select>
                                             </div>
                                         )}
-                                    </div>
-                                    <div className="grid grid-cols-2 gap-4 mt-2">
-                                        <div>
-                                            <label className="block text-sm font-medium">Discount</label>
-                                            <input type="number" value={saleData.discount} onChange={e => setSaleData({ ...saleData, discount: e.target.value })} className="w-full border p-2 rounded" />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium">Final Balance</label>
-                                            <input type="number" value={saleData.balance} className="w-full border p-2 rounded bg-gray-100" readOnly />
-                                        </div>
-                                    </div>
-                                </div>
 
-                                <div className="flex justify-end gap-2 mt-4">
-                                    <button type="button" onClick={() => { setShowSaleModal(false); setShowReceiptModal(false); }} className="px-4 py-2 border rounded">Cancel</button>
-                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Submit</button>
+                                        <div className="grid grid-cols-2 gap-2 mt-2">
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Discount (₹)</label>
+                                                <input
+                                                    type="number"
+                                                    value={saleData.discount}
+                                                    onChange={e => setSaleData({ ...saleData, discount: e.target.value })}
+                                                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                                    placeholder="0"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-medium text-gray-700 mb-1">Final Balance</label>
+                                                <input
+                                                    type="number"
+                                                    value={saleData.balance}
+                                                    className="w-full px-2 py-1.5 border border-gray-300 rounded bg-gray-50 text-xs"
+                                                    readOnly
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="p-4 pt-3 border-t border-gray-200 bg-gray-50 rounded-b-lg flex-shrink-0">
+                                <div className="flex space-x-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => { setShowSaleModal(false); setShowReceiptModal(false); }}
+                                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={showReceiptModal ? handleReceiptSubmit : handleSaleSubmit}
+                                        className={`flex-1 px-2 py-1 text-white rounded text-xs font-medium ${showReceiptModal ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                                    >
+                                        {isEditMode ? 'Update' : 'Submit'}
+                                    </button>
                                 </div>
-                            </form>
+                            </div>
                         </div>
                     </div>
                 )

@@ -14,6 +14,12 @@ export default function StockMonthlySummary() {
     const [year, setYear] = useState(new Date().getFullYear());
 
     useEffect(() => {
+        if (user?.role === 'supervisor' && !user?.canManageStock) {
+            navigate('/');
+        }
+    }, [user, navigate]);
+
+    useEffect(() => {
         fetchMonthlySummary();
     }, [year]);
 

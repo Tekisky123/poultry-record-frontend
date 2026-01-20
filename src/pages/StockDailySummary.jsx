@@ -17,6 +17,12 @@ export default function StockDailySummary() {
     const [error, setError] = useState('');
 
     useEffect(() => {
+        if (user?.role === 'supervisor' && !user?.canManageStock) {
+            navigate('/');
+        }
+    }, [user, navigate]);
+
+    useEffect(() => {
         fetchDailySummary();
     }, [year, month]);
 
