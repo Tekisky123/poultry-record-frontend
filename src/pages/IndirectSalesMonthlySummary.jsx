@@ -38,10 +38,26 @@ export default function IndirectSalesMonthlySummary() {
         navigate(`/indirect-sales/daily?year=${yearNum}&month=${monthNum}`);
     };
 
+    const getFinancialYearOrder = (monthData) => {
+        if (!monthData) return [];
+        return [...monthData].sort((a, b) => {
+            const dateA = new Date(Date.parse(a.name + " 1, 2000"));
+            const dateB = new Date(Date.parse(b.name + " 1, 2000"));
+            const monthA = dateA.getMonth() + 1;
+            const monthB = dateB.getMonth() + 1;
+
+            const orderA = (monthA + 8) % 12;
+            const orderB = (monthB + 8) % 12;
+            return orderA - orderB;
+        });
+    };
+
     const handleExportToExcel = () => {
         if (!data) return;
 
-        const exportData = data.months.map(m => ({
+        const sortedMonths = getFinancialYearOrder(data.months);
+
+        const exportData = sortedMonths.map(m => ({
             Month: m.name,
             'Count': m.count,
             'Total Sales': m.salesAmount || 0,
@@ -138,7 +154,7 @@ export default function IndirectSalesMonthlySummary() {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {data?.months.map((month, index) => (
+                            {getFinancialYearOrder(data?.months).map((month, index) => (
                                 <tr
                                     key={index}
                                     onClick={() => handleMonthClick(month)}

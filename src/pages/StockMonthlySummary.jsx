@@ -47,10 +47,21 @@ export default function StockMonthlySummary() {
         navigate(`${basePath}?year=${year}&month=${month.month}`);
     };
 
+    const getFinancialYearOrder = (monthData) => {
+        if (!monthData) return [];
+        return [...monthData].sort((a, b) => {
+            const orderA = (a.month + 8) % 12;
+            const orderB = (b.month + 8) % 12;
+            return orderA - orderB;
+        });
+    };
+
     const handleExportToExcel = () => {
         if (!data) return;
 
-        const exportData = data.months.map(month => ({
+        const sortedMonths = getFinancialYearOrder(data.months);
+
+        const exportData = sortedMonths.map(month => ({
             Month: month.name,
             'Purchase Amount': month.purchaseAmount || 0,
             'Sale Amount': month.saleAmount || 0,
@@ -134,7 +145,7 @@ export default function StockMonthlySummary() {
                             </tr>
                         </thead>
                         <tbody>
-                            {data.months.map((month) => (
+                            {getFinancialYearOrder(data.months).map((month) => (
                                 <tr
                                     key={month.name}
                                     className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"

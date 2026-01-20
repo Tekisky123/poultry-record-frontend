@@ -2648,6 +2648,80 @@ const SupervisorTripDetails = () => {
           {activeTab === 'losses' && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Losses - Death Birds</h3>
+              {/* WEIGHT LOSS TRACKING SUMMARY */}
+              {/* WEIGHT LOSS TRACKING SUMMARY */}
+              <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                <div className="bg-white p-4 border-b border-gray-200">
+                  <h4 className="font-bold text-gray-900 text-lg uppercase">WEIGHT LOSS TRACKING</h4>
+                </div>
+                {(() => {
+                  const purchaseRate = trip.summary?.avgPurchaseRate || 0;
+                  const deathBirds = trip.summary?.mortality || 0;
+                  const deathWeight = trip.summary?.totalWeightLost || 0;
+                  const deathAvg = deathBirds > 0 ? deathWeight / deathBirds : 0;
+                  const deathAmount = deathWeight * purchaseRate;
+
+                  const totalPurchasedWeight = trip.summary?.totalWeightPurchased || 0;
+                  const totalSoldWeight = trip.summary?.totalWeightSold || 0;
+                  const totalStockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
+                  const naturalWeightLoss = Math.max(0, totalPurchasedWeight - totalSoldWeight - totalStockWeight - deathWeight);
+
+                  const naturalAvg = deathAvg || (trip.summary?.totalWeightPurchased && trip.summary?.totalBirdsPurchased ? trip.summary.totalWeightPurchased / trip.summary.totalBirdsPurchased : 0);
+                  const naturalAmount = naturalWeightLoss * purchaseRate;
+
+                  const totalWeightLoss = deathWeight + naturalWeightLoss;
+                  const totalLossAmount = deathAmount + naturalAmount;
+
+                  return (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-[#E9ECEF] text-gray-600 font-bold tracking-wider">
+                          <tr>
+                            <th className="px-4 py-3 text-left w-1/3"></th>
+                            <th className="px-4 py-3 text-center">BIRDS</th>
+                            <th className="px-4 py-3 text-center">WEIGHT</th>
+                            <th className="px-4 py-3 text-center">AVG</th>
+                            <th className="px-4 py-3 text-center">RATE</th>
+                            <th className="px-4 py-3 text-right">AMOUNT</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {/* Death Birds Row */}
+                          <tr className="bg-white">
+                            <td className="px-4 py-3 font-medium text-gray-800">DEATH BIRDS</td>
+                            <td className="px-4 py-3 text-center text-gray-600">{deathBirds}</td>
+                            <td className="px-4 py-3 text-center text-gray-600">{deathWeight.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-center text-gray-600">{deathAvg.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-center text-gray-600">₹{purchaseRate.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right font-bold text-gray-900">₹{deathAmount.toFixed(2)}</td>
+                          </tr>
+
+                          {/* Natural Weight Loss Row */}
+                          <tr className="bg-white">
+                            <td className="px-4 py-3 font-medium text-gray-800">NATURAL WEIGHT LOSS</td>
+                            <td className="px-4 py-3 text-center text-gray-600">-</td>
+                            <td className="px-4 py-3 text-center text-gray-600">{naturalWeightLoss.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-center text-gray-600">{naturalAvg.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-center text-gray-600">₹{purchaseRate.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right font-bold text-gray-900">₹{naturalAmount.toFixed(2)}</td>
+                          </tr>
+
+                          {/* Total Row */}
+                          <tr className="bg-black text-white">
+                            <td className="px-4 py-3 font-bold uppercase">TOTAL W LOSS</td>
+                            <td className="px-4 py-3 text-center font-bold">{deathBirds}</td>
+                            <td className="px-4 py-3 text-center font-bold">{totalWeightLoss.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-center font-bold">-</td>
+                            <td className="px-4 py-3 text-center font-bold">₹{purchaseRate.toFixed(2)}</td>
+                            <td className="px-4 py-3 text-right font-bold text-lg">₹{totalLossAmount.toFixed(2)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </div>
+
               {/* Automatic Death Calculation Info */}
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <h4 className="font-medium text-blue-900 mb-3">Automatic Death Calculation</h4>
@@ -4154,77 +4228,155 @@ const SupervisorTripDetails = () => {
       {/* Complete Trip Modal */}
       {
         showCompleteModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-4">Complete Trip</h3>
-              <form onSubmit={handleCompleteTrip} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Closing Odometer
-                    <span className="text-red-500 ml-1">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    min={trip?.vehicleReadings?.opening || 0}
-                    value={completeData.closingOdometer}
-                    onChange={(e) => setCompleteData(prev => ({ ...prev, closingOdometer: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder={`Min: ${trip?.vehicleReadings?.opening || 0}`}
-                    required
-                  />
-                  {trip?.vehicleReadings?.opening && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Opening reading: {trip.vehicleReadings.opening}
-                    </p>
-                  )}
-                  {completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening &&
-                    completeData.closingOdometer < trip.vehicleReadings.opening && (
-                      <p className="text-xs text-red-500 mt-1">
-                        Closing reading must be greater than opening reading ({trip.vehicleReadings.opening})
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] flex flex-col">
+              <div className="p-4 border-b border-gray-100 flex-shrink-0">
+                <h3 className="text-lg font-semibold">Complete Trip</h3>
+              </div>
+
+              <div className="p-6 overflow-y-auto flex-1 min-h-0">
+                {/* WEIGHT LOSS TRACKING SUMMARY */}
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm mb-4 flex-shrink-0">
+                  <div className="bg-white p-3 border-b border-gray-200">
+                    <h4 className="font-bold text-gray-900 text-sm uppercase">WEIGHT LOSS TRACKING</h4>
+                  </div>
+                  {(() => {
+                    const purchaseRate = trip.summary?.avgPurchaseRate || 0;
+                    const deathBirds = trip.summary?.mortality || 0;
+                    const deathWeight = trip.summary?.totalWeightLost || 0;
+                    const deathAvg = deathBirds > 0 ? deathWeight / deathBirds : 0;
+                    const deathAmount = deathWeight * purchaseRate;
+
+                    const totalPurchasedWeight = trip.summary?.totalWeightPurchased || 0;
+                    const totalSoldWeight = trip.summary?.totalWeightSold || 0;
+                    const totalStockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
+                    const naturalWeightLoss = Math.max(0, totalPurchasedWeight - totalSoldWeight - totalStockWeight - deathWeight);
+
+                    const naturalAvg = deathAvg || (trip.summary?.totalWeightPurchased && trip.summary?.totalBirdsPurchased ? trip.summary.totalWeightPurchased / trip.summary.totalBirdsPurchased : 0);
+                    const naturalAmount = naturalWeightLoss * purchaseRate;
+
+                    const totalWeightLoss = deathWeight + naturalWeightLoss;
+                    const totalLossAmount = deathAmount + naturalAmount;
+
+                    return (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead className="bg-[#E9ECEF] text-gray-600 font-bold tracking-wider">
+                            <tr>
+                              <th className="px-2 py-1.5 text-left w-1/3"></th>
+                              <th className="px-2 py-1.5 text-center">BIRDS</th>
+                              <th className="px-2 py-1.5 text-center">WEIGHT</th>
+                              <th className="px-2 py-1.5 text-center">AVG</th>
+                              <th className="px-2 py-1.5 text-center">RATE</th>
+                              <th className="px-2 py-1.5 text-right">AMOUNT</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {/* Death Birds Row */}
+                            <tr className="bg-white">
+                              <td className="px-2 py-1.5 font-medium text-gray-800">DEATH BIRDS</td>
+                              <td className="px-2 py-1.5 text-center text-gray-600">{deathBirds}</td>
+                              <td className="px-2 py-1.5 text-center text-gray-600">{deathWeight.toFixed(2)}</td>
+                              <td className="px-2 py-1.5 text-center text-gray-600">{deathAvg.toFixed(2)}</td>
+                              <td className="px-2 py-1.5 text-center text-gray-600">₹{purchaseRate.toFixed(2)}</td>
+                              <td className="px-2 py-1.5 text-right font-bold text-gray-900">₹{deathAmount.toFixed(2)}</td>
+                            </tr>
+
+                            {/* Natural Weight Loss Row */}
+                            <tr className="bg-white">
+                              <td className="px-2 py-1.5 font-medium text-gray-800">NATURAL WEIGHT LOSS</td>
+                              <td className="px-2 py-1.5 text-center text-gray-600">-</td>
+                              <td className="px-2 py-1.5 text-center text-gray-600">{naturalWeightLoss.toFixed(2)}</td>
+                              <td className="px-2 py-1.5 text-center text-gray-600">{naturalAvg.toFixed(2)}</td>
+                              <td className="px-2 py-1.5 text-center text-gray-600">₹{purchaseRate.toFixed(2)}</td>
+                              <td className="px-2 py-1.5 text-right font-bold text-gray-900">₹{naturalAmount.toFixed(2)}</td>
+                            </tr>
+
+                            {/* Total Row */}
+                            <tr className="bg-black text-white">
+                              <td className="px-2 py-1.5 font-bold uppercase">TOTAL W LOSS</td>
+                              <td className="px-2 py-1.5 text-center font-bold">{deathBirds}</td>
+                              <td className="px-2 py-1.5 text-center font-bold">{totalWeightLoss.toFixed(2)}</td>
+                              <td className="px-2 py-1.5 text-center font-bold">-</td>
+                              <td className="px-2 py-1.5 text-center font-bold">₹{purchaseRate.toFixed(2)}</td>
+                              <td className="px-2 py-1.5 text-right font-bold text-base">₹{totalLossAmount.toFixed(2)}</td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                <form onSubmit={handleCompleteTrip} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Closing Odometer
+                      <span className="text-red-500 ml-1">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min={trip?.vehicleReadings?.opening || 0}
+                      value={completeData.closingOdometer}
+                      onChange={(e) => setCompleteData(prev => ({ ...prev, closingOdometer: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder={`Min: ${trip?.vehicleReadings?.opening || 0}`}
+                      required
+                    />
+                    {trip?.vehicleReadings?.opening && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Opening reading: {trip.vehicleReadings.opening}
                       </p>
                     )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Final Remarks</label>
-                  <textarea
-                    value={completeData.finalRemarks}
-                    onChange={(e) => setCompleteData(prev => ({ ...prev, finalRemarks: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    rows="3"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mortality (Death Birds)</label>
-                  <input
-                    type="number"
-                    value={completeData.mortality}
-                    onChange={(e) => setCompleteData(prev => ({ ...prev, mortality: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    required
-                    placeholder="Enter number of birds that died"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">
-                    This represents the remaining birds that are automatically considered as death birds.
-                  </p>
-                </div>
-                <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowCompleteModal(false)}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSubmitting || (completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening &&
-                      completeData.closingOdometer < trip.vehicleReadings.opening)}
-                    className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Complete Trip'}
-                  </button>
-                </div>
-              </form>
+                    {completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening &&
+                      completeData.closingOdometer < trip.vehicleReadings.opening && (
+                        <p className="text-xs text-red-500 mt-1">
+                          Closing reading must be greater than opening reading ({trip.vehicleReadings.opening})
+                        </p>
+                      )}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Final Remarks</label>
+                    <textarea
+                      value={completeData.finalRemarks}
+                      onChange={(e) => setCompleteData(prev => ({ ...prev, finalRemarks: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      rows="3"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Mortality (Death Birds)</label>
+                    <input
+                      type="number"
+                      value={completeData.mortality}
+                      onChange={(e) => setCompleteData(prev => ({ ...prev, mortality: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      required
+                      placeholder="Enter number of birds that died"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      This represents the remaining birds that are automatically considered as death birds.
+                    </p>
+                  </div>
+                  <div className="flex space-x-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowCompleteModal(false)}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting || (completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening &&
+                        completeData.closingOdometer < trip.vehicleReadings.opening)}
+                      className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Complete Trip'}
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         )
