@@ -231,6 +231,8 @@ const ManageStocks = () => {
     }, [showSaleModal, showReceiptModal]);
 
 
+    const [prevFeedConsumedAmount, setPrevFeedConsumedAmount] = useState(0);
+
     // Fetch Data
     useEffect(() => {
         fetchInitialData();
@@ -239,11 +241,17 @@ const ManageStocks = () => {
     const fetchInitialData = async () => {
         setLoading(true);
         try {
-            const [stocksRes, vendorsRes, customersRes, ledgersRes] = await Promise.all([
+            const targetDate = dateParam || new Date().toISOString().split('T')[0];
+            const prevDateObj = new Date(targetDate);
+            prevDateObj.setDate(prevDateObj.getDate() - 1);
+            const prevDateStr = prevDateObj.toISOString().split('T')[0];
+
+            const [stocksRes, vendorsRes, customersRes, ledgersRes, prevStocksRes] = await Promise.all([
                 api.get('/inventory-stock', { params: dateParam ? { startDate: dateParam, endDate: dateParam } : {} }),
                 api.get('/vendor?limit=1000'),
                 api.get('/customer'),
-                api.get('/ledger')
+                api.get('/ledger'),
+                api.get('/inventory-stock', { params: { startDate: prevDateStr, endDate: prevDateStr } })
             ]);
 
             if (stocksRes.data.success) {
@@ -268,6 +276,16 @@ const ManageStocks = () => {
                     }
                 }
             }
+
+            if (prevStocksRes.data.success) {
+                const prevStocks = prevStocksRes.data.data;
+                const prevFeedConsume = prevStocks.filter(s => s.inventoryType === 'feed' && s.type === 'consume');
+                const prevTotal = prevFeedConsume.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+                setPrevFeedConsumedAmount(prevTotal);
+            } else {
+                setPrevFeedConsumedAmount(0);
+            }
+
             if (vendorsRes.data.success) setVendors(vendorsRes.data.data || []);
             if (customersRes.data.success) setCustomers(customersRes.data.data || []); // customer api structure might vary
             if (ledgersRes.data.success) setLedgers(ledgersRes.data.data || []);
@@ -293,7 +311,7 @@ const ManageStocks = () => {
             // Reset Form Data
             setPurchaseData({
                 vendorId: '',
-                vehicleNumber: '',
+                vehicleNumber: '', // Text input as per requirement
                 birds: '',
                 weight: '',
                 avgWeight: 0,
@@ -492,6 +510,50 @@ const ManageStocks = () => {
         }
     };
 
+    const [showNaturalWeightLossModal, setShowNaturalWeightLossModal] = useState(false);
+    const [naturalWeightLossData, setNaturalWeightLossData] = useState({
+        birds: '', // Not used, but keeping structure
+        weight: '',
+        rate: 0,
+        amount: 0,
+        date: defaultDate,
+        type: 'natural_weight_loss' // Explicit type for controller
+    });
+
+    // Auto-calculate Natural Weight Loss Amount
+    useEffect(() => {
+        const weight = Number(naturalWeightLossData.weight) || 0;
+        const rate = Number(naturalWeightLossData.rate) || 0;
+
+        setNaturalWeightLossData(prev => ({
+            ...prev,
+            amount: Number((weight * rate).toFixed(2))
+        }));
+    }, [naturalWeightLossData.weight, naturalWeightLossData.rate]);
+
+    const handleNaturalWeightLossSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            if (isEditMode && currentStockId) {
+                await api.put(`/inventory-stock/${currentStockId}`, { ...naturalWeightLossData, type: 'natural_weight_loss' });
+                alert("Natural Weight Loss updated successfully!");
+            } else {
+                // Determine which endpoint to use. standard weight-loss endpoint can be reused if we pass type?
+                // The controller for 'weight-loss' endpoint forces type 'weight_loss' usually unless modified.
+                // We modified the controller to accept type from body if present.
+                await api.post('/inventory-stock/weight-loss', { ...naturalWeightLossData, type: 'natural_weight_loss' });
+                alert("Natural Weight Loss added successfully!");
+            }
+            setShowNaturalWeightLossModal(false);
+            fetchInitialData();
+            setNaturalWeightLossData({ birds: '', weight: '', rate: 0, amount: 0, date: defaultDate, type: 'natural_weight_loss' });
+            setIsEditMode(false);
+            setCurrentStockId(null);
+        } catch (error) {
+            alert(error.response?.data?.message || "Failed to save natural weight loss");
+        }
+    };
+
     const handleFeedPurchaseSubmit = async (e) => {
         e.preventDefault();
         try {
@@ -686,6 +748,7 @@ const ManageStocks = () => {
     const saleStocks = stocks.filter(s => s.type === 'sale' || s.type === 'receipt');
     const mortalityStock = stocks.find(s => s.type === 'mortality');
     const weightLossStock = stocks.find(s => s.type === 'weight_loss');
+    const naturalWeightLossStock = stocks.find(s => s.type === 'natural_weight_loss');
 
     // Sort Purchase Stocks: Opening Stock First, then by Date Descending
     const sortedPurchaseStocks = [...rawPurchaseStocks].sort((a, b) => {
@@ -1295,210 +1358,244 @@ const ManageStocks = () => {
                 </div>
             </div>
 
-            <div className="flex flex-col lg:flex-row gap-6 mt-6">
-                {/* Mortality and Weight Loss Details Table */}
-                <div className="flex-1 bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-bold mb-4 text-gray-800">Mortality and Weight Loss Details</h2>
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse border border-gray-300">
-                            <thead>
-                                <tr className="bg-gray-100 text-gray-800">
-                                    <th className="border p-2 text-left">Particulars</th>
-                                    <th className="border p-2 text-center">BIRDS</th>
-                                    <th className="border p-2 text-center">WEIGHT</th>
-                                    <th className="border p-2 text-center">AVG</th>
-                                    <th className="border p-2 text-center">RATE</th>
-                                    <th className="border p-2 text-center">TOTAL</th>
-                                    <th className="border p-2 text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {/* BIRDS MORTALITY */}
-                                <tr className="text-center">
-                                    <td className="border p-2 font-medium text-left">BIRDS MORTALITY</td>
-                                    <td className="border p-2">{mortalityStock ? mortalityStock.birds : '-'}</td>
-                                    <td className="border p-2">{mortalityStock ? mortalityStock.weight?.toFixed(2) : '-'}</td>
-                                    <td className="border p-2">{mortalityStock ? ((mortalityStock.weight / mortalityStock.birds) || 0).toFixed(2) : '-'}</td>
-                                    <td className="border p-2">{mortalityStock ? mortalityStock.rate?.toFixed(2) : '-'}</td>
-                                    <td className="border p-2">{mortalityStock ? mortalityStock.amount?.toFixed(0) : '-'}</td>
-                                    <td className="border p-2">
-                                        {mortalityStock && (
-                                            <button
-                                                onClick={() => {
-                                                    setIsEditMode(true);
-                                                    setCurrentStockId(mortalityStock._id);
-                                                    setMortalityData({
-                                                        birds: mortalityStock.birds,
-                                                        weight: mortalityStock.weight,
-                                                        avgWeight: mortalityStock.avgWeight,
-                                                        rate: mortalityStock.rate,
-                                                        amount: mortalityStock.amount,
-                                                        date: mortalityStock.date ? new Date(mortalityStock.date).toISOString().split('T')[0] : ''
-                                                    });
-                                                    setShowMortalityModal(true);
-                                                }}
-                                                className="text-blue-600 hover:text-blue-800 font-medium"
-                                            >
-                                                Edit
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                                {/* WEIGHT LOSS/ WEIGHT ON */}
-                                <tr className="text-center">
-                                    <td className="border p-2 font-medium text-left">WEIGHT LOSS/ WEIGHT ON</td>
-                                    <td className="border p-2">0</td>
-                                    <td className="border p-2">{weightLossStock ? weightLossStock.weight?.toFixed(2) : '-'}</td>
-                                    <td className="border p-2">0.00</td>
-                                    <td className="border p-2">{weightLossStock ? weightLossStock.rate?.toFixed(2) : '-'}</td>
-                                    <td className="border p-2">{weightLossStock ? weightLossStock.amount?.toFixed(0) : '-'}</td>
-                                    <td className="border p-2">
-                                        {weightLossStock && (
-                                            <button
-                                                onClick={() => {
-                                                    setIsEditMode(true);
-                                                    setCurrentStockId(weightLossStock._id);
-                                                    setWeightLossData({
-                                                        birds: 0,
-                                                        weight: weightLossStock.weight,
-                                                        avgWeight: 0,
-                                                        rate: weightLossStock.rate,
-                                                        amount: weightLossStock.amount,
-                                                        date: weightLossStock.date ? new Date(weightLossStock.date).toISOString().split('T')[0] : ''
-                                                    });
-                                                    setShowWeightLossModal(true);
-                                                }}
-                                                className="text-blue-600 hover:text-blue-800 font-medium"
-                                            >
-                                                Edit
-                                            </button>
-                                        )}
-                                    </td>
-                                </tr>
-                                {/* TOTAL W LOSS Row */}
-                                <tr className="bg-black text-white font-bold text-center">
-                                    <td className="border p-2 text-left">TOTAL W LOSS</td>
-                                    <td className="border p-2">
-                                        {(Number(mortalityStock?.birds) || 0) + (Number(weightLossStock?.birds) || 0)}
-                                    </td>
-                                    <td className="border p-2">
-                                        {((Number(mortalityStock?.weight) || 0) + (Number(weightLossStock?.weight) || 0)).toFixed(2)}
-                                    </td>
-                                    <td className="border p-2"></td>
-                                    <td className="border p-2">
-                                        {(() => {
-                                            const totalWeight = (Number(mortalityStock?.weight) || 0) + (Number(weightLossStock?.weight) || 0);
-                                            const totalAmount = (Number(mortalityStock?.amount) || 0) + (Number(weightLossStock?.amount) || 0);
-                                            return totalWeight && totalWeight !== 0 ? (totalAmount / totalWeight).toFixed(2) : '0.00';
-                                        })()}
-                                    </td>
-                                    <td className="border p-2">
-                                        {((Number(mortalityStock?.amount) || 0) + (Number(weightLossStock?.amount) || 0)).toFixed(0)}
-                                    </td>
-                                    <td className="border p-2"></td>
-                                </tr>
-                                {/* CLOSING STOCK Row */}
-                                <tr className="bg-purple-100 text-purple-900 font-bold text-center">
-                                    <td className="border p-2 text-left">CLOSING STOCK</td>
-                                    <td className="border p-2">
-                                        {(() => {
-                                            const wLossBirds = (Number(mortalityStock?.birds) || 0) + (Number(weightLossStock?.birds) || 0);
-                                            return (totalBirds - totalSaleBirds - wLossBirds);
-                                        })()}
-                                    </td>
-                                    <td className="border p-2">
-                                        {(() => {
-                                            const wLossWeight = (Number(mortalityStock?.weight) || 0) + (Number(weightLossStock?.weight) || 0);
-                                            return (totalWeight - totalSaleWeight - wLossWeight).toFixed(2);
-                                        })()}
-                                    </td>
-                                    <td className="border p-2">
-                                        {(() => {
-                                            const wLossBirds = (Number(mortalityStock?.birds) || 0) + (Number(weightLossStock?.birds) || 0);
-                                            const wLossWeight = (Number(mortalityStock?.weight) || 0) + (Number(weightLossStock?.weight) || 0);
-                                            const closingBirds = totalBirds - totalSaleBirds - wLossBirds;
-                                            const closingWeight = totalWeight - totalSaleWeight - wLossWeight;
-                                            return closingBirds > 0 ? (closingWeight / closingBirds).toFixed(2) : '0.00';
-                                        })()}
-                                    </td>
-                                    <td className="border p-2">
-                                        {(() => {
-                                            const wLossWeight = (Number(mortalityStock?.weight) || 0) + (Number(weightLossStock?.weight) || 0);
-                                            const wLossAmount = (Number(mortalityStock?.amount) || 0) + (Number(weightLossStock?.amount) || 0);
+            {/* CALCULATIONS FOR CLOSING STOCK & PROFIT BREAKDOWN */}
+            {(() => {
+                // 1. GROSS CLOSING STOCK CALCS
+                const grossBirds = totalBirds - totalSaleBirds;
+                const grossWeight = totalWeight - totalSaleWeight;
+                const grossAvg = grossBirds !== 0 ? grossWeight / grossBirds : 0;
+                const grossRate = totalRate;
+                const grossTotal = grossRate * grossWeight;
 
-                                            const closingWeight = totalWeight - totalSaleWeight - wLossWeight;
-                                            const closingAmount = totalAmount - totalSaleAmount - wLossAmount;
+                // 2. BIRDS MORTALITY CALCS
+                const mortBirds = mortalityStock ? Number(mortalityStock.birds) : 0;
+                const mortAvg = totalSaleAvg;
+                const mortWeightComputed = mortBirds * mortAvg;
+                const mortRate = grossRate;
+                const mortTotalComputed = mortRate * mortWeightComputed;
 
-                                            // Fallback to purchase rate if closing weight is 0 but we want to show a rate?
-                                            // Actually standard is Total Amt / Total Weight.
-                                            return closingWeight > 0 ? (closingAmount / closingWeight).toFixed(2) : '0.00';
-                                        })()}
-                                    </td>
-                                    <td className="border p-2">
-                                        {(() => {
-                                            const wLossAmount = (Number(mortalityStock?.amount) || 0) + (Number(weightLossStock?.amount) || 0);
-                                            return (totalAmount - totalSaleAmount - wLossAmount).toFixed(0);
-                                        })()}
-                                    </td>
-                                    <td className="border p-2"></td>
-                                </tr>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                // 3. ACTUAL WEIGHT LOSS / ON CALCS
+                const actBirds = 0;
+                const actWeight = weightLossStock ? Number(weightLossStock.weight) : 0;
+                const actRate = grossRate;
+                const actTotalComputed = actRate * actWeight;
 
-                {/* FEED STOCK SUMMARY TABLE */}
-                <div className="flex-1 bg-white rounded-lg shadow-md p-6">
-                    <h2 className="text-xl font-bold mb-4 text-orange-600">FEED STOCK SUMMARY</h2>
-                    <div className="overflow-x-auto">
-                        <table className="w-full border-collapse">
-                            <thead>
-                                <tr className="bg-gray-100 text-gray-700">
-                                    <th className="border p-2 text-center"></th>
-                                    <th className="border p-2 text-center">BAG</th>
-                                    <th className="border p-2 text-center">QTTY</th>
-                                    <th className="border p-2 text-center">RATE</th>
-                                    <th className="border p-2 text-center">AMOUNT</th>
-                                    {isSupervisor && <th className="border p-2 text-center">ACTION</th>}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {(() => {
-                                    // Calculate Totals
-                                    const opStocks = sortedFeedStocks.filter(s => s.type === 'opening');
-                                    const purchStocks = sortedFeedStocks.filter(s => s.type !== 'opening');
-                                    const consStocks = sortedFeedConsumeStocks;
+                // 4. CLOSING STOCK CALCS
+                const closeBirds = grossBirds - mortBirds;
+                const closeAvg = totalSaleAvg;
+                const closeWeight = closeBirds * closeAvg;
+                const closeRate = grossRate;
+                const closeTotal = closeRate * closeWeight;
 
-                                    const opStats = {
-                                        bags: opStocks.reduce((sum, s) => sum + (Number(s.bags) || 0), 0),
-                                        weight: opStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0),
-                                        amount: opStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
-                                    };
-                                    opStats.rate = opStats.weight > 0 ? opStats.amount / opStats.weight : 0;
+                // 5. NATURAL WEIGHT LOSS / ON CALCS
+                const natBirds = 0;
+                const natWeight = grossWeight - mortWeightComputed - actWeight - closeWeight;
+                const natRate = grossRate;
+                const natTotalComputed = natRate * natWeight;
 
-                                    const purchStats = {
-                                        bags: purchStocks.reduce((sum, s) => sum + (Number(s.bags) || 0), 0),
-                                        weight: purchStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0),
-                                        amount: purchStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
-                                    };
-                                    purchStats.rate = purchStats.weight > 0 ? purchStats.amount / purchStats.weight : 0;
+                // --- FEED STOCK SUMMARY CALCULATIONS ---
+                const opStocks = sortedFeedStocks.filter(s => s.type === 'opening');
+                const purchStocks = sortedFeedStocks.filter(s => s.type !== 'opening');
+                const consStocks = sortedFeedConsumeStocks;
 
-                                    const consStats = {
-                                        bags: consStocks.reduce((sum, s) => sum + (Number(s.bags) || 0), 0),
-                                        weight: consStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0),
-                                        amount: consStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
-                                    };
-                                    consStats.rate = consStats.weight > 0 ? consStats.amount / consStats.weight : 0;
+                const opStats = {
+                    bags: opStocks.reduce((sum, s) => sum + (Number(s.bags) || 0), 0),
+                    weight: opStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0),
+                    amount: opStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
+                };
+                opStats.rate = opStats.weight > 0 ? opStats.amount / opStats.weight : 0;
 
-                                    const closingStats = {
-                                        bags: opStats.bags + purchStats.bags - consStats.bags,
-                                        weight: opStats.weight + purchStats.weight - consStats.weight,
-                                        amount: opStats.amount + purchStats.amount - consStats.amount
-                                    };
-                                    closingStats.rate = closingStats.weight > 0 ? closingStats.amount / closingStats.weight : 0;
+                const purchStats = {
+                    bags: purchStocks.reduce((sum, s) => sum + (Number(s.bags) || 0), 0),
+                    weight: purchStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0),
+                    amount: purchStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
+                };
+                purchStats.rate = purchStats.weight > 0 ? purchStats.amount / purchStats.weight : 0;
 
-                                    return (
-                                        <>
+                const consStats = {
+                    bags: consStocks.reduce((sum, s) => sum + (Number(s.bags) || 0), 0),
+                    weight: consStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0),
+                    amount: consStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
+                };
+                consStats.rate = consStats.weight > 0 ? consStats.amount / consStats.weight : 0;
+
+                const closingStats = {
+                    bags: opStats.bags + purchStats.bags - consStats.bags,
+                    weight: opStats.weight + purchStats.weight - consStats.weight,
+                    amount: opStats.amount + purchStats.amount - consStats.amount
+                };
+                closingStats.rate = closingStats.weight > 0 ? closingStats.amount / closingStats.weight : 0;
+
+
+                // --- PROFIT BREAKDOWN CALCULATIONS ---
+                // PROFIT MARGINE PER KG = total sale rate - total purchase rate
+                const profitMarginPerKg = totalSaleRate - totalRate; // using totalRate (Purchase Rate)
+
+                // BIRDS SOLD QTTY IN KG = total sale weight
+                const birdsSoldQtyInKg = totalSaleWeight;
+
+                // GROSS PROFIT = BIRDS SOLD QTTY IN KG * PROFIT MARGINE PER KG
+                const grossProfit = birdsSoldQtyInKg * profitMarginPerKg;
+
+                // W LOSS & MORTALITY = natural weight loss/on total + acutual weight loss/on total + birds mortality total
+                const wLossAndMortality = natTotalComputed + actTotalComputed + mortTotalComputed;
+
+                // FEED CONSUMED = previous date feed consume total amount
+                const feedConsumed = prevFeedConsumedAmount;
+
+                // NET PROFIT/LOSS = GROSS PROFIT - W LOSS & MORTALITY - FEED CONSUMED
+                const netProfitLoss = grossProfit - wLossAndMortality - feedConsumed;
+
+                return (
+                    <div className="flex flex-col gap-6 mt-6">
+                        {/* Closing Stock Summary Table */}
+                        <div className="bg-white rounded-lg shadow-md p-6">
+                            <h2 className="text-xl font-bold mb-4 text-gray-800">CLOSING STOCK SUMMARY</h2>
+                            <div className="overflow-x-auto">
+                                <table className="w-full border-collapse border border-gray-300">
+                                    <thead>
+                                        <tr className="bg-gray-100 text-gray-800">
+                                            <th className="border p-2 text-left bg-gray-200">Particulars</th>
+                                            <th className="border p-2 text-center">BIRDS</th>
+                                            <th className="border p-2 text-center">WEIGHT</th>
+                                            <th className="border p-2 text-center">AVG</th>
+                                            <th className="border p-2 text-center">RATE</th>
+                                            <th className="border p-2 text-center">TOTAL</th>
+                                            <th className="border p-2 text-center">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {/* GROSS CLOSING STOCK */}
+                                        <tr className="text-center italic bg-white border-b">
+                                            <td className="border p-2 text-left text-gray-700">GROSS CLOSING STOCK</td>
+                                            <td className="border p-2">{grossBirds}</td>
+                                            <td className="border p-2">{grossWeight.toFixed(2)}</td>
+                                            <td className="border p-2">{grossAvg.toFixed(2)}</td>
+                                            <td className="border p-2">{grossRate.toFixed(2)}</td>
+                                            <td className="border p-2">{grossTotal.toFixed(2)}</td>
+                                            <td className="border p-2"></td>
+                                        </tr>
+
+                                        {/* BIRDS MORTALITY */}
+                                        <tr className="text-center italic bg-white border-b">
+                                            <td className="border p-2 text-left text-gray-700">BIRDS MORTALITY</td>
+                                            <td className="border p-2 font-bold">{mortBirds}</td>
+                                            <td className="border p-2">{mortWeightComputed.toFixed(2)}</td>
+                                            <td className="border p-2">{mortAvg.toFixed(2)}</td>
+                                            <td className="border p-2">{mortRate.toFixed(2)}</td>
+                                            <td className="border p-2">{mortTotalComputed.toFixed(2)}</td>
+                                            <td className="border p-2">
+                                                <button
+                                                    onClick={() => {
+                                                        setIsEditMode(true);
+                                                        if (mortalityStock) {
+                                                            setCurrentStockId(mortalityStock._id);
+                                                            setMortalityData({
+                                                                birds: mortalityStock.birds,
+                                                                weight: mortalityStock.weight,
+                                                                avgWeight: mortalityStock.avgWeight,
+                                                                rate: mortalityStock.rate,
+                                                                amount: mortalityStock.amount,
+                                                                date: mortalityStock.date ? new Date(mortalityStock.date).toISOString().split('T')[0] : ''
+                                                            });
+                                                        } else {
+                                                            setCurrentStockId(null);
+                                                            setMortalityData({ birds: '', weight: '', avgWeight: 0, rate: 0, amount: 0, date: defaultDate });
+                                                        }
+                                                        setShowMortalityModal(true);
+                                                    }}
+                                                    className="text-blue-600 hover:text-blue-800 font-medium"
+                                                >
+                                                    {mortalityStock ? 'Edit' : 'Add'}
+                                                </button>
+                                            </td>
+                                        </tr>
+
+                                        {/* ACTUAL WEIGHT LOSS / ON */}
+                                        <tr className="text-center italic bg-white border-b">
+                                            <td className="border p-2 text-left text-gray-700">ACTUAL WEIGHT LOSS /ON</td>
+                                            <td className="border p-2 text-gray-400">-</td>
+                                            <td className="border p-2 font-bold">{actWeight.toFixed(2)}</td>
+                                            <td className="border p-2 text-gray-400">-</td>
+                                            <td className="border p-2">{actRate.toFixed(2)}</td>
+                                            <td className="border p-2">{actTotalComputed.toFixed(2)}</td>
+                                            <td className="border p-2">
+                                                <button
+                                                    onClick={() => {
+                                                        setIsEditMode(true);
+                                                        if (weightLossStock) {
+                                                            setCurrentStockId(weightLossStock._id);
+                                                            setWeightLossData({
+                                                                birds: 0,
+                                                                weight: weightLossStock.weight,
+                                                                avgWeight: 0,
+                                                                rate: weightLossStock.rate,
+                                                                amount: weightLossStock.amount,
+                                                                date: weightLossStock.date ? new Date(weightLossStock.date).toISOString().split('T')[0] : ''
+                                                            });
+                                                        } else {
+                                                            setCurrentStockId(null);
+                                                            setWeightLossData({
+                                                                birds: 0,
+                                                                weight: '',
+                                                                avgWeight: 0,
+                                                                rate: 0,
+                                                                amount: 0,
+                                                                date: defaultDate
+                                                            });
+                                                        }
+                                                        setShowWeightLossModal(true);
+                                                    }}
+                                                    className="text-blue-600 hover:text-blue-800 font-medium"
+                                                >
+                                                    {weightLossStock ? 'Edit' : 'Add'}
+                                                </button>
+                                            </td>
+                                        </tr>
+
+                                        {/* NATURAL WEIGHT LOSS/ ON */}
+                                        <tr className="text-center italic bg-white border-b">
+                                            <td className="border p-2 text-left text-gray-700">NATURAL WEIGHT LOSS/ ON</td>
+                                            <td className="border p-2 text-gray-400">-</td>
+                                            <td className="border p-2 font-bold">{natWeight.toFixed(2)}</td>
+                                            <td className="border p-2 text-gray-400">-</td>
+                                            <td className="border p-2">{natRate.toFixed(2)}</td>
+                                            <td className="border p-2">{natTotalComputed.toFixed(2)}</td>
+                                            <td className="border p-2"></td>
+                                        </tr>
+
+                                        {/* CLOSING STOCK */}
+                                        <tr className="bg-black text-white font-bold text-center italic">
+                                            <td className="border p-2 text-left">CLOSING STOCK</td>
+                                            <td className="border p-2">{closeBirds}</td>
+                                            <td className="border p-2">{closeWeight.toFixed(2)}</td>
+                                            <td className="border p-2">{closeAvg.toFixed(2)}</td>
+                                            <td className="border p-2">{closeRate.toFixed(2)}</td>
+                                            <td className="border p-2">{closeTotal.toFixed(2)}</td>
+                                            <td className="border p-2"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col lg:flex-row gap-6">
+                            {/* FEED STOCK SUMMARY TABLE */}
+                            <div className="flex-1 bg-white rounded-lg shadow-md p-6">
+                                <h2 className="text-xl font-bold mb-4 text-orange-600">FEED STOCK SUMMARY</h2>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full border-collapse">
+                                        <thead>
+                                            <tr className="bg-gray-100 text-gray-700">
+                                                <th className="border p-2 text-center"></th>
+                                                <th className="border p-2 text-center">BAG</th>
+                                                <th className="border p-2 text-center">QTTY</th>
+                                                <th className="border p-2 text-center">RATE</th>
+                                                <th className="border p-2 text-center">AMOUNT</th>
+                                                {isSupervisor && <th className="border p-2 text-center">ACTION</th>}
+                                            </tr>
+                                        </thead>
+                                        <tbody>
                                             {/* OP */}
                                             <tr className="text-center font-bold">
                                                 <td className="border p-2">OP</td>
@@ -1575,23 +1672,58 @@ const ManageStocks = () => {
                                                     </td>
                                                 )}
                                             </tr>
-                                            {/* CLOSING */}
-                                            <tr className="text-center font-bold">
-                                                <td className="border p-2">CLOSING</td>
+                                            {/* CLOSING STOCK */}
+                                            <tr className="bg-orange-100 text-center font-bold">
+                                                <td className="border p-2">CLOSING STOCK</td>
                                                 <td className="border p-2">{closingStats.bags}</td>
                                                 <td className="border p-2">{closingStats.weight.toFixed(2)}</td>
                                                 <td className="border p-2">{closingStats.rate.toFixed(2)}</td>
                                                 <td className="border p-2">{closingStats.amount.toFixed(0)}</td>
                                                 {isSupervisor && <td className="border p-2"></td>}
                                             </tr>
-                                        </>
-                                    );
-                                })()}
-                            </tbody>
-                        </table>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* PROFIT BREAKDOWN Table */}
+                            <div className="flex-1 bg-white rounded-lg shadow-md p-6">
+                                <h2 className="text-xl font-bold mb-4 italic text-center text-gray-800">PROFIT BREAKDOWN</h2>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full border-collapse border border-gray-300">
+                                        <tbody>
+                                            <tr className="border-b">
+                                                <td className="border p-2 italic text-left w-2/3">PROFIT MARGINE PER KG</td>
+                                                <td className="border p-2 text-center font-medium italic">{profitMarginPerKg.toFixed(2)}</td>
+                                            </tr>
+                                            <tr className="border-b">
+                                                <td className="border p-2 italic text-left">BIRDS SOLD QTTY IN KG</td>
+                                                <td className="border p-2 text-center font-medium italic">{birdsSoldQtyInKg.toFixed(2)}</td>
+                                            </tr>
+                                            <tr className="border-b">
+                                                <td className="border p-2 italic text-left font-bold">GROSS PROFIT</td>
+                                                <td className="border p-2 text-center font-bold italic">{grossProfit.toFixed(2)}</td>
+                                            </tr>
+                                            <tr className="border-b">
+                                                <td className="border p-2 italic text-left">W LOSS & MORTALITY</td>
+                                                <td className="border p-2 text-center font-medium italic">{wLossAndMortality.toFixed(2)}</td>
+                                            </tr>
+                                            <tr className="border-b">
+                                                <td className="border p-2 italic text-left">FEED CONSUMED</td>
+                                                <td className="border p-2 text-center font-medium italic">{feedConsumed.toFixed(2)}</td>
+                                            </tr>
+                                            <tr className="bg-black text-white">
+                                                <td className="border p-2 italic text-left font-bold">NET PROFIT/LOSS</td>
+                                                <td className="border p-2 text-center font-bold italic">{netProfitLoss.toFixed(2)}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
+                );
+            })()}
 
 
 
@@ -2222,12 +2354,12 @@ const ManageStocks = () => {
                     </div>
                 )
             }
-            {/* Weight Loss / Weight ON Modal */}
+            {/* Actual Weight Loss Modal */}
             {
                 showWeightLossModal && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                         <div className="bg-white p-6 rounded-lg w-full max-w-lg">
-                            <h3 className="text-xl font-bold mb-4">{isEditMode ? 'Edit Weight Loss/Gain' : 'Add Weight Loss / Weight ON'}</h3>
+                            <h3 className="text-xl font-bold mb-4">{isEditMode ? 'Edit Actual Weight Loss/On' : 'Add Actual Weight Loss/On'}</h3>
                             <form onSubmit={handleWeightLossSubmit} className="space-y-4">
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
@@ -2236,7 +2368,7 @@ const ManageStocks = () => {
                                     </div>
                                     <div>
                                         <label className="block text-sm font-medium">Weight <span className="text-red-500">*</span></label>
-                                        <input type="number" value={weightLossData.weight} onChange={e => setWeightLossData({ ...weightLossData, weight: e.target.value })} className="w-full border p-2 rounded" required placeholder="Enter weight loss (negative) or gain (positive)" />
+                                        <input type="number" value={weightLossData.weight} onChange={e => setWeightLossData({ ...weightLossData, weight: e.target.value })} className="w-full border p-2 rounded" required placeholder="Enter weight loss (positive for loss)" />
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
@@ -2256,6 +2388,46 @@ const ManageStocks = () => {
                                 <div className="flex justify-end gap-2 mt-4">
                                     <button type="button" onClick={() => setShowWeightLossModal(false)} className="px-4 py-2 border rounded">Cancel</button>
                                     <button type="submit" className="px-4 py-2 bg-teal-600 text-white rounded">Submit</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                )
+            }
+            {/* Natural Weight Loss Modal */}
+            {
+                showNaturalWeightLossModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                        <div className="bg-white p-6 rounded-lg w-full max-w-lg">
+                            <h3 className="text-xl font-bold mb-4">{isEditMode ? 'Edit Natural Weight Loss' : 'Add Natural Weight Loss'}</h3>
+                            <form onSubmit={handleNaturalWeightLossSubmit} className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium">Birds (Readonly)</label>
+                                        <input type="text" value="-" className="w-full border p-2 rounded bg-gray-100" readOnly />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium">Weight <span className="text-red-500">*</span></label>
+                                        <input type="number" value={naturalWeightLossData.weight} onChange={e => setNaturalWeightLossData({ ...naturalWeightLossData, weight: e.target.value })} className="w-full border p-2 rounded" required placeholder="Enter natural weight loss" />
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium">AVG (Kg/bird)</label>
+                                        <input type="text" value="-" className="w-full border p-2 rounded bg-gray-100" readOnly />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium">Rate</label>
+                                        <input type="number" value={naturalWeightLossData.rate} className="w-full border p-2 rounded bg-gray-100" readOnly />
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium">Amount</label>
+                                    <input type="number" value={naturalWeightLossData.amount} className="w-full border p-2 rounded bg-gray-100" readOnly />
+                                </div>
+                                <div className="flex justify-end gap-2 mt-4">
+                                    <button type="button" onClick={() => setShowNaturalWeightLossModal(false)} className="px-4 py-2 border rounded">Cancel</button>
+                                    <button type="submit" className="px-4 py-2 bg-purple-600 text-white rounded">Submit</button>
                                 </div>
                             </form>
                         </div>
