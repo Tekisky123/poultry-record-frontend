@@ -23,27 +23,21 @@ export const AuthProvider = ({ children }) => {
   }, []);
 
   // Check session on initial load
-  // Check session on initial load and poll
   useEffect(() => {
     const checkSession = async () => {
       try {
         const { data } = await api.get("/auth/verify", { withCredentials: true });
         setUser(data?.data);
       } catch (err) {
-        if (loading) {
-          setUser(null);
-        }
+        setUser(null);
+        setError(err.message + ` Please login again!`);
+        setShowFailureModal(true);
       } finally {
         setLoading(false);
       }
     };
 
     checkSession();
-
-    // Poll for session updates every 10 seconds to sync permissions
-    const intervalId = setInterval(checkSession, 10000);
-
-    return () => clearInterval(intervalId);
   }, []);
 
   const login = async (credentials) => {

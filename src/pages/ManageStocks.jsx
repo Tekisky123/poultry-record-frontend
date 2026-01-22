@@ -1304,15 +1304,64 @@ const ManageStocks = () => {
                                             onClick={() => {
                                                 setIsEditMode(true);
                                                 setCurrentStockId(sale._id);
+
+                                                // 1. Identify Customer & Current Balance
+                                                const custId = sale.customerId?._id || sale.customerId?.id || sale.customerId;
+                                                const cust = customers.find(c => c._id == custId || c.id == custId);
+
+                                                // Default to current balance if found, else use 0
+                                                let baseBalance = cust ? (cust.outstandingBalance || 0) : 0;
+
+                                                // 2. Calculate Effects of Subsequent Sales (including this one)
+                                                // Filter sales for this customer from the available stocks
+                                                const customerSales = stocks.filter(s =>
+                                                    (s.type === 'sale' || s.type === 'receipt') &&
+                                                    (s.customerId?._id == custId || s.customerId?.id == custId || s.customerId == custId)
+                                                );
+
+                                                // Sort by Date Descending, then ID Descending (for same day/time consistency)
+                                                customerSales.sort((a, b) => {
+                                                    const dateA = new Date(a.date);
+                                                    const dateB = new Date(b.date);
+                                                    if (dateA > dateB) return -1;
+                                                    if (dateA < dateB) return 1;
+                                                    // If dates are equal, fallback to ID sorting (assuming monotonic IDs)
+                                                    if (a._id > b._id) return -1;
+                                                    if (a._id < b._id) return 1;
+                                                    return 0;
+                                                });
+
+                                                // Subtract effects until we pass the current sale
+                                                let deduction = 0;
+                                                for (const s of customerSales) {
+                                                    // Effect = Amount - Paid - Discount
+                                                    // Note: Receipts have Amount 0, but Paid > 0, so Effect is negative (reduces balance)
+                                                    const effect = (Number(s.amount) || 0) - (Number(s.cashPaid) || 0) - (Number(s.onlinePaid) || 0) - (Number(s.discount) || 0);
+                                                    deduction += effect;
+
+                                                    if (s._id === sale._id) {
+                                                        break; // We include the current sale's effect in the deduction to reach the 'Opening Balance'
+                                                    }
+                                                }
+
+                                                // Calculate Retrospective Opening Balance
+                                                const retrospectiveBalance = baseBalance - deduction;
+
+                                                if (cust) {
+                                                    setSelectedCustomer(cust);
+                                                    setCustomerSearchTerm('');
+                                                } else if (sale.customerId && sale.customerId.shopName) {
+                                                    setSelectedCustomer(sale.customerId);
+                                                }
+
                                                 setSaleData({
-                                                    customerId: sale.customerId?._id || sale.customerId?.id || '',
+                                                    customerId: custId || '',
                                                     billNumber: sale.billNumber || '',
                                                     birds: sale.birds || 0,
                                                     weight: sale.weight || 0,
                                                     avgWeight: sale.avgWeight || 0,
                                                     rate: sale.rate || 0,
                                                     amount: sale.amount || 0,
-                                                    // We don't have totalBalance from backend stock usually, so we let effect calc it or set 0
                                                     totalBalance: 0,
                                                     cashPaid: sale.cashPaid || 0,
                                                     onlinePaid: sale.onlinePaid || 0,
@@ -1320,9 +1369,8 @@ const ManageStocks = () => {
                                                     balance: sale.balance || 0,
                                                     cashLedgerId: sale.cashLedgerId || '',
                                                     onlineLedgerId: sale.onlineLedgerId || '',
-                                                    // saleOutBalance: customer balance logic? Might be tricky to get "balance at that time".
-                                                    // For now, let's fetch current customer balance or leave 0.
-                                                    saleOutBalance: sale.customerId?.outstandingBalance || 0,
+                                                    // Set the calculated retrospective balance
+                                                    saleOutBalance: retrospectiveBalance,
                                                     date: sale.date ? new Date(sale.date).toISOString().split('T')[0] : ''
                                                 });
 
