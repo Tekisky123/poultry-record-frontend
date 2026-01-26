@@ -83,7 +83,6 @@ export default function MonthlySummary() {
             'Total Weight': month.weight ? parseFloat(month.weight.toFixed(2)) : 0,
             'Debit (Sales)': month.debit || 0,
             'Credit (Receipts)': month.credit || 0,
-            'Discount & Other': month.discountAndOther || 0,
             'Closing Balance': `${month.closingBalance.toFixed(2)} ${month.closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`
         }));
 
@@ -94,7 +93,6 @@ export default function MonthlySummary() {
             'Total Weight': data.totals.weight ? parseFloat(data.totals.weight.toFixed(2)) : 0,
             'Debit (Sales)': data.totals.debit || 0,
             'Credit (Receipts)': data.totals.credit || 0,
-            'Discount & Other': data.totals.discountAndOther || 0,
             'Closing Balance': `${data.months[data.months.length - 1].closingBalance.toFixed(2)} ${data.months[data.months.length - 1].closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`
         });
 
@@ -203,7 +201,6 @@ export default function MonthlySummary() {
                                 <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Weight</th>
                                 <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit (Sales)</th>
                                 <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit (Receipts)</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Discount & Other</th>
                                 <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
                             </tr>
                         </thead>
@@ -227,9 +224,6 @@ export default function MonthlySummary() {
                                     <td className="py-3 px-4 text-right text-gray-700">
                                         {renderCellWithPercentage(month.credit, data.totals.credit, 'currency')}
                                     </td>
-                                    <td className="py-3 px-4 text-right text-gray-700">
-                                        {renderCellWithPercentage(month.discountAndOther, data.totals.discountAndOther, 'currency')}
-                                    </td>
                                     <td className="py-3 px-4 text-right font-medium text-gray-900">
                                         {month.closingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                         <span className="ml-1 text-xs text-gray-500 uppercase">{month.closingBalanceType ? month.closingBalanceType.charAt(0) + 'r' : ''}</span>
@@ -249,9 +243,6 @@ export default function MonthlySummary() {
                                 </td>
                                 <td className="py-3 px-4 text-right text-gray-900">
                                     {renderCellWithPercentage(data.totals.credit, data.totals.credit, 'currency')}
-                                </td>
-                                <td className="py-3 px-4 text-right text-gray-900">
-                                    {renderCellWithPercentage(data.totals.discountAndOther, data.totals.discountAndOther, 'currency')}
                                 </td>
                                 <td className="py-3 px-4 text-right text-gray-900">
                                     {/* Closing Balance of the year is the closing balance of the last month */}
