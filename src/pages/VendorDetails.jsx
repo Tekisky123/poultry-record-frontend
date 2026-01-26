@@ -425,7 +425,8 @@ const VendorDetails = () => {
                                 <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Weight</th>
                                 <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Avg</th>
                                 <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Rate</th>
-                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Amount</th>
+                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Debit</th>
+                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Credit</th>
                                 <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Less TDS</th>
                                 <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Balance</th>
                                 <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Trip ID</th>
@@ -458,7 +459,22 @@ const VendorDetails = () => {
                                     <td className="px-3 py-3 text-right text-gray-900 whitespace-nowrap">{entry.type === 'OPENING' ? '-' : (entry.weight || 0).toFixed(2)}</td>
                                     <td className="px-3 py-3 text-right text-gray-900 whitespace-nowrap">{entry.type === 'OPENING' ? '-' : (entry.avgWeight || 0).toFixed(2)}</td>
                                     <td className="px-3 py-3 text-right text-gray-900 whitespace-nowrap">{entry.type === 'OPENING' ? '-' : `₹${(entry.rate || 0).toLocaleString()}`}</td>
-                                    <td className="px-3 py-3 text-right text-gray-900 whitespace-nowrap">{entry.type === 'OPENING' ? '-' : `₹${(entry.amount || 0).toLocaleString()}`}</td>
+                                    <td className="px-3 py-3 text-right text-green-600 font-medium whitespace-nowrap">
+                                        {(() => {
+                                            if (entry.type === 'OPENING') return '-';
+                                            // Debit side: Payment, Journal Debit
+                                            const isDebit = entry.amountType === 'debit';
+                                            return isDebit ? `₹${(entry.amount || 0).toLocaleString()}` : '-';
+                                        })()}
+                                    </td>
+                                    <td className="px-3 py-3 text-right text-red-600 font-medium whitespace-nowrap">
+                                        {(() => {
+                                            if (entry.type === 'OPENING') return '-';
+                                            // Credit side: Purchase, Journal Credit
+                                            const isCredit = entry.type === 'PURCHASE' || entry.amountType === 'credit';
+                                            return isCredit ? `₹${(entry.amount || 0).toLocaleString()}` : '-';
+                                        })()}
+                                    </td>
                                     <td className="px-3 py-3 text-right text-gray-900 whitespace-nowrap">{entry.type === 'OPENING' ? '-' : (entry.lessTDS || 0).toLocaleString()}</td>
                                     <td className="px-3 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">₹{(entry.balance || 0).toLocaleString()}</td>
                                     <td className="px-3 py-3 text-gray-900 whitespace-nowrap">

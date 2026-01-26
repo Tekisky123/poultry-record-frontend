@@ -1,6 +1,6 @@
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, Calendar, FileText, CheckCircle, Save, X, Edit, Trash2, Download, ArrowLeft } from 'lucide-react';
+import { Plus, Search, Calendar, FileText, CheckCircle, Save, X, Edit, Trash2, Download, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -336,6 +336,7 @@ const ManageStocks = () => {
         e.preventDefault();
         try {
             if (isEditMode && currentStockId) {
+                console.log("saleData updated", saleData)
                 await api.put(`/inventory-stock/${currentStockId}`, saleData);
                 alert("Sale updated successfully!");
             } else {
@@ -632,6 +633,7 @@ const ManageStocks = () => {
         (vendor.contactNumber || '').includes(vendorSearchTerm) ||
         (vendor.place || '').toLowerCase().includes(vendorSearchTerm.toLowerCase())
     );
+    console.log("filteredVendors", filteredVendors);
 
     const handleVendorInputFocus = () => {
         setShowVendorDropdown(true);
@@ -645,6 +647,7 @@ const ManageStocks = () => {
     };
 
     const handleVendorSelect = (vendor) => {
+        console.log("vendor", vendor);
         setSelectedVendor(vendor);
         setVendorSearchTerm('');
         setPurchaseData(prev => ({ ...prev, vendorId: vendor._id || vendor.id }));
@@ -814,211 +817,214 @@ const ManageStocks = () => {
     };
 
     return (
-        <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                <div className="flex items-center gap-4">
+        <div className="px-2">
+            {/* Sticky Header Section */}
+            <div className="sticky top-18 z-20 bg-gray-50 -mx-6 px-6 pt-4 pb-2 mb-6 border-b border-gray-200 shadow-sm">
+                <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center gap-4">
+                        {dateParam && (
+                            <button
+                                onClick={() => {
+                                    const dateObj = new Date(dateParam);
+                                    const y = dateObj.getFullYear();
+                                    const m = dateObj.getMonth() + 1;
+                                    const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/daily' : '/stocks/daily';
+                                    navigate(`${basePath}?year=${y}&month=${m}`);
+                                }}
+                                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                <ArrowLeft size={20} />
+                            </button>
+                        )}
+                        <div>
+                            <h1 className="text-2xl font-bold">{dateParam ? `Report - ${new Date(dateParam).toLocaleDateString()}` : 'Manage Stocks'}</h1>
+                            {dateParam && <p className="text-gray-500">Daily Stock Report</p>}
+                        </div>
+                    </div>
                     {dateParam && (
                         <button
-                            onClick={() => {
-                                const dateObj = new Date(dateParam);
-                                const y = dateObj.getFullYear();
-                                const m = dateObj.getMonth() + 1;
-                                const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/daily' : '/stocks/daily';
-                                navigate(`${basePath}?year=${y}&month=${m}`);
-                            }}
-                            className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                            onClick={handleExportToExcel}
+                            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
                         >
-                            <ArrowLeft size={20} />
+                            <Download size={20} />
+                            Download
                         </button>
                     )}
-                    <div>
-                        <h1 className="text-2xl font-bold">{dateParam ? `Report - ${new Date(dateParam).toLocaleDateString()}` : 'Manage Stocks'}</h1>
-                        {dateParam && <p className="text-gray-500">Daily Stock Report</p>}
-                    </div>
                 </div>
-                {dateParam && (
-                    <button
-                        onClick={handleExportToExcel}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
-                    >
-                        <Download size={20} />
-                        Download
-                    </button>
-                )}
-            </div>
 
-            {/* Action Buttons - Only for Supervisor */}
-            {isSupervisor && (
-                <div className="flex gap-4 mb-8">
-                    <button onClick={() => {
-                        setIsEditMode(false);
-                        setCurrentStockId(null);
-                        setPurchaseData({
-                            vendorId: '',
-                            vehicleNumber: '',
-                            birds: '',
-                            weight: '',
-                            avgWeight: 0,
-                            rate: '',
-                            amount: 0,
-                            refNo: '',
-                            date: defaultDate
-                        });
-                        setSelectedVendor(null);
-                        setVendorSearchTerm('');
-                        setShowPurchaseModal(true);
-                    }} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Add Purchase</button>
-                    <button onClick={() => {
-                        setIsEditMode(false);
-                        setCurrentStockId(null);
-                        setSaleData({
-                            customerId: '',
-                            billNumber: '',
-                            birds: '',
-                            weight: '',
-                            avgWeight: 0,
-                            rate: '',
-                            amount: 0,
-                            totalBalance: 0,
-                            cashPaid: 0,
-                            onlinePaid: 0,
-                            discount: 0,
-                            balance: 0,
-                            cashLedgerId: '',
-                            onlineLedgerId: '',
-                            saleOutBalance: 0,
-                            saleOutBalance: 0,
-                            date: defaultDate
-                        });
-                        setShowSaleModal(true);
-                    }} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">Add Sale</button>
-                    <button onClick={() => {
-                        setIsEditMode(false);
-                        setCurrentStockId(null);
-                        setSaleData({
-                            customerId: '',
-                            billNumber: '',
-                            birds: 0,
-                            weight: 0,
-                            avgWeight: 0,
-                            rate: 0,
-                            amount: 0,
-                            totalBalance: 0,
-                            cashPaid: 0,
-                            onlinePaid: 0,
-                            discount: 0,
-                            balance: 0,
-                            cashLedgerId: '',
-                            onlineLedgerId: '',
-                            saleOutBalance: 0,
-                            saleOutBalance: 0,
-                            date: defaultDate
-                        });
-                        setShowReceiptModal(true);
-                    }} className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700">Add Receipt</button>
-                    <button
-                        onClick={() => {
-                            if (mortalityStock) {
-                                // Edit Mode
-                                setIsEditMode(true);
-                                setCurrentStockId(mortalityStock._id);
-                                setMortalityData({
-                                    birds: mortalityStock.birds,
-                                    weight: mortalityStock.weight,
-                                    avgWeight: mortalityStock.avgWeight,
-                                    rate: mortalityStock.rate,
-                                    amount: mortalityStock.amount,
-                                    date: mortalityStock.date ? new Date(mortalityStock.date).toISOString().split('T')[0] : ''
-                                });
-                                setShowMortalityModal(true);
-                            } else {
-                                // Add Mode
-                                setIsEditMode(false);
-                                setCurrentStockId(null);
-                                setMortalityData({
-                                    birds: '',
-                                    weight: '',
-                                    avgWeight: 0,
-                                    rate: totalRate.toFixed(2),
-                                    amount: 0,
-                                    amount: 0,
-                                    date: defaultDate
-                                });
-                                setShowMortalityModal(true);
-                            }
-                        }}
-                        className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-                    >
-                        {mortalityStock ? 'Edit Birds Mortality' : 'Add Birds Mortality'}
-                    </button>
-                    <button
-                        onClick={() => {
-                            if (weightLossStock) {
-                                // Edit Mode
-                                setIsEditMode(true);
-                                setCurrentStockId(weightLossStock._id);
-                                setWeightLossData({
-                                    birds: 0,
-                                    weight: weightLossStock.weight,
-                                    avgWeight: 0,
-                                    rate: weightLossStock.rate,
-                                    amount: weightLossStock.amount,
-                                    date: weightLossStock.date ? new Date(weightLossStock.date).toISOString().split('T')[0] : ''
-                                });
-                                setShowWeightLossModal(true);
-                            } else {
-                                // Add Mode
-                                setIsEditMode(false);
-                                setCurrentStockId(null);
-                                setWeightLossData({
-                                    birds: 0,
-                                    weight: '',
-                                    avgWeight: 0,
-                                    rate: totalRate.toFixed(2), // Use Total Purchase Rate
-                                    amount: 0,
-                                    amount: 0,
-                                    date: defaultDate
-                                });
-                                setShowWeightLossModal(true);
-                            }
-                        }}
-                        className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700"
-                    >
-                        {weightLossStock ? 'Edit Weight Loss/Gain' : 'Add Weight Loss / Weight ON'}
-                    </button>
-                    <button
-                        onClick={() => {
-                            setFeedPurchaseData({
+                {/* Action Buttons - Only for Supervisor and Current Date */}
+                {isSupervisor && (!dateParam || dateParam === new Date().toLocaleDateString('en-CA')) && (
+                    <div className="flex gap-4 mb-4 overflow-x-auto pb-2 scrollbar-hide">
+                        <button onClick={() => {
+                            setIsEditMode(false);
+                            setCurrentStockId(null);
+                            setPurchaseData({
                                 vendorId: '',
+                                vehicleNumber: '',
+                                birds: '',
                                 weight: '',
+                                avgWeight: 0,
                                 rate: '',
                                 amount: 0,
-                                date: new Date().toISOString().split('T')[0]
-                            });
-                            setShowFeedPurchaseModal(true);
-                        }}
-                        disabled={dateParam && feedPurchaseStocks.some(s => new Date(s.date).toISOString().split('T')[0] === dateParam)}
-                        className={`px-4 py-2 text-white rounded ${dateParam && feedPurchaseStocks.some(s => new Date(s.date).toISOString().split('T')[0] === dateParam) ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-600 hover:bg-gray-700'}`}
-                    >
-                        Add Feed Purchase
-                    </button>
-                    <button
-                        onClick={() => {
-                            setFeedConsumeData({
-                                weight: '',
-                                rate: '',
-                                amount: 0,
+                                refNo: '',
                                 date: defaultDate
                             });
-                            setShowFeedConsumeModal(true);
-                        }}
-                        disabled={dateParam && feedConsumeStocks.some(s => new Date(s.date).toISOString().split('T')[0] === dateParam)}
-                        className={`px-4 py-2 text-white rounded ${dateParam && feedConsumeStocks.some(s => new Date(s.date).toISOString().split('T')[0] === dateParam) ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700'}`}
-                    >
-                        Add Feed Consume
-                    </button>
-                </div>
-            )}
+                            setSelectedVendor(null);
+                            setVendorSearchTerm('');
+                            setShowPurchaseModal(true);
+                        }} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 whitespace-nowrap">Add Purchase</button>
+                        <button onClick={() => {
+                            setIsEditMode(false);
+                            setCurrentStockId(null);
+                            setSaleData({
+                                customerId: '',
+                                billNumber: '',
+                                birds: '',
+                                weight: '',
+                                avgWeight: 0,
+                                rate: '',
+                                amount: 0,
+                                totalBalance: 0,
+                                cashPaid: 0,
+                                onlinePaid: 0,
+                                discount: 0,
+                                balance: 0,
+                                cashLedgerId: '',
+                                onlineLedgerId: '',
+                                saleOutBalance: 0,
+                                saleOutBalance: 0,
+                                date: defaultDate
+                            });
+                            setShowSaleModal(true);
+                        }} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 whitespace-nowrap">Add Sale</button>
+                        <button onClick={() => {
+                            setIsEditMode(false);
+                            setCurrentStockId(null);
+                            setSaleData({
+                                customerId: '',
+                                billNumber: '',
+                                birds: 0,
+                                weight: 0,
+                                avgWeight: 0,
+                                rate: 0,
+                                amount: 0,
+                                totalBalance: 0,
+                                cashPaid: 0,
+                                onlinePaid: 0,
+                                discount: 0,
+                                balance: 0,
+                                cashLedgerId: '',
+                                onlineLedgerId: '',
+                                saleOutBalance: 0,
+                                saleOutBalance: 0,
+                                date: defaultDate
+                            });
+                            setShowReceiptModal(true);
+                        }} className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 whitespace-nowrap">Add Receipt</button>
+                        <button
+                            onClick={() => {
+                                if (mortalityStock) {
+                                    // Edit Mode
+                                    setIsEditMode(true);
+                                    setCurrentStockId(mortalityStock._id);
+                                    setMortalityData({
+                                        birds: mortalityStock.birds,
+                                        weight: mortalityStock.weight,
+                                        avgWeight: mortalityStock.avgWeight,
+                                        rate: mortalityStock.rate,
+                                        amount: mortalityStock.amount,
+                                        date: mortalityStock.date ? new Date(mortalityStock.date).toISOString().split('T')[0] : ''
+                                    });
+                                    setShowMortalityModal(true);
+                                } else {
+                                    // Add Mode
+                                    setIsEditMode(false);
+                                    setCurrentStockId(null);
+                                    setMortalityData({
+                                        birds: '',
+                                        weight: '',
+                                        avgWeight: 0,
+                                        rate: totalRate.toFixed(2),
+                                        amount: 0,
+                                        amount: 0,
+                                        date: defaultDate
+                                    });
+                                    setShowMortalityModal(true);
+                                }
+                            }}
+                            className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 whitespace-nowrap"
+                        >
+                            {mortalityStock ? 'Edit Birds Mortality' : 'Add Birds Mortality'}
+                        </button>
+                        <button
+                            onClick={() => {
+                                if (weightLossStock) {
+                                    // Edit Mode
+                                    setIsEditMode(true);
+                                    setCurrentStockId(weightLossStock._id);
+                                    setWeightLossData({
+                                        birds: 0,
+                                        weight: weightLossStock.weight,
+                                        avgWeight: 0,
+                                        rate: weightLossStock.rate,
+                                        amount: weightLossStock.amount,
+                                        date: weightLossStock.date ? new Date(weightLossStock.date).toISOString().split('T')[0] : ''
+                                    });
+                                    setShowWeightLossModal(true);
+                                } else {
+                                    // Add Mode
+                                    setIsEditMode(false);
+                                    setCurrentStockId(null);
+                                    setWeightLossData({
+                                        birds: 0,
+                                        weight: '',
+                                        avgWeight: 0,
+                                        rate: totalRate.toFixed(2), // Use Total Purchase Rate
+                                        amount: 0,
+                                        amount: 0,
+                                        date: defaultDate
+                                    });
+                                    setShowWeightLossModal(true);
+                                }
+                            }}
+                            className="px-4 py-2 bg-teal-600 text-white rounded hover:bg-teal-700 whitespace-nowrap"
+                        >
+                            {weightLossStock ? 'Edit Weight Loss/Gain' : 'Add Weight Loss / Weight ON'}
+                        </button>
+                        <button
+                            onClick={() => {
+                                setFeedPurchaseData({
+                                    vendorId: '',
+                                    weight: '',
+                                    rate: '',
+                                    amount: 0,
+                                    date: new Date().toISOString().split('T')[0]
+                                });
+                                setShowFeedPurchaseModal(true);
+                            }}
+                            disabled={dateParam && feedPurchaseStocks.some(s => new Date(s.date).toISOString().split('T')[0] === dateParam)}
+                            className={`px-4 py-2 text-white rounded whitespace-nowrap ${dateParam && feedPurchaseStocks.some(s => new Date(s.date).toISOString().split('T')[0] === dateParam) ? 'bg-gray-400 cursor-not-allowed' : 'bg-gray-600 hover:bg-gray-700'}`}
+                        >
+                            Add Feed Purchase
+                        </button>
+                        <button
+                            onClick={() => {
+                                setFeedConsumeData({
+                                    weight: '',
+                                    rate: '',
+                                    amount: 0,
+                                    date: defaultDate
+                                });
+                                setShowFeedConsumeModal(true);
+                            }}
+                            disabled={dateParam && feedConsumeStocks.some(s => new Date(s.date).toISOString().split('T')[0] === dateParam)}
+                            className={`px-4 py-2 text-white rounded whitespace-nowrap ${dateParam && feedConsumeStocks.some(s => new Date(s.date).toISOString().split('T')[0] === dateParam) ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700'}`}
+                        >
+                            Add Feed Consume
+                        </button>
+                    </div>
+                )}
+            </div>
 
             {/* Feed Purchase Modal */}
             {showFeedPurchaseModal && (
@@ -1220,7 +1226,7 @@ const ManageStocks = () => {
                                                             date: stock.date ? new Date(stock.date).toISOString().split('T')[0] : ''
                                                         });
                                                         // Pre-select vendor for display
-                                                        const v = vendors.find(v => v._id === (stock.vendorId?._id || stock.vendorId?.id));
+                                                        const v = vendors.find(v => v._id || v.id === (stock.vendorId?._id || stock.vendorId?.id));
                                                         if (v) {
                                                             setSelectedVendor(v);
                                                             setVendorSearchTerm('');
@@ -1367,8 +1373,8 @@ const ManageStocks = () => {
                                                     onlinePaid: sale.onlinePaid || 0,
                                                     discount: sale.discount || 0,
                                                     balance: sale.balance || 0,
-                                                    cashLedgerId: sale.cashLedgerId || '',
-                                                    onlineLedgerId: sale.onlineLedgerId || '',
+                                                    cashLedgerId: (sale.cashLedgerId?._id || sale.cashLedgerId?.id || sale.cashLedgerId) || (cashLedgers?.[0]?._id || cashLedgers?.[0]?.id || ''),
+                                                    onlineLedgerId: (sale.onlineLedgerId?._id || sale.onlineLedgerId?.id || sale.onlineLedgerId) || (bankLedgers?.[0]?._id || bankLedgers?.[0]?.id || ''),
                                                     // Set the calculated retrospective balance
                                                     saleOutBalance: retrospectiveBalance,
                                                     date: sale.date ? new Date(sale.date).toISOString().split('T')[0] : ''
@@ -1668,10 +1674,19 @@ const ManageStocks = () => {
                                                                     // Only allow edit if dateParam is present or logic permits
                                                                     // For now, picking the first one as implied by requirements
                                                                     const stockToEdit = purchStocks[0];
+                                                                    console.log("purchStocks", purchStocks);
+                                                                    console.log("stockToEdit", stockToEdit);
                                                                     setIsEditMode(true);
                                                                     setCurrentStockId(stockToEdit._id);
+
+                                                                    const vId = stockToEdit.vendorId?._id || stockToEdit.vendorId;
+                                                                    const foundVendor = vendors.find(v => (v._id || v.id) === vId);
+                                                                    if (foundVendor) {
+                                                                        setSelectedVendor(foundVendor);
+                                                                    }
+
                                                                     setFeedPurchaseData({
-                                                                        vendorId: stockToEdit.vendorId?._id || stockToEdit.vendorId || '',
+                                                                        vendorId: vId || '',
                                                                         weight: stockToEdit.weight,
                                                                         rate: stockToEdit.rate,
                                                                         amount: stockToEdit.amount,
@@ -1757,7 +1772,7 @@ const ManageStocks = () => {
                                                 <td className="border p-2 text-center font-medium italic">{wLossAndMortality.toFixed(2)}</td>
                                             </tr>
                                             <tr className="border-b">
-                                                <td className="border p-2 italic text-left">FEED CONSUMED</td>
+                                                <td className="border p-2 italic text-left">LAST DAY FEED CONSUMED</td>
                                                 <td className="border p-2 text-center font-medium italic">{feedConsumed.toFixed(2)}</td>
                                             </tr>
                                             <tr className="bg-black text-white">
@@ -2514,10 +2529,10 @@ const ManageStocks = () => {
                                             <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-y-auto">
                                                 {filteredVendors.map((vendor) => (
                                                     <div
-                                                        key={vendor._id}
+                                                        key={vendor._id || vendor.id}
                                                         onMouseDown={() => {
                                                             setSelectedVendor(vendor);
-                                                            setFeedPurchaseData(prev => ({ ...prev, vendorId: vendor._id }));
+                                                            setFeedPurchaseData(prev => ({ ...prev, vendorId: vendor._id || vendor.id }));
                                                             setShowVendorDropdown(false);
                                                         }}
                                                         className="px-3 py-2 cursor-pointer hover:bg-gray-100"
@@ -2537,7 +2552,8 @@ const ManageStocks = () => {
                                         onChange={(e) => setFeedPurchaseData({ ...feedPurchaseData, date: e.target.value })}
                                         className={`w-full border rounded p-2 ${isEditMode ? 'bg-gray-100' : ''}`}
                                         required
-                                        readOnly={isEditMode}
+                                        readOnly={true}
+                                    //readOnly={isEditMode}
                                     />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
@@ -2611,7 +2627,8 @@ const ManageStocks = () => {
                                         onChange={(e) => setFeedConsumeData({ ...feedConsumeData, date: e.target.value })}
                                         className={`w-full border rounded p-2 ${isEditMode ? 'bg-gray-100' : ''}`}
                                         required
-                                        readOnly={isEditMode}
+                                        readOnly={true}
+                                    //readOnly={isEditMode}
                                     />
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
@@ -2665,6 +2682,43 @@ const ManageStocks = () => {
                     </div>
                 )
             }
+
+            {/* Pagination Footer */}
+            {dateParam && (
+                <div className="flex justify-between items-center mt-8 pb-8 pt-4 border-t border-gray-200">
+                    <button
+                        onClick={() => {
+                            const dateObj = new Date(dateParam);
+                            dateObj.setDate(dateObj.getDate() - 1);
+                            const prevDate = dateObj.toISOString().split('T')[0];
+                            const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/manage' : '/stocks/manage';
+                            navigate(`${basePath}?date=${prevDate}`);
+                        }}
+                        className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all text-gray-700 font-medium"
+                    >
+                        <ChevronLeft size={20} />
+                        Previous Day
+                    </button>
+
+                    <span className="text-gray-500 font-medium hidden sm:block">
+                        {new Date(dateParam).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    </span>
+
+                    <button
+                        onClick={() => {
+                            const dateObj = new Date(dateParam);
+                            dateObj.setDate(dateObj.getDate() + 1);
+                            const nextDate = dateObj.toISOString().split('T')[0];
+                            const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/manage' : '/stocks/manage';
+                            navigate(`${basePath}?date=${nextDate}`);
+                        }}
+                        className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all text-gray-700 font-medium"
+                    >
+                        Next Day
+                        <ChevronRight size={20} />
+                    </button>
+                </div>
+            )}
         </div >
     );
 

@@ -126,16 +126,40 @@ const LedgerDetails = () => {
 
         const excelData = transactions.map(t => ({
             'Date': new Date(t.date).toLocaleDateString('en-GB'),
-            'Ref No': t.refNo,
-            'Type': t.type,
-            'Description': t.description,
+            'Particulars': t.description,
+            'Vch Type': t.type,
+            'Vch No': t.refNo,
             'Debit': t.debit || 0,
             'Credit': t.credit || 0,
             'Balance': `${Math.abs(t.runningBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${t.runningBalanceType?.toUpperCase() || ''}`
         }));
 
+        // Add Totals Row
+        excelData.push({
+            'Date': 'TOTAL',
+            'Particulars': '',
+            'Vch Type': '',
+            'Vch No': '',
+            'Debit': totals.totalDebit,
+            'Credit': totals.totalCredit,
+            'Balance': `${Math.abs(totals.closingBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })} ${totals.closingBalanceType?.toUpperCase() || ''}`
+        });
+
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(excelData);
+
+        // Set column widths
+        const colWidths = [
+            { wch: 12 }, // Date
+            { wch: 30 }, // Particulars
+            { wch: 15 }, // Vch Type
+            { wch: 15 }, // Vch No
+            { wch: 15 }, // Debit
+            { wch: 15 }, // Credit
+            { wch: 20 }  // Balance
+        ];
+        ws['!cols'] = colWidths;
+
         XLSX.utils.book_append_sheet(wb, ws, 'Ledger Transactions');
         XLSX.writeFile(wb, `${ledgerData?.name}_Ledger.xlsx`);
     };

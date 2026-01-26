@@ -21,6 +21,9 @@ export const downloadVendorLedgerExcel = (ledgerData, vendorName) => {
             // Handle Opening Balance row specifically if needed, or just map it
             const isOpening = entry.type === 'OPENING';
 
+            const isDebit = entry.amountType === 'debit';
+            const isCredit = entry.type === 'PURCHASE' || entry.amountType === 'credit';
+
             return {
                 'Lifting Date': formatDate(entry.liftingDate || entry.date),
                 'Delivery Date': isOpening ? '-' : formatDate(entry.deliveryDate),
@@ -33,7 +36,8 @@ export const downloadVendorLedgerExcel = (ledgerData, vendorName) => {
                 'Weight': isOpening ? '-' : (Number(entry.weight) || 0),
                 'Avg': isOpening ? '-' : (Number(entry.avgWeight) || 0),
                 'Rate': isOpening ? '-' : (Number(entry.rate) || 0),
-                'Amount': isOpening ? '-' : (Number(entry.amount) || 0),
+                'Debit': (isOpening || !isDebit) ? '-' : (Number(entry.amount) || 0),
+                'Credit': (isOpening || !isCredit) ? '-' : (Number(entry.amount) || 0),
                 'Less TDS': isOpening ? '-' : (Number(entry.lessTDS) || 0),
                 'Balance': (Number(entry.balance) || 0),
                 'Trip ID': entry.tripId || '-',
@@ -53,7 +57,8 @@ export const downloadVendorLedgerExcel = (ledgerData, vendorName) => {
             'Weight',
             'Avg',
             'Rate',
-            'Amount',
+            'Debit',
+            'Credit',
             'Less TDS',
             'Balance',
             'Trip ID',
@@ -65,14 +70,13 @@ export const downloadVendorLedgerExcel = (ledgerData, vendorName) => {
 
         const totalBirds = transactionEntries.reduce((sum, entry) => sum + (entry.birds || 0), 0);
         const totalWeight = transactionEntries.reduce((sum, entry) => sum + (Number(entry.weight) || 0), 0);
-        const totalAmount = transactionEntries.reduce((sum, entry) => {
-            // For Amount total, we usually sum up Purchase amounts? 
-            // Or do we sum up the 'Amount' column visually presented?
-            // The table shows Amount for Purchase, Payment, Receipt.
-            // Usually totals row sums up the numeric columns regardless of sign, 
-            // OR it's a specific "Total Purchase Amount". 
-            // Let's sum the visible 'Amount' column.
-            return sum + (Number(entry.amount) || 0);
+        const totalDebit = transactionEntries.reduce((sum, entry) => {
+            const isDebit = entry.amountType === 'debit';
+            return sum + (isDebit ? (Number(entry.amount) || 0) : 0);
+        }, 0);
+        const totalCredit = transactionEntries.reduce((sum, entry) => {
+            const isCredit = entry.type === 'PURCHASE' || entry.amountType === 'credit';
+            return sum + (isCredit ? (Number(entry.amount) || 0) : 0);
         }, 0);
         const totalLessTDS = transactionEntries.reduce((sum, entry) => sum + (Number(entry.lessTDS) || 0), 0);
 
@@ -94,7 +98,8 @@ export const downloadVendorLedgerExcel = (ledgerData, vendorName) => {
             'Weight': totalWeight,
             'Avg': '',
             'Rate': '',
-            'Amount': totalAmount,
+            'Debit': totalDebit,
+            'Credit': totalCredit,
             'Less TDS': totalLessTDS,
             'Balance': lastBalance,
             'Trip ID': '',
@@ -129,7 +134,8 @@ export const downloadVendorLedgerExcel = (ledgerData, vendorName) => {
             { wch: 12 }, // Weight
             { wch: 8 },  // Avg
             { wch: 10 }, // Rate
-            { wch: 12 }, // Amount
+            { wch: 12 }, // Debit
+            { wch: 12 }, // Credit
             { wch: 12 }, // Less TDS
             { wch: 15 }, // Balance
             { wch: 15 }, // Trip ID

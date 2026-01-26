@@ -608,18 +608,7 @@ const CustomerDetails = () => {
           </div>
         </div>
 
-        {/* Total Discount & Other */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Discount & Other</p>
-              <p className="text-2xl font-bold text-red-600">₹{totalDiscountAndOther.toLocaleString()}</p>
-            </div>
-            <div className="p-3 bg-red-100 rounded-lg">
-              <Percent className="w-6 h-6 text-red-600" />
-            </div>
-          </div>
-        </div>
+
 
         {/* Outstanding Balance */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
@@ -707,7 +696,8 @@ const CustomerDetails = () => {
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Weight</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Avg</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Rate</th>
-                    <th className="px-3 py-3 text-right font-medium text-gray-700">Amount</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-700">Debit</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-700">Credit</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Balance</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Product</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Supervisor</th>
@@ -738,7 +728,28 @@ const CustomerDetails = () => {
                       <td className="px-3 py-3 text-right text-gray-900">{(entry.weight || 0).toFixed(2)}</td>
                       <td className="px-3 py-3 text-right text-gray-900">{(entry.avgWeight || 0).toFixed(2)}</td>
                       <td className="px-3 py-3 text-right text-gray-900">₹{(entry.rate || 0).toLocaleString()}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">₹{(entry.amount || 0).toLocaleString()}</td>
+                      <td className="px-3 py-3 text-right text-green-600 font-medium">
+                        {(() => {
+                          const p = displayParticulars(entry);
+                          // Sales/Debit types: Sales, Stock Sale, Indirect Sales, Payment (mapped from Receipt voucher)
+                          const isDebit = ['SALES', 'STOCK_SALE', 'INDIRECT_SALES', 'PAYMENT', 'INDIRECT_PURCHASE', 'STOCK_PURCHASE'].includes(p);
+                          if (isDebit) {
+                            return `₹${(entry.amount || 0).toLocaleString()}`;
+                          }
+                          return '-';
+                        })()}
+                      </td>
+                      <td className="px-3 py-3 text-right text-red-600 font-medium">
+                        {(() => {
+                          const p = displayParticulars(entry);
+                          // Credit types: Receipt, Cash/Bank Receipt, Discount
+                          const isCredit = ['RECEIPT', 'BY CASH RECEIPT', 'BY BANK RECEIPT', 'DISCOUNT'].includes(p);
+                          if (isCredit) {
+                            return `₹${(entry.amount || 0).toLocaleString()}`;
+                          }
+                          return '-';
+                        })()}
+                      </td>
                       <td className="px-3 py-3 text-right font-semibold text-gray-900">₹{(entry.outstandingBalance || 0).toLocaleString()}</td>
                       <td className="px-3 py-3 text-gray-900">{entry.product || '-'}</td>
                       <td className="px-3 py-3 text-gray-900">{entry.supervisor || '-'}</td>

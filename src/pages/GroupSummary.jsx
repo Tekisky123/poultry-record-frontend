@@ -85,7 +85,6 @@ export default function GroupSummary() {
         row['Total Weight'] = entry.weight ? parseFloat(entry.weight.toFixed(2)) : 0;
         row['Debit (Sales)'] = entry.transactionDebit || entry.debit || 0;
         row['Credit (Receipts)'] = entry.transactionCredit || entry.credit || 0;
-        row['Discount & Other'] = entry.discountAndOther || 0; // New Column
 
         const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
         row['Closing Balance'] = Math.abs(closingBal).toFixed(2) + (closingBal >= 0 ? ' Dr' : ' Cr');
@@ -93,7 +92,6 @@ export default function GroupSummary() {
         // Normal View: Show Transaction Totals + Closing Balance
         row['Debit'] = entry.transactionDebit || 0;
         row['Credit'] = entry.transactionCredit || 0;
-        row['Discount & Other'] = entry.discountAndOther || 0; // New Column
         const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
         row['Closing Balance'] = Math.abs(closingBal).toFixed(2) + (closingBal >= 0 ? ' Dr' : ' Cr');
       }
@@ -115,7 +113,7 @@ export default function GroupSummary() {
 
       totalRow['Debit (Sales)'] = totalDebit;
       totalRow['Credit (Receipts)'] = totalCredit;
-      totalRow['Discount & Other'] = totalDiscountAndOther;
+
 
       const netBalance = groupSummary.entries.reduce((sum, e) => sum + (e.closingBalance || (e.debit - e.credit) || 0), 0);
       totalRow['Closing Balance'] = Math.abs(netBalance).toFixed(2) + (netBalance >= 0 ? ' Dr' : ' Cr');
@@ -129,7 +127,7 @@ export default function GroupSummary() {
 
       totalRow['Debit'] = totalDebit;
       totalRow['Credit'] = totalCredit;
-      totalRow['Discount & Other'] = totalDiscountAndOther;
+
       totalRow['Closing Balance'] = Math.abs(netBalance).toFixed(2) + (netBalance >= 0 ? ' Dr' : ' Cr');
     }
 
@@ -340,7 +338,6 @@ export default function GroupSummary() {
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Weight</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit (Sales)</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit (Receipts)</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Discount & Other</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
                   </>
                 )}
@@ -348,7 +345,6 @@ export default function GroupSummary() {
                   <>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Discount & Other</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
                   </>
                 )}
@@ -426,13 +422,7 @@ export default function GroupSummary() {
                                 return renderCellWithPercentage(val, totals.creditExpanded, 'currency');
                               })()}
                             </td>
-                            <td className="py-3 px-4 text-right text-gray-700">
-                              {/* Discount & Other */}
-                              {(() => {
-                                const val = entry.discountAndOther || 0;
-                                return renderCellWithPercentage(val, totals.discountAndOther, 'currency');
-                              })()}
-                            </td>
+
                             <td className="py-3 px-4 text-right font-semibold text-gray-900">
                               {(() => {
                                 const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
@@ -456,13 +446,7 @@ export default function GroupSummary() {
                                 return renderCellWithPercentage(val, totals.creditExpanded, 'currency');
                               })()}
                             </td>
-                            <td className="py-3 px-4 text-right text-gray-700">
-                              {/* Discount & Other */}
-                              {(() => {
-                                const val = entry.discountAndOther || 0;
-                                return renderCellWithPercentage(val, totals.discountAndOther, 'currency');
-                              })()}
-                            </td>
+
                             <td className="py-3 px-4 text-right font-semibold text-gray-900">
                               {(() => {
                                 const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
@@ -491,9 +475,6 @@ export default function GroupSummary() {
                         {renderCellWithPercentage(totals.creditExpanded, totals.creditExpanded, 'currency')}
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {renderCellWithPercentage(totals.discountAndOther, totals.discountAndOther, 'currency')}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-gray-900">
                         {renderCellWithPercentage(totals.netBalance, totals.netBalance, 'currency', true)}
                       </td>
                     </tr>
@@ -509,9 +490,6 @@ export default function GroupSummary() {
                         {renderCellWithPercentage(totals.creditExpanded, totals.creditExpanded, 'currency')}
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {renderCellWithPercentage(totals.discountAndOther, totals.discountAndOther, 'currency')}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-gray-900">
                         {renderCellWithPercentage(totals.netBalance, totals.netBalance, 'currency', true)}
                       </td>
                     </tr>
@@ -519,7 +497,7 @@ export default function GroupSummary() {
                 </>
               ) : (
                 <tr>
-                  <td colSpan={isExpandedView ? 6 : 3} className="py-8 text-center text-gray-500">
+                  <td colSpan={isExpandedView ? 6 : 4} className="py-8 text-center text-gray-500">
                     No ledgers or sub-groups found in this group
                   </td>
                 </tr>

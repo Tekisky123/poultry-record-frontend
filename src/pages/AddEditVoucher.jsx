@@ -295,12 +295,63 @@ const AddEditVoucher = () => {
   };
 
   const handleEntryChange = (index, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      entries: prev.entries.map((entry, i) =>
+    setFormData(prev => {
+      const newEntries = prev.entries.map((entry, i) =>
         i === index ? { ...entry, [field]: value } : entry
-      )
-    }));
+      );
+
+      // Auto-sync logic for Journal/Contra (2 rows only usually, but generic enough)
+      // Logic: If user changes amount in one row, and it's a restricted voucher (Journal/Contra),
+      // auto-fill the *other* row to match, if it's currently 0 or we want to force balance.
+      // Based on user request: "typing amount in Dr field then auto sync in Cr field"
+
+      const isRestricted = prev.voucherType === 'Contra' || prev.voucherType === 'Journal';
+      if (isRestricted && (field === 'debitAmount' || field === 'creditAmount')) {
+        // Calculate the total of all OTHER rows excluding the current one being edited
+        // Actually, for simple 2-row Journal/Contra, usually it's 1-to-1.
+        // Let's implement specifically for the 2-row case mostly used, but support more if needed.
+
+        // If we are editing row 0, sync row 1. If editing row 1, sync row 0?
+        // User request: "amount in Dr field then auto sync Cr field" implies balancing.
+
+        // Let's try to balance the whole voucher.
+        // We only auto-fill if the OTHER row is 0 ?? Or always?
+        // "auto sync" usually means always.
+
+        // Find the "other" row index (assuming 2 rows for simplicity first, as Contra/Journal logic in useEffect enforces 2 rows)
+        const otherIndex = index === 0 ? 1 : 0;
+
+        if (newEntries[otherIndex]) {
+          const currentAmount = value;
+          const otherEntry = newEntries[otherIndex];
+
+          // If I entered 2000 Dr in row 0. Row 1 is Cr. It should become 2000 Cr.
+          // If I entered 2000 Cr in row 0. Row 1 is Dr. It should become 2000 Dr.
+
+          // Check types
+          const currentType = newEntries[index].type;
+          const otherType = otherEntry.type;
+
+          // If types are different (Dr vs Cr), amounts should be equal.
+          if (currentType !== otherType) {
+            if (currentType === 'Dr') {
+              // I set Debit, so other (Cr) should be same amount
+              newEntries[otherIndex].creditAmount = currentAmount;
+              newEntries[otherIndex].debitAmount = 0;
+            } else {
+              // I set Credit, so other (Dr) should be same amount
+              newEntries[otherIndex].debitAmount = currentAmount;
+              newEntries[otherIndex].creditAmount = 0;
+            }
+          }
+        }
+      }
+
+      return {
+        ...prev,
+        entries: newEntries
+      };
+    });
   };
 
   const toggleEntryType = (index) => {
@@ -1017,14 +1068,13 @@ const AddEditVoucher = () => {
             </div>
 
             <div className="px-6">
-              <div className="grid grid-cols-[minmax(0,1fr),140px,140px] text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200 py-3">
+              <div className="grid grid-cols-[minmax(0,1fr),220px] text-sm font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200 py-3">
                 <div>Particulars</div>
-                <div className="text-right">Debit</div>
-                <div className="text-right">Credit</div>
+                <div className="text-right pr-12">Amount</div>
               </div>
 
               {formData.entries.map((entry, index) => (
-                <div key={index} className="grid grid-cols-[minmax(0,1fr),140px,140px] items-center gap-4 py-3 border-b border-gray-100">
+                <div key={index} className="grid grid-cols-[minmax(0,1fr),220px] items-center gap-4 py-3 border-b border-gray-100">
                   {console.log("entry", entry)}
                   <div>
                     <div className="flex items-center gap-3">
@@ -1103,35 +1153,28 @@ const AddEditVoucher = () => {
                     )}
                   </div>
 
-                  <div className="flex justify-end">
+                  <div className="flex items-center gap-2">
                     <input
                       type="number"
                       step="0.01"
                       min="0"
-                      value={entry.debitAmount}
-                      onChange={(e) => handleEntryChange(index, 'debitAmount', parseFloat(e.target.value) || 0)}
-                      disabled={entry.type === 'Cr'}
-                      className="w-full text-right px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                      value={entry.type === 'Dr' ? entry.debitAmount : entry.creditAmount}
+                      onChange={(e) => handleEntryChange(index, entry.type === 'Dr' ? 'debitAmount' : 'creditAmount', parseFloat(e.target.value) || 0)}
+                      className="w-full text-right px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
-                  </div>
-                  <div className="flex justify-end">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={entry.creditAmount}
-                      onChange={(e) => handleEntryChange(index, 'creditAmount', parseFloat(e.target.value) || 0)}
-                      disabled={entry.type === 'Dr'}
-                      className="w-full text-right px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                    />
+                    <span className={`text-sm font-bold ${entry.type === 'Dr' ? 'text-red-600' : 'text-green-600'}`}>
+                      {entry.type === 'Dr' ? 'Dr' : 'Cr'}
+                    </span>
                   </div>
                 </div>
               ))}
 
-              <div className="grid grid-cols-[minmax(0,1fr),140px,140px] items-center py-4">
-                <div className="text-right font-semibold text-gray-900 pr-6">Total</div>
-                <div className="text-right font-semibold text-red-600">₹{totalDebit.toFixed(2)}</div>
-                <div className="text-right font-semibold text-green-600">₹{totalCredit.toFixed(2)}</div>
+              <div className="grid grid-cols-[minmax(0,1fr),220px] items-center py-4">
+                <div className="text-right font-semibold text-gray-900 pr-6">Totals</div>
+                <div className="flex flex-col items-end gap-1 pr-2">
+                  <div className="text-right font-semibold text-red-600 text-sm">₹{totalDebit.toFixed(2)} Dr</div>
+                  <div className="text-right font-semibold text-green-600 text-sm">₹{totalCredit.toFixed(2)} Cr</div>
+                </div>
               </div>
             </div>
 

@@ -103,7 +103,18 @@ export default function StockDailySummary() {
                         </h1>
                     </div>
                 </div>
-                <div className="flex gap-3 mt-4 sm:mt-0">
+                <div className="flex gap-3 mt-4 sm:mt-0 items-center">
+                    <button
+                        onClick={() => {
+                            const todayStr = new Date().toLocaleDateString('en-CA');
+                            const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/manage' : '/stocks/manage';
+                            navigate(`${basePath}?date=${todayStr}`);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+                    >
+                        <Calendar size={20} />
+                        <span className="font-medium">Today</span>
+                    </button>
                     <button
                         onClick={handleExportToExcel}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors"

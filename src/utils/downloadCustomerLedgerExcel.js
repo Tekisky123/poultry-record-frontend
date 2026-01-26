@@ -51,6 +51,11 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
         }
       }
 
+      const p = particulars;
+      const amount = entry.amount || 0;
+      const isDebit = ['SALES', 'STOCK_SALE', 'INDIRECT_SALES', 'PAYMENT', 'INDIRECT_PURCHASE', 'STOCK_PURCHASE'].includes(p);
+      const isCredit = ['RECEIPT', 'BY CASH RECEIPT', 'BY BANK RECEIPT', 'DISCOUNT'].includes(p);
+
       return {
         Date: formatDate(entry.date),
         Particulars: particulars,
@@ -63,7 +68,8 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
         Rate: entry.rate
           ? parseFloat(Number(entry.rate).toFixed(2))
           : 0,
-        Amount: entry.amount || 0,
+        Debit: isDebit ? amount : 0,
+        Credit: isCredit ? amount : 0,
         Balance: rowBalance,
         Product: entry.product || '',
         Supervisor: entry.supervisor || '',
@@ -82,7 +88,9 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
       'Weight',
       'Avg',
       'Rate',
-      'Amount',
+      'Rate',
+      'Debit',
+      'Credit',
       'Balance',
       'Product',
       'Supervisor',
@@ -93,7 +101,10 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
     // Calculate totals
     const totalBirds = ledgerData.reduce((sum, entry) => sum + (entry.birds || 0), 0);
     const totalWeight = ledgerData.reduce((sum, entry) => sum + (entry.weight || 0), 0);
-    const totalAmount = ledgerData.reduce((sum, entry) => sum + (entry.amount || 0), 0);
+
+    // Calculate total Debit and Credit
+    const totalDebit = excelData.reduce((sum, row) => sum + (row.Debit || 0), 0);
+    const totalCredit = excelData.reduce((sum, row) => sum + (row.Credit || 0), 0);
     const lastBalance =
       ledgerData.length > 0
         ? ledgerData[ledgerData.length - 1].outstandingBalance || 0
@@ -107,7 +118,8 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
       Weight: totalWeight,
       Avg: '',
       Rate: '',
-      Amount: totalAmount,
+      Debit: totalDebit,
+      Credit: totalCredit,
       Balance: lastBalance,
       Product: '',
       Supervisor: '',
@@ -145,7 +157,8 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
       { wch: 12 }, // Weight
       { wch: 8 }, // Avg
       { wch: 10 }, // Rate
-      { wch: 12 }, // Amount
+      { wch: 12 }, // Debit
+      { wch: 12 }, // Credit
       { wch: 12 }, // Balance
       { wch: 15 }, // Product
       { wch: 15 }, // Supervisor
@@ -185,7 +198,7 @@ export const downloadCustomerLedgerExcel = (ledgerData, customerName) => {
       };
     }
 
-    const openingBalanceCell = XLSX.utils.encode_cell({ r: 1, c: 8 });
+    const openingBalanceCell = XLSX.utils.encode_cell({ r: 1, c: 9 });
     if (!ws[openingBalanceCell]) {
       ws[openingBalanceCell] = { v: openingBalanceValue };
     }

@@ -2,10 +2,10 @@ import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
+import {
+  Plus,
+  Search,
+  Filter,
   FolderTree,
   Edit,
   Trash2,
@@ -75,7 +75,7 @@ const buildTreeByType = (groups) => {
   groups.forEach(group => {
     const groupId = getGroupId(group);
     if (!groupId) return;
-    
+
     const node = groupMap.get(groupId);
     if (!node) return;
 
@@ -110,7 +110,7 @@ const TreeNode = ({ group, level = 0, onEdit, onDelete, expanded, onToggle, getL
 
   return (
     <div className="select-none">
-      <div 
+      <div
         className={`flex items-center gap-2 p-2 hover:bg-gray-50 rounded-lg ${level > 0 ? 'ml-6' : ''}`}
         style={{ paddingLeft: `${level * 24 + 8}px` }}
       >
@@ -129,7 +129,7 @@ const TreeNode = ({ group, level = 0, onEdit, onDelete, expanded, onToggle, getL
           </span>
         )}
         <div className="flex items-center gap-1">
-          <button 
+          <button
             onClick={() => onEdit(group)}
             className="p-1 text-gray-400 hover:text-green-600 transition-colors"
             title="Edit"
@@ -137,7 +137,7 @@ const TreeNode = ({ group, level = 0, onEdit, onDelete, expanded, onToggle, getL
             <Edit size={16} />
           </button>
           {!group.isPredefined && (
-            <button 
+            <button
               onClick={() => onDelete(group)}
               className="p-1 text-gray-400 hover:text-red-600 transition-colors"
               title="Delete"
@@ -168,7 +168,7 @@ const TreeNode = ({ group, level = 0, onEdit, onDelete, expanded, onToggle, getL
 };
 
 // Render type section component
-const TypeSection = ({ typeSection, onEdit, onDelete, expanded, onToggle, getLedgersCount, searchTerm }) => {
+const TypeSection = ({ typeSection, onEdit, onDelete, expanded, onToggle, getLedgersCount, searchTerm, className = "mb-6" }) => {
   const typeExpandedKey = `type_${typeSection.type}`;
   const isTypeExpanded = expanded[typeExpandedKey] !== false; // Default to expanded
 
@@ -192,9 +192,9 @@ const TypeSection = ({ typeSection, onEdit, onDelete, expanded, onToggle, getLed
   const textColorClass = typeColorClass.split(' ')[1]; // Extract text color class
 
   return (
-    <div className="mb-6">
+    <div className={className}>
       {/* Type Header */}
-      <div 
+      <div
         className={`flex items-center gap-2 p-3 mb-2 rounded-lg cursor-pointer ${typeColorClass} hover:opacity-90 transition-opacity`}
         onClick={() => onToggle(typeExpandedKey)}
       >
@@ -269,7 +269,7 @@ export default function Groups() {
       const tree = buildTreeByType(groupsData);
       setTreeGroups(tree);
       setIsError(false);
-      
+
       // Extract ledger counts from groups (already included in backend response)
       const counts = {};
       groupsData.forEach(group => {
@@ -398,8 +398,8 @@ export default function Groups() {
   // Get available parent groups (filter by type and exclude current group and its descendants)
   const getAvailableParents = () => {
     if (!selectedType) return [];
-    return groups.filter(g => 
-      g.type === selectedType && 
+    return groups.filter(g =>
+      g.type === selectedType &&
       g.id !== editingGroup?.id &&
       g.isActive
     );
@@ -417,7 +417,7 @@ export default function Groups() {
     return (
       <div className="text-center py-8">
         <p className="text-red-600 mb-4">{error}</p>
-        <button 
+        <button
           onClick={fetchGroups}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
         >
@@ -446,7 +446,7 @@ export default function Groups() {
           <h1 className="text-3xl font-bold text-gray-900">Groups Management</h1>
           <p className="text-gray-600 mt-1">Manage accounting groups and their hierarchy</p>
         </div>
-        <button 
+        <button
           onClick={handleAddNew}
           className="mt-4 sm:mt-0 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
         >
@@ -494,18 +494,121 @@ export default function Groups() {
           <p className="text-gray-500 text-center py-8">No groups found</p>
         ) : (
           <div className="space-y-1">
-            {filteredTree.map(typeSection => (
-              <TypeSection
-                key={typeSection.type}
-                typeSection={typeSection}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                expanded={expanded}
-                onToggle={toggleExpanded}
-                getLedgersCount={(id) => ledgersCount[id] || 0}
-                searchTerm={searchTerm}
-              />
-            ))}
+            {typeFilter === 'all' ? (
+              <div className="space-y-8">
+                {/* Balance Sheet Groups */}
+                <div>
+                  <h3 className="text-md font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">
+                    Balance Sheet Groups
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      {filteredTree.find(t => t.type === 'Liability') && (
+                        <TypeSection
+                          typeSection={filteredTree.find(t => t.type === 'Liability')}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                          expanded={expanded}
+                          onToggle={toggleExpanded}
+                          getLedgersCount={(id) => ledgersCount[id] || 0}
+                          searchTerm={searchTerm}
+                          className="mb-0"
+                        />
+                      )}
+                    </div>
+                    <div>
+                      {filteredTree.find(t => t.type === 'Assets') && (
+                        <TypeSection
+                          typeSection={filteredTree.find(t => t.type === 'Assets')}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                          expanded={expanded}
+                          onToggle={toggleExpanded}
+                          getLedgersCount={(id) => ledgersCount[id] || 0}
+                          searchTerm={searchTerm}
+                          className="mb-0"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Profit / Loss Groups */}
+                <div>
+                  <h3 className="text-md font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">
+                    Profit / Loss Groups
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      {filteredTree.find(t => t.type === 'Expenses') && (
+                        <TypeSection
+                          typeSection={filteredTree.find(t => t.type === 'Expenses')}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                          expanded={expanded}
+                          onToggle={toggleExpanded}
+                          getLedgersCount={(id) => ledgersCount[id] || 0}
+                          searchTerm={searchTerm}
+                          className="mb-0"
+                        />
+                      )}
+                    </div>
+                    <div>
+                      {filteredTree.find(t => t.type === 'Income') && (
+                        <TypeSection
+                          typeSection={filteredTree.find(t => t.type === 'Income')}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                          expanded={expanded}
+                          onToggle={toggleExpanded}
+                          getLedgersCount={(id) => ledgersCount[id] || 0}
+                          searchTerm={searchTerm}
+                          className="mb-0"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Others Groups */}
+                {filteredTree.some(t => t.type === 'Others') && (
+                  <div>
+                    <h3 className="text-md font-bold text-gray-500 uppercase tracking-wider mb-4 border-b border-gray-200 pb-2">
+                      Others Groups
+                    </h3>
+                    <div>
+                      {filteredTree.find(t => t.type === 'Others') && (
+                        <TypeSection
+                          typeSection={filteredTree.find(t => t.type === 'Others')}
+                          onEdit={handleEdit}
+                          onDelete={handleDelete}
+                          expanded={expanded}
+                          onToggle={toggleExpanded}
+                          getLedgersCount={(id) => ledgersCount[id] || 0}
+                          searchTerm={searchTerm}
+                          className="mb-0"
+                        />
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {filteredTree.map(typeSection => (
+                  <TypeSection
+                    key={typeSection.type}
+                    typeSection={typeSection}
+                    onEdit={handleEdit}
+                    onDelete={handleDelete}
+                    expanded={expanded}
+                    onToggle={toggleExpanded}
+                    getLedgersCount={(id) => ledgersCount[id] || 0}
+                    searchTerm={searchTerm}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

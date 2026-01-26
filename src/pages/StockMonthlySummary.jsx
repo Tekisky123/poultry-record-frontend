@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Download, Package } from 'lucide-react';
+import { Loader2, Download, Package, Calendar } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -111,6 +111,19 @@ export default function StockMonthlySummary() {
                     </button> */}
                 </div>
                 <div className="flex gap-3 mt-4 sm:mt-0 items-center">
+                    <button
+                        onClick={() => {
+                            const today = new Date();
+                            const y = today.getFullYear();
+                            const m = today.getMonth() + 1;
+                            const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/daily' : '/stocks/daily';
+                            navigate(`${basePath}?year=${y}&month=${m}`);
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+                    >
+                        <Calendar size={20} />
+                        <span className="font-medium">Current Month</span>
+                    </button>
                     <select
                         value={year}
                         onChange={(e) => setYear(Number(e.target.value))}

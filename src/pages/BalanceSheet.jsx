@@ -117,12 +117,16 @@ export default function BalanceSheet() {
     if (!balanceSheet?.assets?.groups) return [];
     const priorityMap = {
       'fixed-assets': 0,
-      'current-assets': 1,
-      'suspense-a-c': 2,
+      'investments': 1,
+      'current-assets': 2,
+      'suspense-a-c': 3,
+      'branch-divisions': 4,
       // Fallback for names
       'Fixed Assets': 0,
-      'Current Assets': 1,
-      'Suspense A/c': 2
+      'Investments': 1,
+      'Current Assets': 2,
+      'Suspense A/c': 3,
+      'Branch / Divisions': 4
     };
     return [...balanceSheet.assets.groups].sort((a, b) => {
       const priorityA = priorityMap[a.slug] ?? priorityMap[a.name] ?? 99;
@@ -265,19 +269,12 @@ export default function BalanceSheet() {
     assetsData.push(['', '']);
     assetsData.push(['Total Assets', balanceSheet.totals.totalAssets]);
 
-    liabilitiesData.push(['LIABILITIES & CAPITAL', '']);
-    liabilitiesData.push(['', '']);
     liabilitiesData.push(['LIABILITIES', '']);
     flattenedGroupsForExcel.liabilities.forEach(item => {
       liabilitiesData.push([item.name, item.balance]);
     });
     liabilitiesData.push(['', '']);
     liabilitiesData.push(['Total Liabilities', balanceSheet.totals.totalLiabilities]);
-    liabilitiesData.push(['', '']);
-    liabilitiesData.push(['CAPITAL', '']);
-    liabilitiesData.push(['Capital/Equity', balanceSheet.capital.amount]);
-    liabilitiesData.push(['', '']);
-    liabilitiesData.push(['Total Liabilities & Capital', balanceSheet.totals.totalLiabilitiesAndCapital]);
 
     // Create worksheet
     const maxRows = Math.max(assetsData.length, liabilitiesData.length);
@@ -409,10 +406,8 @@ export default function BalanceSheet() {
         {/* Balance Sheet Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Liabilities & Capital Side */}
-          <div className="border-r border-gray-200 pr-8">
-            <div className="mb-4">
-              <h3 className="text-lg font-bold text-purple-700 mb-3">LIABILITIES & CAPITAL</h3>
-
+          <div className="border-r border-gray-200 pr-8 flex flex-col justify-between">
+            <div className="flex-1">
               {/* Liabilities */}
               <div className="mb-4">
                 <h4 className="text-md font-semibold text-purple-600 mb-2">LIABILITIES</h4>
@@ -425,87 +420,63 @@ export default function BalanceSheet() {
                     />
                   ))}
                 </div>
-                <div className="mt-3 pt-2 border-t border-gray-300">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold">Total Liabilities</span>
-                    <span className="text-sm font-semibold text-right w-32">
-                      {balanceSheet.totals.totalLiabilities.toLocaleString('en-IN', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
-                    </span>
-                  </div>
-                </div>
               </div>
-
-              {/* Capital */}
-              <div className="mb-4">
-                <h4 className="text-md font-semibold text-green-600 mb-2">CAPITAL</h4>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between py-1">
-                    <span className="text-sm font-medium ml-5">Capital/Equity</span>
-                    <span className="text-sm font-semibold text-right w-32">
-                      {balanceSheet.capital.amount.toLocaleString('en-IN', {
-                        minimumFractionDigits: 2,
-                        maximumFractionDigits: 2
-                      })}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Total */}
-              <div className="mt-4 pt-3 border-t-2 border-gray-400">
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-bold">Total Liabilities & Capital</span>
-                  <span className="text-base font-bold text-right w-32">
-                    {balanceSheet.totals.totalLiabilitiesAndCapital.toLocaleString('en-IN', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}
-                  </span>
-                </div>
+            </div>
+            <div className="mt-4 pt-3 border-t-2 border-gray-400">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-bold">Total Liabilities</span>
+                <span className="text-base font-bold text-right w-32">
+                  {balanceSheet.totals.totalLiabilities.toLocaleString('en-IN', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                  })}
+                </span>
               </div>
             </div>
           </div>
 
           {/* Assets Side */}
-          <div className="pl-8">
-            <div className="mb-4">
-              <h3 className="text-lg font-bold text-blue-700 mb-3">ASSETS</h3>
-              <div className="space-y-1">
-                {(sortedAssetGroups.length ? sortedAssetGroups : balanceSheet.assets.groups).map((group) => (
-                  <GroupNode
-                    key={group.id || group._id}
-                    group={group}
-                    level={0}
-                  />
-                ))}
-              </div>
-              <div className="mt-4 pt-3 border-t-2 border-gray-400">
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-bold">Total Assets</span>
-                  <span className="text-base font-bold text-right w-32">
-                    {balanceSheet.totals.totalAssets.toLocaleString('en-IN', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}
-                  </span>
+          <div className="pl-8 flex flex-col justify-between">
+            <div className="flex-1">
+              <div className="mb-4">
+                <h3 className="text-lg font-bold text-blue-700 mb-3">ASSETS</h3>
+                <div className="space-y-1">
+                  {(sortedAssetGroups.length ? sortedAssetGroups : balanceSheet.assets.groups).map((group) => (
+                    <GroupNode
+                      key={group.id || group._id}
+                      group={group}
+                      level={0}
+                    />
+                  ))}
                 </div>
+              </div>
+            </div>
+            <div className="mt-4 pt-3 border-t-2 border-gray-400">
+              <div className="flex items-center justify-between">
+                <span className="text-base font-bold">Total Assets</span>
+                <span className="text-base font-bold text-right w-32">
+                  {balanceSheet.totals.totalAssets.toLocaleString('en-IN', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                  })}
+                </span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Balance Check */}
-        {Math.abs(balanceSheet.totals.balance) > 0.01 && (
-          <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-yellow-800 text-sm">
-              <strong>Note:</strong> Balance difference: ₹{balanceSheet.totals.balance.toFixed(2)}.
-              Assets and Liabilities & Capital should match.
-            </p>
+        {/* Capital Calculation */}
+        <div className="mt-8 flex flex-col items-center justify-center p-6 bg-gray-50 border-t border-gray-200 rounded-b-xl">
+          <h3 className="text-xl font-bold text-gray-800 tracking-wide">CAPITAL</h3>
+          <div className="text-3xl font-extrabold text-green-700 mt-2">
+            ₹ {(balanceSheet.totals.totalAssets - balanceSheet.totals.totalLiabilities).toLocaleString('en-IN', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            })}
           </div>
-        )}
+          <p className="text-sm text-gray-500 mt-2 font-medium">( Total Assets - Total Liabilities )</p>
+        </div>
+
       </div>
 
       {/* Date Filter Modal */}
