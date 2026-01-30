@@ -32,9 +32,9 @@ export default function Header() {
           </button>
 
           <button
-            onClick={() => navigate('/vouchers')}
+            onClick={() => navigate('/vouchers/add')}
             className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100"
-            title="Go to Vouchers"
+            title="Add Voucher"
           >
             <Receipt size={18} />
             <span className="hidden md:inline">Vouchers</span>

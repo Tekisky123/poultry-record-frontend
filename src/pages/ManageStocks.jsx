@@ -232,6 +232,8 @@ const ManageStocks = () => {
 
 
     const [prevFeedConsumedAmount, setPrevFeedConsumedAmount] = useState(0);
+    const [feedOpeningStockCalculated, setFeedOpeningStockCalculated] = useState({ bags: 0, weight: 0, amount: 0 });
+    const [birdOpeningStockCalculated, setBirdOpeningStockCalculated] = useState({ birds: 0, weight: 0, amount: 0 });
 
     // Fetch Data
     useEffect(() => {
@@ -246,12 +248,63 @@ const ManageStocks = () => {
             prevDateObj.setDate(prevDateObj.getDate() - 1);
             const prevDateStr = prevDateObj.toISOString().split('T')[0];
 
-            const [stocksRes, vendorsRes, customersRes, ledgersRes, prevStocksRes] = await Promise.all([
+            // Determine Financial Year Start
+            const reportDate = new Date(targetDate);
+            const reportYear = reportDate.getFullYear();
+            const reportMonth = reportDate.getMonth(); // 0-11
+            // If April (3) or later, FY Start is this year's April 1st
+            // If Jan-Mar (0-2), FY Start is previous year's April 1st
+            const fyStartYear = reportMonth >= 3 ? reportYear : reportYear - 1;
+            const fyStartDate = `${fyStartYear}-04-01`;
+
+            // 1. Fetch Base Opening Stock First to determine Anchor Dates
+            let baseOpsList = [];
+            let anchorDate = fyStartDate; // Feed Anchor
+
+            let baseBirdOpsList = [];
+            let birdAnchorDate = fyStartDate; // Bird Anchor
+
+            if (dateParam) {
+                // Feed Base
+                const baseRes = await api.get('/inventory-stock', { params: { inventoryType: 'feed', type: 'opening' } });
+                if (baseRes.data.success && baseRes.data.data.length > 0) {
+                    baseOpsList = baseRes.data.data;
+                    const sortedOps = [...baseOpsList].sort((a, b) => new Date(a.date) - new Date(b.date));
+                    const baseOpStock = sortedOps[0];
+
+                    const opDate = new Date(baseOpStock.date);
+                    const opYear = opDate.getFullYear();
+                    const opMonth = opDate.getMonth();
+                    const opFyStartYear = opMonth >= 3 ? opYear : opYear - 1;
+                    anchorDate = `${opFyStartYear}-04-01`;
+                }
+
+                // Bird Base
+                const baseBirdRes = await api.get('/inventory-stock', { params: { inventoryType: 'bird', type: 'opening' } });
+                if (baseBirdRes.data.success && baseBirdRes.data.data.length > 0) {
+                    baseBirdOpsList = baseBirdRes.data.data;
+                    const sortedBirdOps = [...baseBirdOpsList].sort((a, b) => new Date(a.date) - new Date(b.date));
+                    const baseBirdOp = sortedBirdOps[0];
+
+                    const bOpDate = new Date(baseBirdOp.date);
+                    const bOpYear = bOpDate.getFullYear();
+                    const bOpMonth = bOpDate.getMonth();
+                    const bOpFyStartYear = bOpMonth >= 3 ? bOpYear : bOpYear - 1;
+                    birdAnchorDate = `${bOpFyStartYear}-04-01`;
+                }
+            }
+
+            const shouldFetchHistory = dateParam && prevDateStr >= anchorDate;
+            const shouldFetchBirdHistory = dateParam && prevDateStr >= birdAnchorDate;
+
+            const [stocksRes, vendorsRes, customersRes, ledgersRes, prevStocksRes, historicalFeedRes, historicalBirdRes] = await Promise.all([
                 api.get('/inventory-stock', { params: dateParam ? { startDate: dateParam, endDate: dateParam } : {} }),
                 api.get('/vendor?limit=1000'),
                 api.get('/customer'),
                 api.get('/ledger'),
-                api.get('/inventory-stock', { params: { startDate: prevDateStr, endDate: prevDateStr } })
+                api.get('/inventory-stock', { params: { startDate: prevDateStr, endDate: prevDateStr } }),
+                shouldFetchHistory ? api.get('/inventory-stock', { params: { startDate: anchorDate, endDate: prevDateStr, inventoryType: 'feed' } }) : Promise.resolve({ data: { success: true, data: [] } }),
+                shouldFetchBirdHistory ? api.get('/inventory-stock', { params: { startDate: birdAnchorDate, endDate: prevDateStr, inventoryType: 'bird' } }) : Promise.resolve({ data: { success: true, data: [] } })
             ]);
 
             if (stocksRes.data.success) {
@@ -284,6 +337,131 @@ const ManageStocks = () => {
                 setPrevFeedConsumedAmount(prevTotal);
             } else {
                 setPrevFeedConsumedAmount(0);
+            }
+
+            if (dateParam) {
+                // Base Opening Stock: Use ONLY the primary (first) opening stock entry
+                const includeFeedBase = dateParam >= anchorDate;
+                let histOp = [];
+                if (includeFeedBase && baseOpsList.length > 0) {
+                    const sortedOps = [...baseOpsList].sort((a, b) => new Date(a.date) - new Date(b.date));
+                    histOp = [sortedOps[0]];
+                }
+
+                // Transactions 
+                const rawHistFeed = historicalFeedRes.data?.success ? historicalFeedRes.data.data : [];
+                const histFeed = rawHistFeed.filter(s => s.inventoryType === 'feed');
+
+                // Filter transactions to exclude 'opening' type just in case they slipped in via date range (though they shouldn't if type!='opening')
+                // Actually historicalFeedRes fetches all types by default if not filtered? No, we didn't filter type in params, but we filter below.
+                const histPurch = histFeed.filter(s => s.type !== 'opening' && s.type !== 'consume');
+                const histCons = histFeed.filter(s => s.type === 'consume');
+
+                const totalOpBags = histOp.reduce((sum, s) => sum + (Number(s.bags) || 0), 0);
+                const totalOpWeight = histOp.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
+                const totalOpAmount = histOp.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
+                const totalPurchBags = histPurch.reduce((sum, s) => sum + (Number(s.bags) || 0), 0);
+                const totalPurchWeight = histPurch.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
+                const totalPurchAmount = histPurch.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
+                const totalConsBags = histCons.reduce((sum, s) => sum + (Number(s.bags) || 0), 0);
+                const totalConsWeight = histCons.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
+                const totalConsAmount = histCons.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+
+                setFeedOpeningStockCalculated({
+                    bags: totalOpBags + totalPurchBags - totalConsBags,
+                    weight: totalOpWeight + totalPurchWeight - totalConsWeight,
+                    amount: totalOpAmount + totalPurchAmount - totalConsAmount
+                });
+
+                // Bird Calculation
+                const includeBirdBase = dateParam >= birdAnchorDate;
+                let histBirdOp = [];
+                if (includeBirdBase && baseBirdOpsList.length > 0) {
+                    const sortedBirdOps = [...baseBirdOpsList].sort((a, b) => new Date(a.date) - new Date(b.date));
+                    histBirdOp = [sortedBirdOps[0]];
+                }
+                const rawHistBirds = historicalBirdRes.data?.success ? historicalBirdRes.data.data : [];
+                // Transactions: Purchase, Sale, Mortality, WeightLoss
+                // Bird Opening = Base Op + Purchases - Sales - Mortality. 
+                // Note: Weight Loss usually affects weight/amount, not birds count? But let's verify logic.
+                // Standard Closing Stock Formula used in Render:
+                // Gross Birds = Total Birds (Op + Purch) - Solb Birds.
+                // Closing Birds = Gross Birds - Mortality Birds.
+                // So Closing = Op + Purch - Sales - Mortality.
+
+                const histBirdPurch = rawHistBirds.filter(s => s.type === 'purchase');
+                const histBirdSales = rawHistBirds.filter(s => (s.type === 'sale' || s.type === 'receipt'));
+                const histBirdMort = rawHistBirds.filter(s => s.type === 'mortality');
+                // Weight loss type 'weight_loss' or 'natural_weight_loss' usually has 0 birds, just weight.
+
+                // Summing Birds
+                const bOpBirds = histBirdOp.reduce((sum, s) => sum + (Number(s.birds) || 0), 0);
+                const bPurchBirds = histBirdPurch.reduce((sum, s) => sum + (Number(s.birds) || 0), 0);
+                const bSaleBirds = histBirdSales.reduce((sum, s) => sum + (Number(s.birds) || 0), 0);
+                const bMortBirds = histBirdMort.reduce((sum, s) => sum + (Number(s.birds) || 0), 0);
+
+                // Summing Weight
+                const bOpWeight = histBirdOp.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
+                const bPurchWeight = histBirdPurch.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
+                const bSaleWeight = histBirdSales.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
+                const bMortWeight = histBirdMort.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
+                // Weight Loss?
+                const histWeightLoss = rawHistBirds.filter(s => s.type === 'weight_loss' || s.type === 'natural_weight_loss');
+                const bLossWeight = histWeightLoss.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
+
+                // Summing Amount
+                const bOpAmount = histBirdOp.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+                const bPurchAmount = histBirdPurch.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
+                // Sales Amount doesn't reduce STOCK AMOUNT directly in accounting? 
+                // In Inventory Stock (Value): Closing Value = Closing Weight * Rate.
+                // Rate is derived.
+                // Let's rely on standard flow:
+                // We need 1 value: The Opening Stock for Today.
+                // Opening Stock Today = Closing Stock Yesterday.
+                // Closing Stock Yesterday = (Op + Purch - Sales - Mort) Birds...
+                // Weight = (OpWeight + PurchWeight - SaleWeight - MortWeight - LossWeight).
+                // Amount = Weight * Rate? Or Amount = (OpAmt + PurchAmt ...)?
+                // Usually Amount tracks Cost. Sales remove Cost (COGS).
+                // Ensure we subtract Cost of Sales, not Sale Amount (Revenue).
+                // In this app, stock entries for sales might track revenue or cost? 
+                // 'sale' stock has 'amount' = sale value.
+                // To get Stock Value, we usually do: Weight * Avg Purchase Rate.
+                // Let's stick to simple: Birds & Weight are physical. Rate/Amount derived.
+
+                const finalBirds = bOpBirds + bPurchBirds - bSaleBirds - bMortBirds;
+                const finalWeight = bOpWeight + bPurchWeight - bSaleWeight - bMortWeight - bLossWeight; // Weight loss is reduction
+
+                // Rate? Keep it simple: if birds > 0, calculate.
+                // We mainly need Birds & Weight to populate the "OP STOCK" row.
+                // Amount can be derived or we can approximate.
+
+                // If we need amount, we'd assume FIFO or Avg Cost. 
+                // Let's just set Birds and Weight accurately, and let the table derive Rate/Amount if possible, or carry forward Rate from yesterday?
+                // `totalRate` (Purchase Rate) is usually used for valuation.
+                // Let's try to sum Amount for Purchase/Op and subtract proporational amount?
+                // Complex. Let's just pass Birds/Weight/Amount(0) or Amount(Simple).
+                // Actually `amount` in `birdOpeningStockCalculated` is used? 
+                // Render logic for sortedPurchaseStocks uses stock.amount directly.
+                // We should try to estimate value.
+                // Value = finalWeight * (Average Purchase Rate).
+                // Avg Purch Rate = (OpAmount + PurchAmount) / (OpWeight + PurchWeight).
+
+                const totalInputWeight = bOpWeight + bPurchWeight;
+                const totalInputAmount = bOpAmount + bPurchAmount;
+                const avgRate = totalInputWeight > 0 ? totalInputAmount / totalInputWeight : 0;
+                const finalAmount = finalWeight * avgRate;
+
+                setBirdOpeningStockCalculated({
+                    birds: finalBirds,
+                    weight: finalWeight,
+                    amount: finalAmount
+                });
+
+            } else {
+                setBirdOpeningStockCalculated({ birds: 0, weight: 0, amount: 0 });
+                setFeedOpeningStockCalculated({ bags: 0, weight: 0, amount: 0 });
             }
 
             if (vendorsRes.data.success) setVendors(vendorsRes.data.data || []);
@@ -748,17 +926,44 @@ const ManageStocks = () => {
         if (b.type === 'opening') return 1;
         return new Date(b.date) - new Date(a.date);
     });
+
+    // Sort Purchase Stocks (Birds): Opening Stock First, then by Date
+    // If dateParam is present, WE INJECT THE CALCULATED OPENING STOCK.
+    const sortedPurchaseStocks = (() => {
+        let base = [];
+        if (dateParam) {
+            // Check if we have calculated opening stock to show?
+            // Only show if it's not empty? Or always show "OP STOCK" row?
+            // Usually always show OP STOCK row for continuity.
+            const calcOp = {
+                _id: 'calc-op-bird',
+                type: 'opening',
+                inventoryType: 'bird', // or explicitly undefined if bird is default
+                vendorId: { vendorName: 'OP STOCK' }, // Mock for display
+                birds: birdOpeningStockCalculated.birds,
+                weight: birdOpeningStockCalculated.weight,
+                amount: birdOpeningStockCalculated.amount,
+                rate: birdOpeningStockCalculated.weight > 0 ? birdOpeningStockCalculated.amount / birdOpeningStockCalculated.weight : 0,
+                date: dateParam // appears as of today
+            };
+            // Filter out any physical 'opening' stocks from the day's list to avoid double counting if they exist (though unlikely if anchoring working)
+            base = [calcOp, ...rawPurchaseStocks.filter(s => s.type !== 'opening')];
+        } else {
+            base = [...rawPurchaseStocks];
+        }
+
+        return base.sort((a, b) => {
+            if (a.type === 'opening') return -1;
+            if (b.type === 'opening') return 1;
+            return new Date(b.date) - new Date(a.date);
+        });
+    })();
     const saleStocks = stocks.filter(s => s.type === 'sale' || s.type === 'receipt');
     const mortalityStock = stocks.find(s => s.type === 'mortality');
     const weightLossStock = stocks.find(s => s.type === 'weight_loss');
     const naturalWeightLossStock = stocks.find(s => s.type === 'natural_weight_loss');
 
-    // Sort Purchase Stocks: Opening Stock First, then by Date Descending
-    const sortedPurchaseStocks = [...rawPurchaseStocks].sort((a, b) => {
-        if (a.type === 'opening') return -1;
-        if (b.type === 'opening') return 1;
-        return new Date(b.date) - new Date(a.date);
-    });
+
 
     // Calculate Totals for Purchases
     const totalBirds = sortedPurchaseStocks.reduce((sum, s) => sum + (Number(s.birds) || 0), 0);
@@ -819,7 +1024,7 @@ const ManageStocks = () => {
     return (
         <div className="px-2">
             {/* Sticky Header Section */}
-            <div className="sticky top-18 z-20 bg-gray-50 -mx-6 px-6 pt-4 pb-2 mb-6 border-b border-gray-200 shadow-sm">
+            <div className={`sticky ${isSupervisor ? 'top-18' : 'top-0'} z-20 bg-gray-50 -mx-6 px-6 pt-4 pb-2 mb-6 border-b border-gray-200 shadow-sm`}>
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-4">
                         {dateParam && (
@@ -1452,7 +1657,7 @@ const ManageStocks = () => {
                 const purchStocks = sortedFeedStocks.filter(s => s.type !== 'opening');
                 const consStocks = sortedFeedConsumeStocks;
 
-                const opStats = {
+                const opStats = dateParam ? { ...feedOpeningStockCalculated } : {
                     bags: opStocks.reduce((sum, s) => sum + (Number(s.bags) || 0), 0),
                     weight: opStocks.reduce((sum, s) => sum + (Number(s.weight) || 0), 0),
                     amount: opStocks.reduce((sum, s) => sum + (Number(s.amount) || 0), 0)
@@ -1494,8 +1699,9 @@ const ManageStocks = () => {
                 // W LOSS & MORTALITY = natural weight loss/on total + acutual weight loss/on total + birds mortality total
                 const wLossAndMortality = natTotalComputed + actTotalComputed + mortTotalComputed;
 
-                // FEED CONSUMED = previous date feed consume total amount
-                const feedConsumed = prevFeedConsumedAmount;
+                // FEED CONSUMED = Last Day Feed Consume Entry: AMOUNT
+                const lastDayQty = totalBirds > 0 ? (consStats.weight / totalBirds) * totalSaleBirds : 0;
+                const feedConsumed = closingStats.rate * lastDayQty;
 
                 // NET PROFIT/LOSS = GROSS PROFIT - W LOSS & MORTALITY - FEED CONSUMED
                 const netProfitLoss = grossProfit - wLossAndMortality - feedConsumed;
@@ -1746,6 +1952,51 @@ const ManageStocks = () => {
                                             </tr>
                                         </tbody>
                                     </table>
+                                </div>
+
+                                <div className="mt-8 border-t pt-4">
+                                    <h3 className="text-lg font-bold mb-3 uppercase">Last Day Feed Consume Entry:</h3>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full border-top-2 border-dashed border-gray-400">
+                                            <thead>
+                                                <tr className="border-b-2 border-dashed border-gray-400">
+                                                    <th className="p-2 text-center text-sm font-bold">QTTY</th>
+                                                    <th className="p-2 text-center text-sm font-bold">AVG</th>
+                                                    <th className="p-2 text-center text-sm font-bold">RATE</th>
+                                                    <th className="p-2 text-center text-sm font-bold">AMOUNT</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <tr className="text-center">
+                                                    <td className="p-2 font-medium">
+                                                        {(() => {
+                                                            const qty = totalBirds > 0 ? (consStats.weight / totalBirds) * totalSaleBirds : 0;
+                                                            return qty.toFixed(2);
+                                                        })()}
+                                                    </td>
+                                                    <td className="p-2 font-medium">
+                                                        {(() => {
+                                                            const avg = totalBirds > 0 ? consStats.weight / totalBirds : 0;
+                                                            return avg.toFixed(2);
+                                                        })()}
+                                                    </td>
+                                                    <td className="p-2 font-medium">
+                                                        {closingStats.rate.toFixed(2)}
+                                                    </td>
+                                                    <td className="p-2 font-medium">
+                                                        {(() => {
+                                                            const qty = totalBirds > 0 ? (consStats.weight / totalBirds) * totalSaleBirds : 0;
+                                                            const amount = closingStats.rate * qty;
+                                                            return amount.toFixed(2);
+                                                        })()}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                            <tfoot className="border-t-2 border-dashed border-gray-400">
+                                                <tr><td colSpan="4"></td></tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
                                 </div>
                             </div>
 
@@ -2684,41 +2935,43 @@ const ManageStocks = () => {
             }
 
             {/* Pagination Footer */}
-            {dateParam && (
-                <div className="flex justify-between items-center mt-8 pb-8 pt-4 border-t border-gray-200">
-                    <button
-                        onClick={() => {
-                            const dateObj = new Date(dateParam);
-                            dateObj.setDate(dateObj.getDate() - 1);
-                            const prevDate = dateObj.toISOString().split('T')[0];
-                            const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/manage' : '/stocks/manage';
-                            navigate(`${basePath}?date=${prevDate}`);
-                        }}
-                        className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all text-gray-700 font-medium"
-                    >
-                        <ChevronLeft size={20} />
-                        Previous Day
-                    </button>
+            {
+                dateParam && (
+                    <div className="flex justify-between items-center mt-8 pb-8 pt-4 border-t border-gray-200">
+                        <button
+                            onClick={() => {
+                                const dateObj = new Date(dateParam);
+                                dateObj.setDate(dateObj.getDate() - 1);
+                                const prevDate = dateObj.toISOString().split('T')[0];
+                                const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/manage' : '/stocks/manage';
+                                navigate(`${basePath}?date=${prevDate}`);
+                            }}
+                            className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all text-gray-700 font-medium"
+                        >
+                            <ChevronLeft size={20} />
+                            Previous Day
+                        </button>
 
-                    <span className="text-gray-500 font-medium hidden sm:block">
-                        {new Date(dateParam).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
-                    </span>
+                        <span className="text-gray-500 font-medium hidden sm:block">
+                            {new Date(dateParam).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </span>
 
-                    <button
-                        onClick={() => {
-                            const dateObj = new Date(dateParam);
-                            dateObj.setDate(dateObj.getDate() + 1);
-                            const nextDate = dateObj.toISOString().split('T')[0];
-                            const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/manage' : '/stocks/manage';
-                            navigate(`${basePath}?date=${nextDate}`);
-                        }}
-                        className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all text-gray-700 font-medium"
-                    >
-                        Next Day
-                        <ChevronRight size={20} />
-                    </button>
-                </div>
-            )}
+                        <button
+                            onClick={() => {
+                                const dateObj = new Date(dateParam);
+                                dateObj.setDate(dateObj.getDate() + 1);
+                                const nextDate = dateObj.toISOString().split('T')[0];
+                                const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/manage' : '/stocks/manage';
+                                navigate(`${basePath}?date=${nextDate}`);
+                            }}
+                            className="flex items-center gap-2 px-6 py-3 bg-white border border-gray-200 rounded-lg shadow-sm hover:bg-gray-50 hover:border-gray-300 transition-all text-gray-700 font-medium"
+                        >
+                            Next Day
+                            <ChevronRight size={20} />
+                        </button>
+                    </div>
+                )
+            }
         </div >
     );
 

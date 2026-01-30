@@ -1,5 +1,5 @@
 // src/App.jsx
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Dashboard from './pages/Dashboard';
 import Trips from './pages/Trips';
@@ -87,6 +87,7 @@ const ProtectedRoute = ({ children, allowedRoles = [] }) => {
 // Main App Component
 const AppContent = () => {
   const { user, logout } = useAuth();
+  const location = useLocation();
 
   if (!user) {
     return (
@@ -149,7 +150,8 @@ const AppContent = () => {
         <div className="flex-1 flex flex-col overflow-hidden lg:ml-0">
           <Header />
 
-          <main className="flex-1 p-4 lg:p-6 overflow-y-auto">
+          {/* // here if the route is /stocks/manage then main class should have pt-0 */}
+          <main className={`flex-1 ${(location.pathname === '/stocks/manage' && user.role !== 'supervisor') ? 'pt-0 lg:pt-0 p-4 lg:p-6' : 'p-4 lg:p-6'} overflow-y-auto`}>
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/users" element={<Users />} />

@@ -19,17 +19,19 @@ const GroupNode = memo(({ group, level = 0 }) => {
 
   const handleGroupClick = useCallback((e) => {
     e.stopPropagation();
+    if (level === 0) return;
+
     // Pass date filter params
     const startDate = searchParams.get('startDate') || '';
     const endDate = searchParams.get('endDate') || new Date().toISOString().split('T')[0];
     navigate(`/group-summary/${groupId}?startDate=${startDate}&endDate=${endDate}`);
-  }, [navigate, groupId, searchParams]);
+  }, [navigate, groupId, searchParams, level]);
 
   return (
     <div className="select-none">
       {/* Parent Group */}
       <div
-        className="flex items-center gap-2 py-1 hover:bg-gray-50 cursor-pointer rounded px-2 transition-colors"
+        className={`flex items-center gap-2 py-1 rounded px-2 transition-colors ${level > 0 ? 'hover:bg-gray-50 cursor-pointer' : ''}`}
         onClick={handleGroupClick}
         style={{
           paddingLeft: `${leftPadding}px`
@@ -43,7 +45,7 @@ const GroupNode = memo(({ group, level = 0 }) => {
         </span>
 
         {/* Balance */}
-        <span className="text-sm text-right w-32 flex-shrink-0 font-medium">
+        <span className={`text-sm text-right w-32 flex-shrink-0 font-medium ${level > 0 ? 'mr-16 text-gray-600' : 'font-bold text-gray-900'}`}>
           {balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
         </span>
       </div>
