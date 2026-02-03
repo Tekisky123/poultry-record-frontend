@@ -385,7 +385,7 @@ const CustomerDetails = () => {
     return date.toLocaleDateString('en-GB', {
       day: '2-digit',
       month: '2-digit',
-      year: '2-digit'
+      year: 'numeric'
     });
   };
 
@@ -564,62 +564,62 @@ const CustomerDetails = () => {
       </div> */}
 
       {/* Sales Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Birds / Total Weight */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 relative overflow-hidden">
+          <div className="flex flex-col h-full justify-between relative z-10">
             <div>
-              <p className="text-sm text-gray-600 mb-2">Total Birds / Total Weight</p>
-              <div className="flex items-baseline gap-2">
-                <p className="text-2xl font-bold text-purple-600">{totalBirds.toLocaleString()}</p>
-                <span className="text-2xl font-bold text-purple-600">/</span>
-                <p className="text-2xl font-bold text-purple-600">{totalWeight.toFixed(2)} kg</p>
+              <p className="text-sm font-medium text-gray-500 mb-1">Total Birds / Weight</p>
+              <div className="flex items-baseline flex-wrap gap-x-2 gap-y-1">
+                <span className="text-2xl font-bold text-gray-900">{totalBirds.toLocaleString()}</span>
+                <span className="text-gray-400 font-light">/</span>
+                <span className="text-2xl font-bold text-purple-600">
+                  {totalWeight.toFixed(2)} <span className="text-sm font-medium text-gray-500">kg</span>
+                </span>
               </div>
             </div>
-            <div className="p-3 bg-purple-100 rounded-lg">
-              <Package className="w-6 h-6 text-purple-600" />
-            </div>
+          </div>
+          <div className="absolute right-2 top-2 p-2 bg-purple-50 rounded-lg">
+            <Package className="w-6 h-6 text-purple-600" />
           </div>
         </div>
 
-        {/* Amount */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
+        {/* Debit Amount */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 relative overflow-hidden">
+          <div className="flex flex-col h-full justify-between relative z-10">
             <div>
-              <p className="text-sm text-gray-600">Total Sales Amount</p>
+              <p className="text-sm font-medium text-gray-500 mb-1">Debit (Total Sales)</p>
               <p className="text-2xl font-bold text-blue-600">₹{totalSales.toLocaleString()}</p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-blue-600" />
-            </div>
+          </div>
+          <div className="absolute right-2 top-2 p-2 bg-blue-50 rounded-lg">
+            <DollarSign className="w-6 h-6 text-blue-600" />
           </div>
         </div>
 
-        {/* Total Receipt */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
+        {/* Credit Amount */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 relative overflow-hidden">
+          <div className="flex flex-col h-full justify-between relative z-10">
             <div>
-              <p className="text-sm text-gray-600">Total Receipt</p>
+              <p className="text-sm font-medium text-gray-500 mb-1">Credit (Total Receipts)</p>
               <p className="text-2xl font-bold text-green-600">₹{totalReceipt.toLocaleString()}</p>
             </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <Receipt className="w-6 h-6 text-green-600" />
-            </div>
+          </div>
+          <div className="absolute right-2 top-2 p-2 bg-green-50 rounded-lg">
+            <Receipt className="w-6 h-6 text-green-600" />
           </div>
         </div>
 
-
-
         {/* Outstanding Balance */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 relative overflow-hidden">
+          <div className="flex flex-col h-full justify-between relative z-10">
             <div>
-              <p className="text-sm text-gray-600">Outstanding Balance</p>
+              <p className="text-sm font-medium text-gray-500 mb-1">Outstanding Balance</p>
               <p className="text-2xl font-bold text-orange-600">₹{(customer.outstandingBalance || 0).toLocaleString()}</p>
             </div>
-            <div className="p-3 bg-orange-100 rounded-lg">
-              <CreditCard className="w-6 h-6 text-orange-600" />
-            </div>
+          </div>
+          <div className="absolute right-2 top-2 p-2 bg-orange-50 rounded-lg">
+            <CreditCard className="w-6 h-6 text-orange-600" />
           </div>
         </div>
       </div>

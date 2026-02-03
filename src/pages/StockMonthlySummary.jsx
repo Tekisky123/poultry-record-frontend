@@ -44,7 +44,9 @@ export default function StockMonthlySummary() {
 
     const handleMonthClick = (month) => {
         const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/daily' : '/stocks/daily';
-        navigate(`${basePath}?year=${year}&month=${month.month}`);
+        // If month is Jan(1), Feb(2), or Mar(3), it belongs to the next calendar year in a Financial Year
+        const displayYear = month.month <= 3 ? year + 1 : year;
+        navigate(`${basePath}?year=${displayYear}&month=${month.month}`);
     };
 
     const getFinancialYearOrder = (monthData) => {
@@ -164,7 +166,9 @@ export default function StockMonthlySummary() {
                                     className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
                                     onClick={() => handleMonthClick(month)}
                                 >
-                                    <td className="py-3 px-4 text-blue-600 font-medium hover:underline">{month.name}</td>
+                                    <td className="py-3 px-4 text-blue-600 font-medium hover:underline">
+                                        {month.name} {month.month <= 3 ? year + 1 : year}
+                                    </td>
                                     <td className="py-3 px-4 text-right text-gray-700">
                                         {month.purchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                     </td>

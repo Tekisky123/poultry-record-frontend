@@ -34,7 +34,7 @@ const getMenuItems = (user) => {
     { name: 'Profit & Loss', path: '/', icon: Home },
     { name: 'Trips', path: '/trips', icon: Truck },
     { name: 'Users', path: '/users', icon: UserCheck },
-    { name: 'Customer Payments', path: '/customer-payments', icon: CreditCard },
+    { name: 'Customer Receipts', path: '/customer-payments', icon: CreditCard },
     { name: 'Balance Sheet', path: '/balance-sheet', icon: FileTextIcon },
     { name: 'Vouchers', path: '/vouchers', icon: Receipt },
   ];

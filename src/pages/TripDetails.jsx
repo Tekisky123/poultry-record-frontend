@@ -1405,6 +1405,7 @@ export default function TripDetails() {
                         <thead className="bg-gray-200">
                           <tr>
                             <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700 border-r">DIESEL</th>
+                            <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700 border-r">INDENT NO</th>
                             <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700 border-r">VOL</th>
                             <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700 border-r">RATE</th>
                             <th className="px-3 py-2 text-left text-sm font-semibold text-gray-700">AMT</th>
@@ -1414,7 +1415,13 @@ export default function TripDetails() {
                           {
                             trip.diesel?.stations && trip.diesel.stations.map((station, index) => (
                               <tr key={index} className="border-b">
-                                <td className="px-3 py-2 text-sm text-gray-900 border-r">{getDieselStationName(station)}</td>
+                                <td className="px-3 py-2 text-sm text-gray-900 border-r">
+                                  <div>{getDieselStationName(station)}</div>
+                                  {station.narration && (
+                                    <div className="text-xs text-gray-500 italic mt-0.5">{station.narration}</div>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 text-sm text-gray-900 border-r">{station.indentNumber || '-'}</td>
                                 <td className="px-3 py-2 text-sm text-gray-900 border-r">{(station.volume || 0).toFixed(2)}</td>
                                 <td className="px-3 py-2 text-sm text-gray-900 border-r">₹{(station.rate || 0).toFixed(2)}</td>
                                 <td className="px-3 py-2 text-sm font-semibold text-gray-900">₹{(station.amount || 0).toFixed(2)}</td>
@@ -1436,6 +1443,7 @@ export default function TripDetails() {
                             return (
                               <tr className="bg-gray-100 font-bold">
                                 <td className="px-3 py-2 border-r">TOTAL</td>
+                                <td className="px-3 py-2 border-r"></td>
                                 <td className="px-3 py-2 border-r">{(totals.volume || 0).toFixed(2)}</td>
                                 <td className="px-3 py-2 border-r">₹{(totals.rate / (trip?.diesel?.stations?.length || 1)).toFixed(2)}</td>
                                 <td className="px-3 py-2">₹{(totals.amount || 0).toFixed(2)}</td>

@@ -691,28 +691,16 @@ const CustomerDashboard = () => {
         </div>
 
         {/* Second Row: Total Receipt | Outstanding Balance */}
-        {/* Second Row: Total Receipt | Discount & Other | Outstanding Balance */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Second Row: Total Payments, Discounts & Other | Outstanding Balance */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="bg-emerald-50 p-4 rounded-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Total Receipt</p>
-                <p className="text-2xl font-bold text-gray-900">₹{(stats.totalPaid || 0).toLocaleString()}</p>
+                <p className="text-sm text-gray-600">Total Payments, Discounts & Other</p>
+                <p className="text-2xl font-bold text-gray-900">₹{((stats.totalPaid || 0) + (stats.totalDiscountAndOther || 0)).toLocaleString()}</p>
               </div>
               <div className="p-3 bg-emerald-100 rounded-lg">
                 <Receipt className="w-6 h-6 text-emerald-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-red-50 p-4 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Discount & Other</p>
-                <p className="text-2xl font-bold text-gray-900">₹{(stats.totalDiscountAndOther || 0).toLocaleString()}</p>
-              </div>
-              <div className="p-3 bg-red-100 rounded-lg">
-                <Percent className="w-6 h-6 text-red-600" />
               </div>
             </div>
           </div>
@@ -1057,7 +1045,7 @@ const CustomerDashboard = () => {
                       {showAllColumns && <td className="px-3 py-3 text-right text-gray-900">{(entry?.avgWeight || 0).toFixed(2)}</td>}
                       {showAllColumns && <td className="px-3 py-3 text-right text-gray-900">₹{(entry?.rate || 0).toLocaleString()}</td>}
                       <td className="px-3 py-3 text-right text-gray-900">₹{(entry?.amount || 0).toLocaleString()}</td>
-                      <td className="px-3 py-3 text-right text-gray-900">₹{(entry?.outstandingBalance || 0).toLocaleString()}</td>
+                      <td className="px-3 py-3 text-right text-gray-900 font-bold">₹{(entry?.outstandingBalance || 0).toLocaleString()}</td>
                       {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.product || '-'}</td>}
                       {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.supervisor || '-'}</td>}
                       {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.vehiclesNo || '-'}</td>}

@@ -31,6 +31,7 @@ import VoucherDetails from './pages/VoucherDetails';
 import Groups from './pages/Groups';
 import Ledgers from './pages/Ledgers';
 import DieselStations from './pages/DieselStations';
+import DieselStationDetails from './pages/DieselStationDetails';
 import LedgerDetails from './pages/LedgerDetails';
 import LedgerMonthlySummary from './pages/LedgerMonthlySummary';
 import LedgerDailySummary from './pages/LedgerDailySummary';
@@ -185,6 +186,7 @@ const AppContent = () => {
               <Route path="/ledgers/:id/daily" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LedgerDailySummary /></ProtectedRoute>} />
               <Route path="/ledgers/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LedgerDetails /></ProtectedRoute>} />
               <Route path="/diesel-stations" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><DieselStations /></ProtectedRoute>} />
+              <Route path="/diesel-stations/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><DieselStationDetails /></ProtectedRoute>} />
               <Route path="/balance-sheet" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BalanceSheet /></ProtectedRoute>} />
               <Route path="/group-summary/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><GroupSummary /></ProtectedRoute>} />
               <Route path="/monthly-summary/:type/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><MonthlySummary /></ProtectedRoute>} />

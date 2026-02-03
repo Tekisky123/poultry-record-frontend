@@ -1,10 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search, Edit2, Trash2, X, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, X, Loader2, Eye } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import api from '../lib/axios';
 
 const initialForm = {
   name: '',
   location: '',
+  group: '',
+  openingBalance: 0,
+  openingBalanceType: 'debit',
 };
 
 const DieselStations = () => {
@@ -16,15 +20,55 @@ const DieselStations = () => {
   const [formData, setFormData] = useState(initialForm);
   const [editingStation, setEditingStation] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [groups, setGroups] = useState([]);
+  const [flatGroups, setFlatGroups] = useState([]);
+
+  // Helper function to flatten groups with hierarchy
+  const flattenGroups = (groups, level = 0, prefix = '') => {
+    let result = [];
+    groups.forEach(group => {
+      const displayName = prefix + group.name;
+      result.push({ ...group, displayName, level });
+      if (group.children && group.children.length > 0) {
+        result = result.concat(flattenGroups(group.children, level + 1, prefix + '  '));
+      }
+    });
+    return result;
+  };
+
+  const buildTree = (groups) => {
+    const groupMap = new Map();
+    const rootGroups = [];
+    groups.forEach(g => groupMap.set(g.id, { ...g, children: [] }));
+    groups.forEach(g => {
+      const node = groupMap.get(g.id);
+      if (g.parentGroup && groupMap.has(g.parentGroup.id)) {
+        groupMap.get(g.parentGroup.id).children.push(node);
+      } else {
+        rootGroups.push(node);
+      }
+    });
+    return rootGroups;
+  };
 
   const fetchStations = async () => {
     try {
       setLoading(true);
-      const { data } = await api.get('/diesel-stations');
-      setStations(data.data || []);
+      const [stationsRes, groupsRes] = await Promise.all([
+        api.get('/diesel-stations'),
+        api.get('/group')
+      ]);
+
+      setStations(stationsRes.data.data || []);
+
+      const groupsData = groupsRes.data.data || [];
+      setGroups(groupsData);
+      const treeGroups = buildTree(groupsData);
+      setFlatGroups(flattenGroups(treeGroups));
+
       setError('');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to fetch diesel stations');
+      setError(err.response?.data?.message || 'Failed to fetch data');
     } finally {
       setLoading(false);
     }
@@ -52,6 +96,9 @@ const DieselStations = () => {
     setFormData({
       name: station.name || '',
       location: station.location || '',
+      group: station.group?._id || station.group || '',
+      openingBalance: station.openingBalance || 0,
+      openingBalanceType: station.openingBalanceType || 'debit',
     });
     setShowModal(true);
   };
@@ -70,6 +117,10 @@ const DieselStations = () => {
       setError('Station name is required');
       return;
     }
+    // if (!formData.group) {
+    //   setError('Group is required');
+    //   return;
+    // }
 
     try {
       setSubmitting(true);
@@ -162,7 +213,13 @@ const DieselStations = () => {
                   Station Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Location
+                  Group
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Opening Balance
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Outstanding Balance
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Last Updated
@@ -177,9 +234,20 @@ const DieselStations = () => {
                 <tr key={station.id}>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">
                     {station.name}
+                    {station.location && (
+                      <div className="text-xs text-gray-500">{station.location}</div>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
-                    {station.location}
+                    {station.group?.name || '-'}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-700">
+                    {station.openingBalance ? `₹${station.openingBalance.toLocaleString()} ${station.openingBalanceType === 'credit' ? 'Cr' : 'Dr'}` : '₹0'}
+                  </td>
+                  <td className="px-6 py-4 text-sm font-medium">
+                    <span className={station.outstandingBalanceType === 'credit' ? 'text-red-600' : 'text-green-600'}>
+                      {station.outstandingBalance ? `₹${station.outstandingBalance.toLocaleString()} ${station.outstandingBalanceType === 'credit' ? 'Cr' : 'Dr'}` : '₹0'}
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-500">
                     {station.updatedAt ? new Date(station.updatedAt).toLocaleDateString() : '—'}
@@ -195,9 +263,17 @@ const DieselStations = () => {
                       <button
                         onClick={() => handleDelete(station.id)}
                         className="text-red-600 hover:text-red-800"
+                        title="Delete"
                       >
                         <Trash2 size={18} />
                       </button>
+                      <Link
+                        to={`/diesel-stations/${station.id}`}
+                        className="text-gray-600 hover:text-gray-800"
+                        title="View Ledger"
+                      >
+                        <Eye size={18} />
+                      </Link>
                     </div>
                   </td>
                 </tr>
@@ -246,6 +322,55 @@ const DieselStations = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., NH48, Pune"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Group
+                </label>
+                <select
+                  name="group"
+                  value={formData.group}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select Group</option>
+                  {flatGroups.map(group => (
+                    <option key={group.id} value={group.id}>
+                      {group.displayName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Opening Balance
+                  </label>
+                  <input
+                    type="number"
+                    name="openingBalance"
+                    value={formData.openingBalance}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Dr/Cr
+                  </label>
+                  <select
+                    name="openingBalanceType"
+                    value={formData.openingBalanceType}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="debit">Debit</option>
+                    <option value="credit">Credit</option>
+                  </select>
+                </div>
               </div>
 
               {error && (

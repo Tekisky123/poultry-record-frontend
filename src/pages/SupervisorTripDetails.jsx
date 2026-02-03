@@ -121,12 +121,16 @@ const SupervisorTripDetails = () => {
   });
 
   const createInitialDieselData = () => ({
+    dieselStation: '',
     stationName: '',
+    indentNumber: '',
     volume: '',
     rate: '',
     amount: 0,
     selectedStationId: '',
     useCustomStation: false,
+    paymentLedger: '', // Added paymentLedger for custom station
+    narration: ''
   });
   const [dieselData, setDieselData] = useState(createInitialDieselData());
   const [dieselStations, setDieselStations] = useState([]);
@@ -1064,11 +1068,17 @@ const SupervisorTripDetails = () => {
 
     try {
       // Validate mandatory fields
-      const mandatoryFields = ['stationName', 'volume', 'rate'];
+      const mandatoryFields = ['stationName', 'indentNumber', 'volume', 'rate'];
       const validationErrors = validateMandatoryFields(dieselData, mandatoryFields);
 
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (dieselData.useCustomStation && !dieselData.paymentLedger) {
+        alert('Please select a Payment Ledger for custom station');
         setIsSubmitting(false);
         return;
       }
@@ -1395,7 +1405,7 @@ const SupervisorTripDetails = () => {
     if (match) {
       return { selectedStationId: match.id, useCustomStation: false };
     }
-    return { selectedStationId: OTHER_STATION_VALUE, useCustomStation: true };
+    return { selectedStationId: '', useCustomStation: false };
   };
 
   const handleDieselStationSelect = (value) => {
@@ -1409,15 +1419,7 @@ const SupervisorTripDetails = () => {
       return;
     }
 
-    if (value === OTHER_STATION_VALUE) {
-      setDieselData((prev) => ({
-        ...prev,
-        selectedStationId: value,
-        useCustomStation: true,
-        stationName: '',
-      }));
-      return;
-    }
+
 
     const station = dieselStations.find((item) => item.id === value);
     setDieselData((prev) => ({
@@ -1430,6 +1432,11 @@ const SupervisorTripDetails = () => {
 
   const getDieselPayload = () => {
     const { selectedStationId, useCustomStation, ...payload } = dieselData;
+
+    // Only support predefined stations
+    payload.dieselStation = selectedStationId;
+    payload.paymentLedger = null;
+
     return payload;
   };
 
@@ -2569,6 +2576,16 @@ const SupervisorTripDetails = () => {
                           <div className="text-sm text-gray-600">
                             {(station.volume || 0).toFixed(2)} liters - ₹{(station.rate || 0).toFixed(2)}/liter
                           </div>
+                          {station.indentNumber && (
+                            <div className="text-sm text-gray-600">
+                              Indent No: {station.indentNumber}
+                            </div>
+                          )}
+                          {station.narration && (
+                            <div className="text-xs text-gray-500 italic">
+                              {station.narration}
+                            </div>
+                          )}
                           {station.date && (
                             <div className="text-xs text-gray-500">
                               {new Date(station.date).toLocaleDateString()}
@@ -2586,12 +2603,14 @@ const SupervisorTripDetails = () => {
                                 const selection = getDieselStationSelection(station.stationName || '');
                                 setDieselData({
                                   stationName: station.stationName || '',
+                                  indentNumber: station.indentNumber || '',
                                   volume: station.volume || 0,
                                   rate: station.rate || 0,
                                   amount: station.amount || 0,
                                   date: station.date || new Date().toISOString().split('T')[0],
                                   selectedStationId: selection.selectedStationId,
                                   useCustomStation: selection.useCustomStation,
+                                  narration: station.narration || ''
                                 });
                                 setShowDieselModal(true);
                               }}
@@ -3536,7 +3555,7 @@ const SupervisorTripDetails = () => {
                         ) : customerBalance !== null ? (
                           <span className={`text-sm font-semibold ${customerBalance > 0 ? 'text-red-600' : 'text-green-600'
                             }`}>
-                            ₹{Number(customerBalance).toLocaleString()}
+                            ₹{Number(customerBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         ) : (
                           <span className="text-sm text-gray-500">0</span>
@@ -3694,7 +3713,7 @@ const SupervisorTripDetails = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Total Balance (₹)</label>
                     <input
                       type="number"
-                      value={Number(saleData.amount) + Number(customerBalance) || 0}
+                      value={(Number(saleData.amount) + Number(customerBalance) || 0).toFixed(2)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                       placeholder="Auto-Calculated"
                       readOnly
@@ -3997,7 +4016,7 @@ const SupervisorTripDetails = () => {
                         ) : customerBalance !== null ? (
                           <span className={`text-sm font-semibold ${customerBalance > 0 ? 'text-red-600' : 'text-green-600'
                             }`}>
-                            ₹{Number(customerBalance).toLocaleString()}
+                            ₹{Number(customerBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         ) : (
                           <span className="text-sm text-gray-500">0</span>
@@ -4006,7 +4025,7 @@ const SupervisorTripDetails = () => {
                     </div>
                     {customerBalance !== null && (
                       <div className="mt-2 text-xs text-gray-600">
-                        {Number(customerBalance) > 0 ? `Outstanding Balance: ₹${Number(customerBalance).toLocaleString()}` : 'No outstanding balance'}
+                        {Number(customerBalance) > 0 ? `Outstanding Balance: ₹${Number(customerBalance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'No outstanding balance'}
                       </div>
                     )}
                   </div>
@@ -4425,27 +4444,25 @@ const SupervisorTripDetails = () => {
                         {station.name}{station.location ? ` - ${station.location}` : ''}
                       </option>
                     ))}
-                    <option value={OTHER_STATION_VALUE}>Other</option>
+
                   </select>
                   {dieselStationsLoading && (
                     <p className="text-xs text-gray-500 mt-1">Loading stations...</p>
                   )}
                 </div>
 
-                {dieselData.useCustomStation && (
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Custom Station Name *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Indent No. *</label>
                     <input
                       type="text"
-                      value={dieselData.stationName}
-                      onChange={(e) => setDieselData(prev => ({ ...prev, stationName: e.target.value }))}
+                      value={dieselData.indentNumber}
+                      onChange={(e) => setDieselData(prev => ({ ...prev, indentNumber: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      placeholder="e.g., HP Pump, Shell Station"
-                      required
+                      placeholder="Enter Indent Number"
                     />
                   </div>
-                )}
-                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Volume (liters) *</label>
                     <input
@@ -4465,6 +4482,9 @@ const SupervisorTripDetails = () => {
                       placeholder="0.00"
                     />
                   </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Rate per liter *</label>
                     <input
@@ -4477,8 +4497,6 @@ const SupervisorTripDetails = () => {
                       step="0.01"
                     />
                   </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount (Auto-calculated)</label>
                     <input
@@ -4488,6 +4506,19 @@ const SupervisorTripDetails = () => {
                       readOnly
                       step="0.01"
                       placeholder="Volume × Rate"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Narration</label>
+                    <textarea
+                      value={dieselData.narration}
+                      onChange={(e) => setDieselData(prev => ({ ...prev, narration: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                      placeholder="Add notes or narration"
+                      rows="2"
                     />
                   </div>
                 </div>
@@ -4509,7 +4540,7 @@ const SupervisorTripDetails = () => {
                 </div>
               </form>
             </div>
-          </div>
+          </div >
         )
       }
 

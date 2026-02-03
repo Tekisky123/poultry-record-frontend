@@ -148,7 +148,9 @@ export default function CustomerMonthlySummary() {
                                     onClick={() => handleMonthClick(month)}
                                     className="hover:bg-gray-50 cursor-pointer transition-colors"
                                 >
-                                    <td className="px-6 py-4 font-medium text-blue-600 hover:underline">{month.name}</td>
+                                    <td className="px-6 py-4 font-medium text-blue-600 hover:underline">
+                                        {new Date(month.startDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                                    </td>
                                     <td className="px-6 py-4 text-right text-gray-900">
                                         {month.debit > 0 ? `₹${month.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
                                     </td>

@@ -61,7 +61,8 @@ export default function MonthlySummary() {
 
         const targetPath = type === 'customer' ? `/customers/${id}` :
             type === 'vendor' ? `/vendors/${id}` :
-                type === 'ledger' ? `/ledgers/${id}` : null;
+                type === 'ledger' ? `/ledgers/${id}` :
+                    type === 'dieselStation' ? `/diesel-stations/${id}` : null;
 
         const filterType = new URLSearchParams(window.location.search).get('filterType');
 
@@ -77,24 +78,44 @@ export default function MonthlySummary() {
     const handleExportToExcel = () => {
         if (!data) return;
 
-        const exportData = data.months.map(month => ({
-            Month: month.name,
-            'Total Birds': month.birds || 0,
-            'Total Weight': month.weight ? parseFloat(month.weight.toFixed(2)) : 0,
-            'Debit (Sales)': month.debit || 0,
-            'Credit (Receipts)': month.credit || 0,
-            'Closing Balance': `${month.closingBalance.toFixed(2)} ${month.closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`
-        }));
+        const exportData = data.months.map(month => {
+            const row = {
+                Month: month.name,
+            };
+
+            if (type === 'dieselStation') {
+                row['Total Volume'] = month.volume || 0;
+                row['Total Rate/ltr'] = month.volume ? parseFloat((month.credit / month.volume).toFixed(2)) : '-';
+            } else {
+                row['Total Birds'] = month.birds || 0;
+                row['Total Weight'] = month.weight ? parseFloat(month.weight.toFixed(2)) : 0;
+            }
+
+            row['Debit (Sales)'] = month.debit || 0;
+            row['Credit (Receipts)'] = month.credit || 0;
+            row['Closing Balance'] = `${month.closingBalance.toFixed(2)} ${month.closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`;
+
+            return row;
+        });
 
         // Add Totals Row
-        exportData.push({
+        const totalRow = {
             Month: 'Grand Total',
-            'Total Birds': data.totals.birds || 0,
-            'Total Weight': data.totals.weight ? parseFloat(data.totals.weight.toFixed(2)) : 0,
-            'Debit (Sales)': data.totals.debit || 0,
-            'Credit (Receipts)': data.totals.credit || 0,
-            'Closing Balance': `${data.months[data.months.length - 1].closingBalance.toFixed(2)} ${data.months[data.months.length - 1].closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`
-        });
+        };
+
+        if (type === 'dieselStation') {
+            totalRow['Total Volume'] = data.totals.volume || 0;
+            totalRow['Total Rate/ltr'] = data.totals.volume ? parseFloat((data.totals.credit / data.totals.volume).toFixed(2)) : '-';
+        } else {
+            totalRow['Total Birds'] = data.totals.birds || 0;
+            totalRow['Total Weight'] = data.totals.weight ? parseFloat(data.totals.weight.toFixed(2)) : 0;
+        }
+
+        totalRow['Debit (Sales)'] = data.totals.debit || 0;
+        totalRow['Credit (Receipts)'] = data.totals.credit || 0;
+        totalRow['Closing Balance'] = `${data.months[data.months.length - 1].closingBalance.toFixed(2)} ${data.months[data.months.length - 1].closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`;
+
+        exportData.push(totalRow);
 
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
@@ -197,8 +218,17 @@ export default function MonthlySummary() {
                         <thead>
                             <tr className="border-b-2 border-gray-300 bg-gray-50">
                                 <th className="text-left py-3 px-4 font-semibold text-gray-900">Month</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Birds</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Weight</th>
+                                {type === 'dieselStation' ? (
+                                    <>
+                                        <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Volume</th>
+                                        <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Rate/ltr</th>
+                                    </>
+                                ) : (
+                                    <>
+                                        <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Birds</th>
+                                        <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Weight</th>
+                                    </>
+                                )}
                                 <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit (Sales)</th>
                                 <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit (Receipts)</th>
                                 <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
@@ -211,13 +241,28 @@ export default function MonthlySummary() {
                                     className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
                                     onClick={() => handleMonthClick(month)}
                                 >
-                                    <td className="py-3 px-4 text-blue-600 font-medium hover:underline">{month.name}</td>
-                                    <td className="py-3 px-4 text-right text-gray-700">
-                                        {renderCellWithPercentage(month.birds, data.totals.birds)}
+                                    <td className="py-3 px-4 text-blue-600 font-medium hover:underline">
+                                        {new Date(month.startDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
                                     </td>
-                                    <td className="py-3 px-4 text-right text-gray-700">
-                                        {renderCellWithPercentage(month.weight, data.totals.weight, 'weight')}
-                                    </td>
+                                    {type === 'dieselStation' ? (
+                                        <>
+                                            <td className="py-3 px-4 text-right text-gray-700">
+                                                {renderCellWithPercentage(month.volume, data.totals.volume, 'weight')}
+                                            </td>
+                                            <td className="py-3 px-4 text-right text-gray-700">
+                                                {month.volume ? (month.credit / month.volume).toFixed(2) : '-'}
+                                            </td>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <td className="py-3 px-4 text-right text-gray-700">
+                                                {renderCellWithPercentage(month.birds, data.totals.birds)}
+                                            </td>
+                                            <td className="py-3 px-4 text-right text-gray-700">
+                                                {renderCellWithPercentage(month.weight, data.totals.weight, 'weight')}
+                                            </td>
+                                        </>
+                                    )}
                                     <td className="py-3 px-4 text-right text-gray-700">
                                         {renderCellWithPercentage(month.debit, data.totals.debit, 'currency')}
                                     </td>
@@ -232,12 +277,25 @@ export default function MonthlySummary() {
                             ))}
                             <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
                                 <td className="py-3 px-4 text-gray-900">Total</td>
-                                <td className="py-3 px-4 text-right text-gray-900">
-                                    {renderCellWithPercentage(data.totals.birds, data.totals.birds)}
-                                </td>
-                                <td className="py-3 px-4 text-right text-gray-900">
-                                    {renderCellWithPercentage(data.totals.weight, data.totals.weight, 'weight')}
-                                </td>
+                                {type === 'dieselStation' ? (
+                                    <>
+                                        <td className="py-3 px-4 text-right text-gray-900">
+                                            {renderCellWithPercentage(data.totals.volume, data.totals.volume, 'weight')}
+                                        </td>
+                                        <td className="py-3 px-4 text-right text-gray-900">
+                                            {data.totals.volume ? (data.totals.credit / data.totals.volume).toFixed(2) : '-'}
+                                        </td>
+                                    </>
+                                ) : (
+                                    <>
+                                        <td className="py-3 px-4 text-right text-gray-900">
+                                            {renderCellWithPercentage(data.totals.birds, data.totals.birds)}
+                                        </td>
+                                        <td className="py-3 px-4 text-right text-gray-900">
+                                            {renderCellWithPercentage(data.totals.weight, data.totals.weight, 'weight')}
+                                        </td>
+                                    </>
+                                )}
                                 <td className="py-3 px-4 text-right text-gray-900">
                                     {renderCellWithPercentage(data.totals.debit, data.totals.debit, 'currency')}
                                 </td>
