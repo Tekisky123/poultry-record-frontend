@@ -34,11 +34,15 @@ export default function VendorMonthlySummary() {
     };
 
     const handleMonthClick = (monthData) => {
-        const date = new Date(monthData.startDate);
-        const monthNum = date.getMonth() + 1; // 1-12
-        const yearNum = date.getFullYear();
+        const d = new Date(monthData.startDate);
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const lastDay = new Date(year, month, 0).getDate();
 
-        navigate(`/vendors/${id}/daily?year=${yearNum}&month=${monthNum}`);
+        const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
+        const endStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+        navigate(`/vendors/${id}?startDate=${startStr}&endDate=${endStr}`);
     };
 
     const handleExportToExcel = () => {

@@ -31,22 +31,27 @@ const GroupNode = memo(({ group, level = 0 }) => {
     <div className="select-none">
       {/* Parent Group */}
       <div
-        className={`flex items-center gap-2 py-1 rounded px-2 transition-colors ${level > 0 ? 'hover:bg-gray-50 cursor-pointer' : ''}`}
+        className={`flex items-stretch rounded px-2 transition-colors ${level > 0 ? 'hover:bg-gray-50 cursor-pointer' : ''}`}
         onClick={handleGroupClick}
         style={{
           paddingLeft: `${leftPadding}px`
         }}
       >
         {/* Group name */}
-        <span className={`flex-1 ${level === 0 ? 'text-sm font-semibold text-gray-900' :
+        <span className={`flex items-center flex-1 py-1 mr-2 ${level === 0 ? 'text-sm font-semibold text-gray-900' :
           'text-sm text-gray-700'
           }`}>
           {group.name}
         </span>
 
-        {/* Balance */}
-        <span className={`text-sm text-right w-32 flex-shrink-0 font-medium ${level > 0 ? 'mr-16 text-gray-600' : 'font-bold text-gray-900'}`}>
-          {balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        {/* Inner Balance (Child) */}
+        <span className={`flex items-center justify-end text-sm w-32 flex-shrink-0 font-medium border-gray-300 pr-2 py-1 ${level > 0 ? 'text-gray-600' : ''}`}>
+          {level > 0 ? balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+        </span>
+
+        {/* Outer Balance (Parent) */}
+        <span className={`flex items-center justify-end text-sm w-28 flex-shrink-0 font-medium border-l border-gray-300 ${level === 0 ? 'font-bold text-gray-900' : ''}`}>
+          {level === 0 ? balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
         </span>
       </div>
 
@@ -427,7 +432,7 @@ export default function BalanceSheet() {
             <div className="mt-4 pt-3 border-t-2 border-gray-400">
               <div className="flex items-center justify-between">
                 <span className="text-base font-bold">Total Liabilities</span>
-                <span className="text-base font-bold text-right w-32">
+                <span className="text-base font-bold text-right w-32 pl-2">
                   {balanceSheet.totals.totalLiabilities.toLocaleString('en-IN', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2
@@ -438,7 +443,7 @@ export default function BalanceSheet() {
           </div>
 
           {/* Assets Side */}
-          <div className="pl-8 flex flex-col justify-between">
+          <div className="flex flex-col justify-between">
             <div className="flex-1">
               <div className="mb-4">
                 <h3 className="text-xl font-bold text-blue-700 mb-3">ASSETS</h3>
@@ -456,7 +461,7 @@ export default function BalanceSheet() {
             <div className="mt-4 pt-3 border-t-2 border-gray-400">
               <div className="flex items-center justify-between">
                 <span className="text-base font-bold">Total Assets</span>
-                <span className="text-base font-bold text-right w-32">
+                <span className="text-base font-bold text-right w-32 pl-2">
                   {balanceSheet.totals.totalAssets.toLocaleString('en-IN', {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2

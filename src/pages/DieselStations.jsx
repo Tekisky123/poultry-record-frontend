@@ -6,6 +6,7 @@ import api from '../lib/axios';
 const initialForm = {
   name: '',
   location: '',
+  mobileNumber: '',
   group: '',
   openingBalance: 0,
   openingBalanceType: 'debit',
@@ -96,7 +97,8 @@ const DieselStations = () => {
     setFormData({
       name: station.name || '',
       location: station.location || '',
-      group: station.group?._id || station.group || '',
+      mobileNumber: station.mobileNumber || '',
+      group: (typeof station.group === 'object' ? (station.group?._id || station.group?.id) : station.group) || '',
       openingBalance: station.openingBalance || 0,
       openingBalanceType: station.openingBalanceType || 'debit',
     });
@@ -115,6 +117,10 @@ const DieselStations = () => {
     e.preventDefault();
     if (!formData.name.trim()) {
       setError('Station name is required');
+      return;
+    }
+    if (formData.mobileNumber && formData.mobileNumber.length !== 10) {
+      setError('Mobile number must be 10 digits');
       return;
     }
     // if (!formData.group) {
@@ -213,6 +219,9 @@ const DieselStations = () => {
                   Station Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Mobile No
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Group
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -237,6 +246,9 @@ const DieselStations = () => {
                     {station.location && (
                       <div className="text-xs text-gray-500">{station.location}</div>
                     )}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-700">
+                    {station.mobileNumber ? `+91 ${station.mobileNumber}` : '-'}
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-700">
                     {station.group?.name || '-'}
@@ -322,6 +334,28 @@ const DieselStations = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="e.g., NH48, Pune"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Mobile Number
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-medium">
+                    +91
+                  </span>
+                  <input
+                    type="text"
+                    name="mobileNumber"
+                    value={formData.mobileNumber}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      setFormData(prev => ({ ...prev, mobileNumber: value }));
+                    }}
+                    className="w-full pl-12 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter 10 digit number"
+                  />
+                </div>
               </div>
 
               <div>

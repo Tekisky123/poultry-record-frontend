@@ -33,12 +33,15 @@ export default function LedgerMonthlySummary() {
     };
 
     const handleMonthClick = (monthData) => {
-        // monthData.startDate is ISO string
-        const date = new Date(monthData.startDate);
-        const monthNum = date.getMonth() + 1; // 1-12
-        const yearNum = date.getFullYear();
+        const d = new Date(monthData.startDate);
+        const year = d.getFullYear();
+        const month = d.getMonth() + 1;
+        const lastDay = new Date(year, month, 0).getDate();
 
-        navigate(`/ledgers/${id}/daily?year=${yearNum}&month=${monthNum}`);
+        const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
+        const endStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+        navigate(`/ledgers/${id}?startDate=${startStr}&endDate=${endStr}`);
     };
 
     const handleExportToExcel = () => {

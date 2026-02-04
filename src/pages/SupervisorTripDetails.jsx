@@ -111,6 +111,7 @@ const SupervisorTripDetails = () => {
     onlinePaid: '',
     cashLedger: '',
     onlineLedger: '',
+    narration: '',
     sendSms: false
   });
 
@@ -860,7 +861,7 @@ const SupervisorTripDetails = () => {
 
           setShowSaleModal(false);
           setShowSaleModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', sendSms: false });
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '', sendSms: false });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -888,7 +889,7 @@ const SupervisorTripDetails = () => {
 
           setShowSaleModal(false);
           setShowSaleModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', sendSms: false });
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '', sendSms: false });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -972,7 +973,7 @@ const SupervisorTripDetails = () => {
           }
 
           setShowReceiptModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '' });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -998,7 +999,7 @@ const SupervisorTripDetails = () => {
           }
 
           setShowReceiptModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '' });
+          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '' });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -1511,7 +1512,7 @@ const SupervisorTripDetails = () => {
               <button
                 onClick={() => {
                   const cashAcId = getCashAcLedgerId();
-                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: cashAcId || '', onlineLedger: '' });
+                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: cashAcId || '', onlineLedger: '', narration: '' });
                   setSelectedCustomer(null);
                   setCustomerSearchTerm('');
                   setShowCustomerDropdown(false);
@@ -1526,7 +1527,7 @@ const SupervisorTripDetails = () => {
               <button
                 onClick={() => {
                   const cashAcId = getCashAcLedgerId();
-                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: cashAcId || '', onlineLedger: '', isReceipt: true });
+                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: cashAcId || '', onlineLedger: '', narration: '', isReceipt: true });
                   setSelectedCustomer(null);
                   setCustomerSearchTerm('');
                   setShowCustomerDropdown(false);
@@ -1923,6 +1924,9 @@ const SupervisorTripDetails = () => {
                                   <div className="font-medium text-gray-900">
                                     {sale.client?.shopName || `Customer ${index + 1}`}
                                   </div>
+                                  {sale.narration && (
+                                    <div className="text-xs text-gray-500 italic">{sale.narration}</div>
+                                  )}
                                   <div className="text-sm text-gray-600">
                                     {sale.isReceipt ? (
                                       <>
@@ -1975,6 +1979,7 @@ const SupervisorTripDetails = () => {
                                               onlinePaid: sale.onlinePaid || 0,
                                               cashLedger: defaultCashLedger,
                                               onlineLedger: sale.onlineLedger || '',
+                                              narration: sale.narration || '',
                                               isReceipt: true
                                             });
                                             setSelectedCustomer(sale.client);
@@ -2011,7 +2016,8 @@ const SupervisorTripDetails = () => {
                                               cashPaid: sale.cashPaid || 0,
                                               onlinePaid: sale.onlinePaid || 0,
                                               cashLedger: defaultCashLedger,
-                                              onlineLedger: sale.onlineLedger || ''
+                                              onlineLedger: sale.onlineLedger || '',
+                                              narration: sale.narration || ''
                                             });
                                             setSelectedCustomer(sale.client);
                                             setCustomerSearchTerm(sale.client ? `${sale.client.shopName} - ${sale.client.ownerName || 'N/A'}` : '');
@@ -2228,6 +2234,9 @@ const SupervisorTripDetails = () => {
                                     <div className="font-medium text-gray-900">
                                       {receipt.client?.shopName || `Customer ${index + 1}`}
                                     </div>
+                                    {receipt.narration && (
+                                      <div className="text-xs text-gray-500 italic">{receipt.narration}</div>
+                                    )}
                                     <div className="text-sm text-gray-600 mt-1">
                                       <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full mr-2">
                                         <Receipt size={12} className="mr-1" />
@@ -2276,6 +2285,7 @@ const SupervisorTripDetails = () => {
                                               onlinePaid: receipt.onlinePaid || 0,
                                               cashLedger: defaultCashLedger,
                                               onlineLedger: receipt.onlineLedger || '',
+                                              narration: receipt.narration || '',
                                               isReceipt: true
                                             });
                                             setSelectedCustomer(receipt.client);
@@ -3834,6 +3844,17 @@ const SupervisorTripDetails = () => {
                 </div>
 
                 {/* SMS Checkbox */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Narration</label>
+                  <textarea
+                    value={saleData.narration}
+                    onChange={(e) => handleSaleDataChange('narration', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Enter narration..."
+                    rows="2"
+                  />
+                </div>
+
                 <div className="flex items-center mt-3 bg-blue-50 p-2 rounded-lg border border-blue-100">
                   <input
                     type="checkbox"
@@ -4121,6 +4142,17 @@ const SupervisorTripDetails = () => {
                 </div>
 
                 {/* SMS Checkbox */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Narration</label>
+                  <textarea
+                    value={saleData.narration}
+                    onChange={(e) => handleSaleDataChange('narration', e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Enter narration..."
+                    rows="2"
+                  />
+                </div>
+
                 <div className="flex items-center mt-3 bg-blue-50 p-2 rounded-lg border border-blue-100">
                   <input
                     type="checkbox"
@@ -4150,7 +4182,7 @@ const SupervisorTripDetails = () => {
                   type="button"
                   onClick={() => {
                     setShowReceiptModal(false);
-                    setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', sendSms: false });
+                    setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '', sendSms: false });
                     setSelectedCustomer(null);
                     setCustomerSearchTerm('');
                     setShowCustomerDropdown(false);
