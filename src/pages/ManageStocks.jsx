@@ -76,7 +76,9 @@ const ManageStocks = () => {
         cashLedgerId: '',
         onlineLedgerId: '',
         saleOutBalance: 0,
-        date: defaultDate
+        date: defaultDate,
+        narration: '',
+        sendSms: false
     });
 
     const [openingStockData, setOpeningStockData] = useState({
@@ -541,7 +543,9 @@ const ManageStocks = () => {
                 onlineLedgerId: '',
                 saleOutBalance: 0,
                 saleOutBalance: 0,
-                date: defaultDate
+                date: defaultDate,
+                narration: '',
+                sendSms: false
             });
             setIsEditMode(false);
             setCurrentStockId(null);
@@ -584,7 +588,9 @@ const ManageStocks = () => {
                 onlineLedgerId: '',
                 saleOutBalance: 0,
                 saleOutBalance: 0,
-                date: defaultDate
+                date: defaultDate,
+                narration: '',
+                sendSms: false
             });
             setIsEditMode(false);
             setCurrentStockId(null);
@@ -806,11 +812,22 @@ const ManageStocks = () => {
     const cashLedgers = ledgers.filter(l => l.group?.name?.toLowerCase().includes('cash'));
 
     // Vendor Search Logic
-    const filteredVendors = vendors.filter(vendor =>
-        (vendor.vendorName || '').toLowerCase().includes(vendorSearchTerm.toLowerCase()) ||
-        (vendor.contactNumber || '').includes(vendorSearchTerm) ||
-        (vendor.place || '').toLowerCase().includes(vendorSearchTerm.toLowerCase())
-    );
+    const filteredVendors = vendors.filter(vendor => {
+        const matchesSearch = (vendor.vendorName || '').toLowerCase().includes(vendorSearchTerm.toLowerCase()) ||
+            (vendor.contactNumber || '').includes(vendorSearchTerm) ||
+            (vendor.place || '').toLowerCase().includes(vendorSearchTerm.toLowerCase());
+
+        if (showFeedPurchaseModal) {
+            const groupName = vendor.group?.name || '';
+            const groupSlug = vendor.group?.slug || '';
+            // Check for "Feed Creditors" group (try both name and slug)
+            // Slug is usually safer if standardized
+            const isFeedCreditor = groupName === 'Feed Creditors' || groupSlug === 'feed-creditors';
+            return matchesSearch && isFeedCreditor;
+        }
+
+        return matchesSearch;
+    });
     console.log("filteredVendors", filteredVendors);
 
     const handleVendorInputFocus = () => {
@@ -1582,7 +1599,9 @@ const ManageStocks = () => {
                                                     onlineLedgerId: (sale.onlineLedgerId?._id || sale.onlineLedgerId?.id || sale.onlineLedgerId) || (bankLedgers?.[0]?._id || bankLedgers?.[0]?.id || ''),
                                                     // Set the calculated retrospective balance
                                                     saleOutBalance: retrospectiveBalance,
-                                                    date: sale.date ? new Date(sale.date).toISOString().split('T')[0] : ''
+                                                    date: sale.date ? new Date(sale.date).toISOString().split('T')[0] : '',
+                                                    narration: sale.narration || '',
+                                                    sendSms: false
                                                 });
 
                                                 if (sale.type === 'receipt') {
@@ -2518,6 +2537,30 @@ const ManageStocks = () => {
                                                     readOnly
                                                 />
                                             </div>
+                                        </div>
+
+                                        <div className="mt-2">
+                                            <label className="block text-xs font-medium text-gray-700 mb-1">Narration</label>
+                                            <textarea
+                                                value={saleData.narration}
+                                                onChange={e => setSaleData({ ...saleData, narration: e.target.value })}
+                                                className="w-full px-2 py-1 border border-gray-300 rounded text-xs"
+                                                rows="2"
+                                                placeholder="Enter narration..."
+                                            />
+                                        </div>
+
+                                        <div className="mt-2 flex items-center">
+                                            <input
+                                                type="checkbox"
+                                                id="sendSms"
+                                                checked={saleData.sendSms}
+                                                onChange={e => setSaleData({ ...saleData, sendSms: e.target.checked })}
+                                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                            />
+                                            <label htmlFor="sendSms" className="ml-2 block text-xs text-gray-900">
+                                                Send message to customer
+                                            </label>
                                         </div>
                                     </div>
                                 </form>

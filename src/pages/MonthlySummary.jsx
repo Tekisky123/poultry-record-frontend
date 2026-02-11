@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
@@ -8,7 +8,11 @@ import { useAuth } from '../contexts/AuthContext';
 export default function MonthlySummary() {
     const { type, id } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
     const { user } = useAuth();
+
+    const groupName = searchParams.get('groupName') || '';
+    const isFeedGroup = groupName.toLowerCase().includes('feed');
 
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
@@ -87,8 +91,15 @@ export default function MonthlySummary() {
                 row['Total Volume'] = month.volume || 0;
                 row['Total Rate/ltr'] = month.volume ? parseFloat((month.credit / month.volume).toFixed(2)) : '-';
             } else {
-                row['Total Birds'] = month.birds || 0;
-                row['Total Weight'] = month.weight ? parseFloat(month.weight.toFixed(2)) : 0;
+                const groupName = searchParams.get('groupName') || '';
+                const isFeedGroup = groupName.toLowerCase().includes('feed');
+                if (isFeedGroup) {
+                    row['Total Bags'] = month.birds || 0;
+                    row['Total Quantity (Kg)'] = month.weight ? parseFloat(month.weight.toFixed(2)) : 0;
+                } else {
+                    row['Total Birds'] = month.birds || 0;
+                    row['Total Weight'] = month.weight ? parseFloat(month.weight.toFixed(2)) : 0;
+                }
             }
 
             row['Debit (Sales)'] = month.debit || 0;
@@ -212,26 +223,33 @@ export default function MonthlySummary() {
                         </span>
                     </div>
                 </div>
-
+                {hasAdminAccess && (
+                    <div className="text-gray-500 mb-4">
+                        <p className="text-sm">
+                            Group: {searchParams.get('groupName')}
+                        </p>
+                    </div>
+                )}
                 <div className="overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="border-b-2 border-gray-300 bg-gray-50">
-                                <th className="text-left py-3 px-4 font-semibold text-gray-900">Month</th>
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th className="px-6 py-3 text-left font-medium text-gray-700">Month</th>
+                                {/* Conditional Headers */}
                                 {type === 'dieselStation' ? (
                                     <>
-                                        <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Volume</th>
-                                        <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Rate/ltr</th>
+                                        <th className="px-6 py-3 text-right font-medium text-gray-700">Total Volume</th>
+                                        <th className="px-6 py-3 text-right font-medium text-gray-700">Total Rate/ltr</th>
                                     </>
                                 ) : (
                                     <>
-                                        <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Birds</th>
-                                        <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Weight</th>
+                                        <th className="px-6 py-3 text-right font-medium text-gray-700">{isFeedGroup ? 'Total Bags' : 'Total Birds'}</th>
+                                        <th className="px-6 py-3 text-right font-medium text-gray-700">{isFeedGroup ? 'Total Quantity (Kg)' : 'Total Weight'}</th>
                                     </>
                                 )}
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit (Sales)</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit (Receipts)</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">Debit (Sales)</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">Credit (Receipts)</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">Closing Balance</th>
                             </tr>
                         </thead>
                         <tbody>

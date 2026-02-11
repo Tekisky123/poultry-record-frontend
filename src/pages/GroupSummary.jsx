@@ -87,8 +87,14 @@ export default function GroupSummary() {
       }
 
       if (isExpandedView) {
-        row['Total Birds'] = entry.birds || 0;
-        row['Total Weight'] = entry.weight ? parseFloat(entry.weight.toFixed(2)) : 0;
+        const isFeedGroup = groupSummary.group.name.toLowerCase().includes('feed');
+        if (isFeedGroup) {
+          row['Total Bags'] = entry.birds || 0;
+          row['Total Quantity (Kg)'] = entry.weight ? parseFloat(entry.weight.toFixed(2)) : 0;
+        } else {
+          row['Total Birds'] = entry.birds || 0;
+          row['Total Weight'] = entry.weight ? parseFloat(entry.weight.toFixed(2)) : 0;
+        }
         row['Debit (Sales)'] = entry.transactionDebit || entry.debit || 0;
         row['Credit (Receipts)'] = entry.transactionCredit || entry.credit || 0;
 
@@ -118,8 +124,14 @@ export default function GroupSummary() {
     }
 
     if (isExpandedView) {
-      totalRow['Total Birds'] = groupSummary.totals.birds || 0;
-      totalRow['Total Weight'] = groupSummary.totals.weight ? parseFloat(groupSummary.totals.weight.toFixed(2)) : 0;
+      const isFeedGroup = groupSummary.group.name.toLowerCase().includes('feed');
+      if (isFeedGroup) {
+        totalRow['Total Bags'] = groupSummary.totals.birds || 0;
+        totalRow['Total Quantity (Kg)'] = groupSummary.totals.weight ? parseFloat(groupSummary.totals.weight.toFixed(2)) : 0;
+      } else {
+        totalRow['Total Birds'] = groupSummary.totals.birds || 0;
+        totalRow['Total Weight'] = groupSummary.totals.weight ? parseFloat(groupSummary.totals.weight.toFixed(2)) : 0;
+      }
 
       const totalDebit = groupSummary.entries.reduce((sum, e) => sum + (e.transactionDebit || e.debit || 0), 0);
       const totalCredit = groupSummary.entries.reduce((sum, e) => sum + (e.transactionCredit || e.credit || 0), 0);
@@ -215,6 +227,7 @@ export default function GroupSummary() {
 
   const isExpandedView = (groupSummary.entries.some(e => e.birds > 0 || e.weight > 0) || groupSummary.group.name.toLowerCase().includes('debtor'));
   const isDieselView = groupSummary.entries.some(e => e.type === 'dieselStation');
+  const isFeedGroup = groupSummary.group.name.toLowerCase().includes('feed');
 
   const totals = {
     birds: groupSummary.totals.birds || 0,
@@ -356,8 +369,8 @@ export default function GroupSummary() {
                 )}
                 {isExpandedView && (
                   <>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Birds</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Weight</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">{isFeedGroup ? 'Total Bags' : 'Total Birds'}</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">{isFeedGroup ? 'Total Quantity (Kg)' : 'Total Weight'}</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit (Sales)</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit (Receipts)</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
@@ -389,10 +402,10 @@ export default function GroupSummary() {
                           } else if (entry.type === 'customer') {
                             navigate(`/monthly-summary/customer/${entry.id}${query}`);
                           } else if (entry.type === 'vendor') {
-                            let qs = query;
                             if (groupSummary.group.name.trim().toLowerCase() === 'purchase account' || groupSummary.group.name.trim().toLowerCase() === 'purchase accounts') {
                               qs += '&filterType=PURCHASE';
                             }
+                            qs += `&groupName=${encodeURIComponent(groupSummary.group.name)}`;
                             navigate(`/monthly-summary/vendor/${entry.id}${qs}`);
                           } else if (entry.type === 'ledger') {
                             navigate(`/monthly-summary/ledger/${entry.id}${query}`);

@@ -27,8 +27,9 @@ const AddEditVoucher = () => {
   const [customersWithLedgers, setCustomersWithLedgers] = useState([]);
   const [vendors, setVendors] = useState([]);
   const [ledgers, setLedgers] = useState([]);
+  const [dieselStations, setDieselStations] = useState([]);
   const [cashBankLedgers, setCashBankLedgers] = useState([]);
-  const [allParties, setAllParties] = useState([]); // Combined list of customers, ledgers, and vendors
+  const [allParties, setAllParties] = useState([]); // Combined list of customers, ledgers, vendors, and diesel stations
   const [partyBalanceLabel, setPartyBalanceLabel] = useState('');
 
   const [formData, setFormData] = useState({
@@ -105,20 +106,23 @@ const AddEditVoucher = () => {
 
   const fetchMasterData = async () => {
     try {
-      const [customersRes, vendorsRes, ledgersRes] = await Promise.all([
+      const [customersRes, vendorsRes, ledgersRes, dieselStationsRes] = await Promise.all([
         api.get('/customer'),
         api.get('/vendor'),
-        api.get('/ledger')
+        api.get('/ledger'),
+        api.get('/diesel-stations')
       ]);
 
       const allCustomers = customersRes.data.success ? customersRes.data.data : [];
       const allVendors = vendorsRes.data.success ? vendorsRes.data.data : [];
       const allLedgers = ledgersRes.data.success ? (ledgersRes.data.data || []) : [];
+      const allDieselStations = dieselStationsRes.data.success ? (dieselStationsRes.data.data || []) : [];
 
       // Set individual state
       setCustomers(allCustomers);
       setVendors(allVendors);
       setLedgers(allLedgers);
+      setDieselStations(allDieselStations);
 
       // Filter Cash and Bank Accounts ledgers
       const cashBankLedgersData = allLedgers.filter(ledger => {
@@ -177,6 +181,16 @@ const AddEditVoucher = () => {
         });
       });
 
+      // Add diesel stations
+      allDieselStations.forEach(station => {
+        partiesList.push({
+          id: station.id || station._id,
+          name: station.name || 'N/A',
+          type: 'dieselStation', // Keep this distinct for handling, but conceptually it works like a ledger
+          data: station
+        });
+      });
+
       setAllParties(partiesList);
     } catch (error) {
       console.error('Error fetching master data:', error);
@@ -199,6 +213,8 @@ const AddEditVoucher = () => {
           // Handle Payment/Receipt voucher structure
           const partiesData = await Promise.all(
             voucher.parties.map(async (partyItem) => {
+              // Handle populated partyId
+              const actualPartyId = partyItem.partyId?._id || partyItem.partyId?.id || partyItem.partyId;
               const partyType = partyItem.partyType || 'customer'; // Default to customer for backward compatibility
               let partyName = '';
               let balance = 0;
@@ -206,7 +222,7 @@ const AddEditVoucher = () => {
 
               try {
                 if (partyType === 'customer') {
-                  const customerRes = await api.get(`/customer/${partyItem.partyId}`);
+                  const customerRes = await api.get(`/customer/${actualPartyId}`);
                   if (customerRes.data.success) {
                     const customer = customerRes.data.data;
                     partyName = customer.shopName || customer.ownerName || 'N/A';
@@ -214,7 +230,7 @@ const AddEditVoucher = () => {
                     balanceType = customer.outstandingBalanceType || customer.openingBalanceType || 'debit';
                   }
                 } else if (partyType === 'ledger') {
-                  const ledgerRes = await api.get(`/ledger/${partyItem.partyId}`);
+                  const ledgerRes = await api.get(`/ledger/${actualPartyId}`);
                   if (ledgerRes.data.success) {
                     const ledger = ledgerRes.data.data;
                     partyName = ledger.name || 'N/A';
@@ -222,20 +238,28 @@ const AddEditVoucher = () => {
                     balanceType = ledger.outstandingBalanceType || ledger.openingBalanceType || 'debit';
                   }
                 } else if (partyType === 'vendor') {
-                  const vendorRes = await api.get(`/vendor/${partyItem.partyId}`);
+                  const vendorRes = await api.get(`/vendor/${actualPartyId}`);
                   if (vendorRes.data.success) {
                     const vendor = vendorRes.data.data;
                     partyName = vendor.vendorName || 'N/A';
                     balance = vendor.outstandingBalance || vendor.openingBalance || 0;
                     balanceType = vendor.outstandingBalanceType || vendor.openingBalanceType || 'debit';
                   }
+                } else if (partyType === 'dieselStation') {
+                  const stationRes = await api.get(`/diesel-stations/${actualPartyId}`);
+                  if (stationRes.data.success) {
+                    const station = stationRes.data.data;
+                    partyName = station.name || 'N/A';
+                    balance = station.outstandingBalance || station.openingBalance || 0;
+                    balanceType = station.outstandingBalanceType || station.openingBalanceType || 'debit';
+                  }
                 }
               } catch (err) {
-                console.error(`Error fetching ${partyType} ${partyItem.partyId}:`, err);
+                console.error(`Error fetching ${partyType} ${actualPartyId}:`, err);
               }
 
               return {
-                partyId: partyItem.partyId,
+                partyId: actualPartyId,
                 partyType: partyType,
                 partyName: partyName,
                 amount: partyItem.amount || 0,
@@ -252,7 +276,8 @@ const AddEditVoucher = () => {
             party: '',
             partyName: '',
             parties: partiesData,
-            account: voucher.account?._id || voucher.account || '',
+            parties: partiesData,
+            account: voucher.account?._id || voucher.account?.id || voucher.account || '',
             entries: [],
             narration: voucher.narration || ''
           });
@@ -270,7 +295,7 @@ const AddEditVoucher = () => {
             voucherType: resolvedVoucherType,
             voucherNumber: voucher.voucherNumber || '',
             date: new Date(voucher.date).toISOString().split('T')[0],
-            party: voucher.party?._id || '',
+            party: voucher.party?._id || voucher.party?.id || voucher.party || '',
             partyName: voucher.partyName || '',
             parties: [],
             account: '',
@@ -438,6 +463,14 @@ const AddEditVoucher = () => {
           balance = vendorData.outstandingBalance || vendorData.openingBalance || 0;
           balanceType = vendorData.outstandingBalanceType || vendorData.openingBalanceType || 'debit';
         }
+      } else if (partyType === 'dieselStation') {
+        const stationRes = await api.get(`/diesel-stations/${partyId}`);
+        if (stationRes.data.success) {
+          const stationData = stationRes.data.data;
+          partyName = stationData.name || 'N/A';
+          balance = stationData.outstandingBalance || stationData.openingBalance || 0;
+          balanceType = stationData.outstandingBalanceType || stationData.openingBalanceType || 'debit';
+        }
       }
 
       setFormData(prev => ({
@@ -468,6 +501,9 @@ const AddEditVoucher = () => {
           balance = partyFromList.data.outstandingBalance || partyFromList.data.openingBalance || 0;
           balanceType = partyFromList.data.outstandingBalanceType || partyFromList.data.openingBalanceType || 'debit';
         } else if (partyType === 'vendor') {
+          balance = partyFromList.data.outstandingBalance || partyFromList.data.openingBalance || 0;
+          balanceType = partyFromList.data.outstandingBalanceType || partyFromList.data.openingBalanceType || 'debit';
+        } else if (partyType === 'dieselStation') {
           balance = partyFromList.data.outstandingBalance || partyFromList.data.openingBalance || 0;
           balanceType = partyFromList.data.outstandingBalanceType || partyFromList.data.openingBalanceType || 'debit';
         }
@@ -1104,10 +1140,11 @@ const AddEditVoucher = () => {
                                 .filter(ledger => {
                                   const groupSlug = ledger.group?.slug || '';
                                   const groupName = ledger.group?.name || '';
-                                  // Filter out "Bank Account" and "Cash-in-Hand" group ledgers
+                                  // Filter out "Bank Account", "Cash-in-Hand", and "Bank OD A/c" ledgers
                                   const isBank = groupSlug === 'bank-accounts' || groupName === 'Bank Accounts';
                                   const isCash = groupSlug === 'cash-in-hand' || groupName === 'Cash-in-Hand';
-                                  return !isBank && !isCash;
+                                  const isBankOD = groupSlug === 'bank-od-a-c' || groupName === 'Bank OD A/c';
+                                  return !isBank && !isCash && !isBankOD;
                                 })
                                 .map((ledger) => (
                                   <option key={`ledger-${ledger.id}`} value={ledger.name}>{ledger.name}</option>
@@ -1126,8 +1163,28 @@ const AddEditVoucher = () => {
                               ))}
                             </optgroup>
                           </>
+                        ) : formData.voucherType === 'Contra' ? (
+                          // Only Cash and Bank ledgers for Contra
+                          ledgers
+                            .filter(ledger => {
+                              const groupSlug = ledger.group?.slug || '';
+                              const groupName = ledger.group?.name || '';
+                              // Check for "Bank Account", "Cash-in-Hand", or "Bank OD A/c"
+                              const isBank = groupSlug === 'bank-accounts' || groupName === 'Bank Accounts';
+                              const isCash = groupSlug === 'cash-in-hand' || groupName === 'Cash-in-Hand';
+                              const isBankOD = groupSlug === 'bank-od-a-c' || groupName === 'Bank OD A/c';
+                              return isBank || isCash || isBankOD;
+                            })
+                            .map((ledger) => (
+                              <option key={ledger.id} value={ledger.name}>
+                                {ledger.name}
+                              </option>
+                            ))
                         ) : (
-                          // Only ledgers for others
+                          // Only ledgers for others (default, though others might need specific filtering too?)
+                          // Currently "others" effectively means... actually what else uses this?
+                          // Payment/Receipt uses different UI.
+                          // So this is fallback.
                           ledgers.map((ledger) => (
                             <option key={ledger.id} value={ledger.name}>
                               {ledger.name}

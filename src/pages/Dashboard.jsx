@@ -31,22 +31,27 @@ const GroupNode = memo(({ group, level = 0 }) => {
     <div className="select-none">
       {/* Parent Group */}
       <div
-        className={`flex items-center gap-2 py-1 rounded px-2 transition-colors ${level > 0 ? 'hover:bg-gray-50 cursor-pointer' : ''}`}
+        className={`flex items-stretch rounded px-2 transition-colors ${level > 0 ? 'hover:bg-gray-50 cursor-pointer' : ''}`}
         onClick={handleGroupClick}
         style={{
           paddingLeft: `${leftPadding}px`
         }}
       >
         {/* Group name */}
-        <span className={`flex-1 ${level === 0 ? 'text-sm font-semibold text-gray-900' :
+        <span className={`flex items-center flex-1 py-1 mr-2 ${level === 0 ? 'text-sm font-semibold text-gray-900' :
           'text-sm text-gray-700'
           }`}>
           {group.name}
         </span>
 
-        {/* Balance */}
-        <span className={`text-sm text-right w-32 flex-shrink-0 font-medium ${level > 0 ? 'mr-16 text-gray-600' : 'font-bold text-gray-900'}`}>
-          {balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        {/* Inner Balance (Child) */}
+        <span className={`flex items-center justify-end text-sm w-32 flex-shrink-0 font-medium border-gray-300 pr-2 py-1 ${level > 0 ? 'text-gray-600' : ''}`}>
+          {level > 0 ? balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+        </span>
+
+        {/* Outer Balance (Parent) */}
+        <span className={`flex items-center justify-end text-sm w-32 flex-shrink-0 font-medium border-l border-gray-300 pl-2 py-1 ${level === 0 ? 'font-bold text-gray-900' : ''}`}>
+          {level === 0 ? balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
         </span>
       </div>
 
@@ -317,6 +322,25 @@ export default function ProfitAndLoss() {
   const netProfit = profitAndLoss.totals.netProfit;
   const isProfit = netProfit >= 0;
 
+  // Define custom order for Expenses and Income
+  const expensesOrder = ['Opening Stock', 'Purchase Accounts', 'Direct Expenses'];
+  const incomeOrder = ['Sales Accounts', 'Closing Stock', 'Indirect Incomes'];
+
+  const sortGroups = (groups, orderArray) => {
+    return [...groups].sort((a, b) => {
+      const indexA = orderArray.indexOf(a.name);
+      const indexB = orderArray.indexOf(b.name);
+
+      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+      if (indexA !== -1) return -1;
+      if (indexB !== -1) return 1;
+      return a.name.localeCompare(b.name);
+    });
+  };
+
+  const sortedExpenses = sortGroups(profitAndLoss.expenses.groups, expensesOrder);
+  const sortedIncome = sortGroups(profitAndLoss.income.groups, incomeOrder);
+
   return (
     <div className="space-y-6">
       {/* Header Controls */}
@@ -361,7 +385,7 @@ export default function ProfitAndLoss() {
             <div className="mb-4">
               {/* Expense Groups */}
               <div className="space-y-1 min-h-[200px]">
-                {profitAndLoss.expenses.groups.map((group) => (
+                {sortedExpenses.map((group) => (
                   <GroupNode
                     key={group.id || group._id}
                     group={group}
@@ -375,7 +399,7 @@ export default function ProfitAndLoss() {
                 <div className="mt-4 pt-2 border-t border-gray-200">
                   <div className="flex items-center justify-between py-1 px-2 bg-green-50 rounded">
                     <span className="text-sm font-bold text-green-700">Net Profit</span>
-                    <span className="text-sm font-bold text-right w-32">
+                    <span className="text-sm font-bold text-right w-32 pl-2">
                       {netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -385,7 +409,7 @@ export default function ProfitAndLoss() {
               <div className="mt-4 pt-3 border-t-2 border-gray-400">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-bold">Total</span>
-                  <span className="text-base font-bold text-right w-32">
+                  <span className="text-base font-bold text-right w-32 pl-2">
                     {/* If Profit, Total = Expenses + Net Profit = Income */}
                     {/* If Loss, Total = Expenses */}
                     {(profitAndLoss.totals.totalExpenses + (isProfit ? netProfit : 0)).toLocaleString('en-IN', {
@@ -399,11 +423,11 @@ export default function ProfitAndLoss() {
           </div>
 
           {/* Income Side (Right) */}
-          <div className="pl-8">
+          <div className="pl-0">
             <div className="mb-4">
               {/* Income Groups */}
               <div className="space-y-1 min-h-[200px]">
-                {profitAndLoss.income.groups.map((group) => (
+                {sortedIncome.map((group) => (
                   <GroupNode
                     key={group.id || group._id}
                     group={group}
@@ -417,7 +441,7 @@ export default function ProfitAndLoss() {
                 <div className="mt-4 pt-2 border-t border-gray-200">
                   <div className="flex items-center justify-between py-1 px-2 bg-red-50 rounded">
                     <span className="text-sm font-bold text-red-700">Net Loss</span>
-                    <span className="text-sm font-bold text-right w-32">
+                    <span className="text-sm font-bold text-right w-32 pl-2">
                       {Math.abs(netProfit).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
@@ -427,7 +451,7 @@ export default function ProfitAndLoss() {
               <div className="mt-4 pt-3 border-t-2 border-gray-400">
                 <div className="flex items-center justify-between">
                   <span className="text-base font-bold">Total</span>
-                  <span className="text-base font-bold text-right w-32">
+                  <span className="text-base font-bold text-right w-32 pl-2">
                     {/* If Profit, Total = Income */}
                     {/* If Loss, Total = Income + Net Loss = Expenses */}
                     {(profitAndLoss.totals.totalIncome + (!isProfit ? Math.abs(netProfit) : 0)).toLocaleString('en-IN', {
