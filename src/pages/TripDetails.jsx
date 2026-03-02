@@ -137,6 +137,7 @@ export default function TripDetails() {
       fetchVendors();
       fetchCustomers();
       fetchLedgers();
+      fetchNextBillNumber();
     }
   }, [id]);
 
@@ -354,11 +355,19 @@ export default function TripDetails() {
     }
   };
 
-  // Generate unique bill number
-  const generateBillNumber = () => {
-    // Generate a 6-digit bill number
-    const randomNumber = Math.floor(Math.random() * 900000) + 100000; // 100000 to 999999
-    return randomNumber.toString();
+  // Fetch next bill number
+  const fetchNextBillNumber = async () => {
+    try {
+      const { data } = await api.get('/trip/next-bill-number');
+      if (data.success) {
+        setSaleData(prev => ({
+          ...prev,
+          billNumber: data.data.billNumber
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching next bill number:', error);
+    }
   };
 
   // Helper functions for calculations
@@ -686,6 +695,7 @@ export default function TripDetails() {
         setCustomerBalance(null);
         setEditingSaleIndex(null);
         alert(editingSaleIndex !== null ? 'Sale updated successfully!' : 'Sale added successfully!');
+        fetchNextBillNumber();
       }
     } catch (error) {
       console.error('Error saving sale:', error);
@@ -769,13 +779,14 @@ export default function TripDetails() {
         fetchTrip(); // Re-fetch trip
         setShowReceiptModal(false);
         setShowReceiptModal(false);
-        setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', sendSms: false });
+        setSaleData({ client: '', billNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', sendSms: false });
         setSelectedCustomer(null);
         setSelectedCustomer(null);
         setCustomerSearchTerm('');
         setShowCustomerDropdown(false);
         setEditingSaleIndex(null);
         alert(editingSaleIndex !== null ? 'Receipt updated successfully!' : 'Receipt added successfully!');
+        fetchNextBillNumber();
       }
     } catch (error) {
       console.error('Error with receipt:', error);
@@ -1811,7 +1822,7 @@ export default function TripDetails() {
                     onClick={() => {
                       setSaleData({
                         client: '',
-                        billNumber: generateBillNumber(),
+                        billNumber: '',
                         birds: '',
                         weight: '',
                         avgWeight: 0,
@@ -1951,9 +1962,9 @@ export default function TripDetails() {
                           </td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.summary?.averageRate || 0}</td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.summary?.customerSalesAmount?.toLocaleString() || '0'}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{(trip.summary?.totalCashPaid || 0).toLocaleString()}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{(trip.summary?.totalOnlinePaid || 0).toLocaleString()}</td>
-                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{(trip.summary?.totalDiscount || 0).toLocaleString()}</td>
+                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.sales.filter(s => (s.birds > 0 || s.weight > 0)).reduce((sum, s) => sum + (s.cashPaid || 0), 0).toLocaleString()}</td>
+                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.sales.filter(s => (s.birds > 0 || s.weight > 0)).reduce((sum, s) => sum + (s.onlinePaid || 0), 0).toLocaleString()}</td>
+                          <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.sales.filter(s => (s.birds > 0 || s.weight > 0)).reduce((sum, s) => sum + (s.discount || 0), 0).toLocaleString()}</td>
                           {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
                             <td className="border border-gray-300 px-4 py-2"></td>
                           )}
@@ -1964,7 +1975,7 @@ export default function TripDetails() {
                 ) : (
                   // Supervisor view - Simple cards
                   <div className="space-y-3">
-                    {trip.sales.map((sale, index) => (
+                    {trip.sales.filter(sale => (sale.birds > 0 || sale.weight > 0)).map((sale, index) => (
                       <div key={index} className="p-4 border border-gray-200 rounded-lg">
                         <div className="flex justify-between items-start">
                           <div>

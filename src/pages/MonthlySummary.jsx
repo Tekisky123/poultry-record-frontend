@@ -13,6 +13,7 @@ export default function MonthlySummary() {
 
     const groupName = searchParams.get('groupName') || '';
     const isFeedGroup = groupName.toLowerCase().includes('feed');
+    const isSundryGroup = type === 'customer' || type === 'vendor' || groupName.toLowerCase().includes('debtor') || groupName.toLowerCase().includes('creditor') || groupName.toLowerCase().includes('sundry');
 
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
@@ -93,17 +94,20 @@ export default function MonthlySummary() {
             } else {
                 const groupName = searchParams.get('groupName') || '';
                 const isFeedGroup = groupName.toLowerCase().includes('feed');
-                if (isFeedGroup) {
-                    row['Total Bags'] = month.birds || 0;
-                    row['Total Quantity (Kg)'] = month.weight ? parseFloat(month.weight.toFixed(2)) : 0;
-                } else {
-                    row['Total Birds'] = month.birds || 0;
-                    row['Total Weight'] = month.weight ? parseFloat(month.weight.toFixed(2)) : 0;
+
+                if (isSundryGroup) {
+                    if (isFeedGroup) {
+                        row['Total Bags'] = month.birds || 0;
+                        row['Total Quantity (Kg)'] = month.weight ? parseFloat(month.weight.toFixed(2)) : 0;
+                    } else {
+                        row['Total Birds'] = month.birds || 0;
+                        row['Total Weight'] = month.weight ? parseFloat(month.weight.toFixed(2)) : 0;
+                    }
                 }
             }
 
-            row['Debit (Sales)'] = month.debit || 0;
-            row['Credit (Receipts)'] = month.credit || 0;
+            row[isSundryGroup ? 'Debit (Receipts)' : 'Debit'] = month.debit || 0;
+            row[isSundryGroup ? 'Credit (Sales)' : 'Credit'] = month.credit || 0;
             row['Closing Balance'] = `${month.closingBalance.toFixed(2)} ${month.closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`;
 
             return row;
@@ -118,12 +122,21 @@ export default function MonthlySummary() {
             totalRow['Total Volume'] = data.totals.volume || 0;
             totalRow['Total Rate/ltr'] = data.totals.volume ? parseFloat((data.totals.credit / data.totals.volume).toFixed(2)) : '-';
         } else {
-            totalRow['Total Birds'] = data.totals.birds || 0;
-            totalRow['Total Weight'] = data.totals.weight ? parseFloat(data.totals.weight.toFixed(2)) : 0;
+            if (isSundryGroup) {
+                const groupName = searchParams.get('groupName') || '';
+                const isFeedGroup = groupName.toLowerCase().includes('feed');
+                if (isFeedGroup) {
+                    totalRow['Total Bags'] = data.totals.birds || 0;
+                    totalRow['Total Quantity (Kg)'] = data.totals.weight ? parseFloat(data.totals.weight.toFixed(2)) : 0;
+                } else {
+                    totalRow['Total Birds'] = data.totals.birds || 0;
+                    totalRow['Total Weight'] = data.totals.weight ? parseFloat(data.totals.weight.toFixed(2)) : 0;
+                }
+            }
         }
 
-        totalRow['Debit (Sales)'] = data.totals.debit || 0;
-        totalRow['Credit (Receipts)'] = data.totals.credit || 0;
+        totalRow[isSundryGroup ? 'Debit (Receipts)' : 'Debit'] = data.totals.debit || 0;
+        totalRow[isSundryGroup ? 'Credit (Sales)' : 'Credit'] = data.totals.credit || 0;
         totalRow['Closing Balance'] = `${data.months[data.months.length - 1].closingBalance.toFixed(2)} ${data.months[data.months.length - 1].closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`;
 
         exportData.push(totalRow);
@@ -174,6 +187,8 @@ export default function MonthlySummary() {
         <button onClick={fetchMonthlySummary} className="px-4 py-2 bg-blue-600 text-white rounded">Retry</button>
     </div>;
     if (!data) return null;
+    console.log("groupName", groupName)
+
 
     return (
         <div className="space-y-6">
@@ -241,14 +256,14 @@ export default function MonthlySummary() {
                                         <th className="px-6 py-3 text-right font-medium text-gray-700">Total Volume</th>
                                         <th className="px-6 py-3 text-right font-medium text-gray-700">Total Rate/ltr</th>
                                     </>
-                                ) : (
+                                ) : isSundryGroup ? (
                                     <>
                                         <th className="px-6 py-3 text-right font-medium text-gray-700">{isFeedGroup ? 'Total Bags' : 'Total Birds'}</th>
                                         <th className="px-6 py-3 text-right font-medium text-gray-700">{isFeedGroup ? 'Total Quantity (Kg)' : 'Total Weight'}</th>
                                     </>
-                                )}
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">Debit (Sales)</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">Credit (Receipts)</th>
+                                ) : null}
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">{isSundryGroup ? 'Debit (Receipts)' : 'Debit'}</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">{isSundryGroup ? 'Credit (Sales)' : 'Credit'}</th>
                                 <th className="px-6 py-3 text-right font-medium text-gray-700">Closing Balance</th>
                             </tr>
                         </thead>
@@ -271,7 +286,7 @@ export default function MonthlySummary() {
                                                 {month.volume ? (month.credit / month.volume).toFixed(2) : '-'}
                                             </td>
                                         </>
-                                    ) : (
+                                    ) : isSundryGroup ? (
                                         <>
                                             <td className="py-3 px-4 text-right text-gray-700">
                                                 {renderCellWithPercentage(month.birds, data.totals.birds)}
@@ -280,7 +295,7 @@ export default function MonthlySummary() {
                                                 {renderCellWithPercentage(month.weight, data.totals.weight, 'weight')}
                                             </td>
                                         </>
-                                    )}
+                                    ) : null}
                                     <td className="py-3 px-4 text-right text-gray-700">
                                         {renderCellWithPercentage(month.debit, data.totals.debit, 'currency')}
                                     </td>
@@ -304,7 +319,7 @@ export default function MonthlySummary() {
                                             {data.totals.volume ? (data.totals.credit / data.totals.volume).toFixed(2) : '-'}
                                         </td>
                                     </>
-                                ) : (
+                                ) : isSundryGroup ? (
                                     <>
                                         <td className="py-3 px-4 text-right text-gray-900">
                                             {renderCellWithPercentage(data.totals.birds, data.totals.birds)}
@@ -313,7 +328,7 @@ export default function MonthlySummary() {
                                             {renderCellWithPercentage(data.totals.weight, data.totals.weight, 'weight')}
                                         </td>
                                     </>
-                                )}
+                                ) : null}
                                 <td className="py-3 px-4 text-right text-gray-900">
                                     {renderCellWithPercentage(data.totals.debit, data.totals.debit, 'currency')}
                                 </td>

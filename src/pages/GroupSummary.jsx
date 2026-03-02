@@ -95,8 +95,8 @@ export default function GroupSummary() {
           row['Total Birds'] = entry.birds || 0;
           row['Total Weight'] = entry.weight ? parseFloat(entry.weight.toFixed(2)) : 0;
         }
-        row['Debit (Sales)'] = entry.transactionDebit || entry.debit || 0;
-        row['Credit (Receipts)'] = entry.transactionCredit || entry.credit || 0;
+        row['Debit (Receipts)'] = entry.transactionDebit || entry.debit || 0;
+        row['Credit (Sales)'] = entry.transactionCredit || entry.credit || 0;
 
         const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
         row['Closing Balance'] = Math.abs(closingBal).toFixed(2) + (closingBal >= 0 ? ' Dr' : ' Cr');
@@ -137,8 +137,8 @@ export default function GroupSummary() {
       const totalCredit = groupSummary.entries.reduce((sum, e) => sum + (e.transactionCredit || e.credit || 0), 0);
       const totalDiscountAndOther = groupSummary.entries.reduce((sum, e) => sum + (e.discountAndOther || 0), 0);
 
-      totalRow['Debit (Sales)'] = totalDebit;
-      totalRow['Credit (Receipts)'] = totalCredit;
+      totalRow['Debit (Receipts)'] = totalDebit;
+      totalRow['Credit (Sales)'] = totalCredit;
 
 
       const netBalance = groupSummary.entries.reduce((sum, e) => sum + (e.closingBalance || (e.debit - e.credit) || 0), 0);
@@ -371,8 +371,8 @@ export default function GroupSummary() {
                   <>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">{isFeedGroup ? 'Total Bags' : 'Total Birds'}</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">{isFeedGroup ? 'Total Quantity (Kg)' : 'Total Weight'}</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit (Sales)</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit (Receipts)</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit (Receipts)</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit (Sales)</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
                   </>
                 )}
@@ -397,18 +397,20 @@ export default function GroupSummary() {
                           }`}
                         onClick={() => {
                           const query = `?startDate=${dateFilter.startDate}&endDate=${dateFilter.endDate}`;
+                          const encodedGroupName = encodeURIComponent(groupSummary.group.name);
                           if (entry.type === 'subgroup') {
                             navigate(`/group-summary/${entry.id}${query}`);
                           } else if (entry.type === 'customer') {
-                            navigate(`/monthly-summary/customer/${entry.id}${query}`);
+                            navigate(`/monthly-summary/customer/${entry.id}${query}&groupName=${encodedGroupName}`);
                           } else if (entry.type === 'vendor') {
+                            let qs = query;
                             if (groupSummary.group.name.trim().toLowerCase() === 'purchase account' || groupSummary.group.name.trim().toLowerCase() === 'purchase accounts') {
                               qs += '&filterType=PURCHASE';
                             }
-                            qs += `&groupName=${encodeURIComponent(groupSummary.group.name)}`;
+                            qs += `&groupName=${encodedGroupName}`;
                             navigate(`/monthly-summary/vendor/${entry.id}${qs}`);
                           } else if (entry.type === 'ledger') {
-                            navigate(`/monthly-summary/ledger/${entry.id}${query}`);
+                            navigate(`/monthly-summary/ledger/${entry.id}${query}&groupName=${encodedGroupName}`);
                           } else if (entry.type === 'dieselStation') {
                             navigate(`/monthly-summary/dieselStation/${entry.id}`);
                           }

@@ -31,11 +31,19 @@ const SupervisorTripDetails = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  // Generate unique bill number
-  const generateBillNumber = () => {
-    // Generate a 6-digit bill number
-    const randomNumber = Math.floor(Math.random() * 900000) + 100000; // 100000 to 999999
-    return randomNumber.toString();
+  // Fetch next bill number
+  const fetchNextBillNumber = async () => {
+    try {
+      const { data } = await api.get('/trip/next-bill-number');
+      if (data.success) {
+        setSaleData(prev => ({
+          ...prev,
+          billNumber: data.data.billNumber
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching next bill number:', error);
+    }
   };
 
   const [trip, setTrip] = useState(null);
@@ -96,7 +104,7 @@ const SupervisorTripDetails = () => {
 
   const [saleData, setSaleData] = useState({
     client: '',
-    billNumber: generateBillNumber(),
+    billNumber: '',
     birds: '',
     weight: '',
     avgWeight: 0,
@@ -173,6 +181,7 @@ const SupervisorTripDetails = () => {
     fetchTrip();
     fetchVendorsAndCustomers();
     fetchLedgers();
+      fetchNextBillNumber();
   }, [id]);
 
   useEffect(() => {
@@ -861,7 +870,7 @@ const SupervisorTripDetails = () => {
 
           setShowSaleModal(false);
           setShowSaleModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '', sendSms: false });
+          setSaleData({ client: '', billNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '', sendSms: false });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -889,7 +898,7 @@ const SupervisorTripDetails = () => {
 
           setShowSaleModal(false);
           setShowSaleModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '', sendSms: false });
+          setSaleData({ client: '', billNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '', sendSms: false });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -973,7 +982,7 @@ const SupervisorTripDetails = () => {
           }
 
           setShowReceiptModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '' });
+          setSaleData({ client: '', billNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '' });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -999,7 +1008,7 @@ const SupervisorTripDetails = () => {
           }
 
           setShowReceiptModal(false);
-          setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '' });
+          setSaleData({ client: '', billNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '' });
           setSelectedCustomer(null);
           setCustomerSearchTerm('');
           setShowCustomerDropdown(false);
@@ -1512,7 +1521,7 @@ const SupervisorTripDetails = () => {
               <button
                 onClick={() => {
                   const cashAcId = getCashAcLedgerId();
-                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: cashAcId || '', onlineLedger: '', narration: '' });
+                  setSaleData({ client: '', billNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, /* paymentMode: 'cash', paymentStatus: 'pending', */ receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: cashAcId || '', onlineLedger: '', narration: '' });
                   setSelectedCustomer(null);
                   setCustomerSearchTerm('');
                   setShowCustomerDropdown(false);
@@ -1527,7 +1536,7 @@ const SupervisorTripDetails = () => {
               <button
                 onClick={() => {
                   const cashAcId = getCashAcLedgerId();
-                  setSaleData({ client: '', billNumber: generateBillNumber(), birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: cashAcId || '', onlineLedger: '', narration: '', isReceipt: true });
+                  setSaleData({ client: '', billNumber: '', birds: 0, weight: 0, avgWeight: 0, rate: 0, amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: cashAcId || '', onlineLedger: '', narration: '', isReceipt: true });
                   setSelectedCustomer(null);
                   setCustomerSearchTerm('');
                   setShowCustomerDropdown(false);
@@ -1966,7 +1975,7 @@ const SupervisorTripDetails = () => {
                                             const defaultCashLedger = (sale.cashLedger || (sale.cashPaid > 0 ? cashAcId : '')) || '';
                                             setSaleData({
                                               client: sale.client?._id || sale.client?.id || sale.client?.user?.customer?.id || '',
-                                              billNumber: sale.billNumber || generateBillNumber(),
+                                              billNumber: sale.billNumber || '',
                                               birds: 0,
                                               weight: 0,
                                               avgWeight: 0,
@@ -2002,7 +2011,7 @@ const SupervisorTripDetails = () => {
                                             const defaultCashLedger = (sale.cashLedger || (sale.cashPaid > 0 ? cashAcId : '')) || '';
                                             setSaleData({
                                               client: sale.client?._id || sale.client?.id || sale.client?.user?.customer?.id || '',
-                                              billNumber: sale.billNumber || generateBillNumber(),
+                                              billNumber: sale.billNumber || '',
                                               birds: sale.birds || 0,
                                               weight: sale.weight || 0,
                                               avgWeight: sale.avgWeight || 0,
@@ -2272,7 +2281,7 @@ const SupervisorTripDetails = () => {
                                             const defaultCashLedger = (receipt.cashLedger || (receipt.cashPaid > 0 ? cashAcId : '')) || '';
                                             setSaleData({
                                               client: receipt.client?._id || '',
-                                              billNumber: receipt.billNumber || generateBillNumber(),
+                                              billNumber: receipt.billNumber || '',
                                               birds: 0,
                                               weight: 0,
                                               avgWeight: 0,
@@ -4182,7 +4191,7 @@ const SupervisorTripDetails = () => {
                   type="button"
                   onClick={() => {
                     setShowReceiptModal(false);
-                    setSaleData({ client: '', billNumber: generateBillNumber(), birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '', sendSms: false });
+                    setSaleData({ client: '', billNumber: '', birds: '', weight: '', avgWeight: 0, rate: '', amount: 0, receivedAmount: '', discount: '', balance: 0, cashPaid: '', onlinePaid: '', cashLedger: '', onlineLedger: '', narration: '', sendSms: false });
                     setSelectedCustomer(null);
                     setCustomerSearchTerm('');
                     setShowCustomerDropdown(false);
