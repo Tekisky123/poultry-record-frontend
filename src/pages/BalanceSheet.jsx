@@ -24,8 +24,19 @@ const GroupNode = memo(({ group, level = 0 }) => {
     // Pass date filter params
     const startDate = searchParams.get('startDate') || '';
     const endDate = searchParams.get('endDate') || new Date().toISOString().split('T')[0];
+
+    if (group.name && group.name.toLowerCase() === 'birds stock') {
+      navigate(`/birds-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}`);
+      return;
+    }
+
+    if (group.name && group.name.toLowerCase() === 'feed stock') {
+      navigate(`/feed-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}`);
+      return;
+    }
+
     navigate(`/group-summary/${groupId}?startDate=${startDate}&endDate=${endDate}`);
-  }, [navigate, groupId, searchParams, level]);
+  }, [navigate, groupId, searchParams, level, group.name]);
 
   return (
     <div className="select-none">

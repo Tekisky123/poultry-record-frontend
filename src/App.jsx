@@ -54,6 +54,14 @@ import SupervisorHeader from './components/SupervisorHeader';
 import ManageStocks from './pages/ManageStocks';
 import StockMonthlySummary from './pages/StockMonthlySummary';
 import StockDailySummary from './pages/StockDailySummary';
+import BirdsStockMonthlySummary from './pages/BirdsStockMonthlySummary';
+import BirdsStockDailySummary from './pages/BirdsStockDailySummary';
+import BirdsStockRecord from './pages/BirdsStockRecord';
+
+import FeedStockMonthlySummary from './pages/FeedStockMonthlySummary';
+import FeedStockDailySummary from './pages/FeedStockDailySummary';
+import FeedStockRecord from './pages/FeedStockRecord';
+
 import BottomNavigation from './components/BottomNavigation';
 
 // Customer Components
@@ -196,6 +204,14 @@ const AppContent = () => {
               <Route path="/stocks" element={<StockMonthlySummary />} />
               <Route path="/stocks/daily" element={<StockDailySummary />} />
               <Route path="/stocks/manage" element={<ManageStocks />} />
+              <Route path="/birds-stock/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BirdsStockMonthlySummary /></ProtectedRoute>} />
+              <Route path="/birds-stock/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BirdsStockDailySummary /></ProtectedRoute>} />
+              <Route path="/birds-stock/final-records" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BirdsStockRecord /></ProtectedRoute>} />
+
+              <Route path="/feed-stock/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><FeedStockMonthlySummary /></ProtectedRoute>} />
+              <Route path="/feed-stock/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><FeedStockDailySummary /></ProtectedRoute>} />
+              <Route path="/feed-stock/final-records" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><FeedStockRecord /></ProtectedRoute>} />
+
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </main>

@@ -399,7 +399,13 @@ export default function GroupSummary() {
                           const query = `?startDate=${dateFilter.startDate}&endDate=${dateFilter.endDate}`;
                           const encodedGroupName = encodeURIComponent(groupSummary.group.name);
                           if (entry.type === 'subgroup') {
-                            navigate(`/group-summary/${entry.id}${query}`);
+                            if (entry.name && entry.name.toLowerCase() === 'birds stock') {
+                              navigate(`/birds-stock/monthly-summary${query}`);
+                            } else if (entry.name && entry.name.toLowerCase() === 'feed stock') {
+                              navigate(`/feed-stock/monthly-summary${query}`);
+                            } else {
+                              navigate(`/group-summary/${entry.id}${query}`);
+                            }
                           } else if (entry.type === 'customer') {
                             navigate(`/monthly-summary/customer/${entry.id}${query}&groupName=${encodedGroupName}`);
                           } else if (entry.type === 'vendor') {

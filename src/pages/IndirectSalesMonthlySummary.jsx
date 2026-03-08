@@ -58,7 +58,7 @@ export default function IndirectSalesMonthlySummary() {
         const sortedMonths = getFinancialYearOrder(data.months);
 
         const exportData = sortedMonths.map(m => ({
-            Month: m.name,
+            Month: `${m.name} ${new Date(m.startDate).getFullYear()}`,
             'Count': m.count,
             'Total Sales': m.salesAmount || 0,
             'Total Purchase': m.purchaseAmount || 0,
@@ -160,7 +160,9 @@ export default function IndirectSalesMonthlySummary() {
                                     onClick={() => handleMonthClick(month)}
                                     className={`hover:bg-gray-50 cursor-pointer transition-colors ${month.count === 0 ? 'opacity-60' : ''}`}
                                 >
-                                    <td className="px-6 py-4 font-medium text-blue-600 hover:underline">{month.name}</td>
+                                    <td className="px-6 py-4 font-medium text-blue-600 hover:underline">
+                                        {month.name} {new Date(month.startDate).getFullYear()}
+                                    </td>
                                     <td className="px-6 py-4 text-right text-gray-900">{month.count}</td>
                                     <td className="px-6 py-4 text-right text-gray-900">
                                         {month.purchaseAmount > 0 ? `₹${month.purchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
