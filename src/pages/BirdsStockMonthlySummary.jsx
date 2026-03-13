@@ -182,8 +182,9 @@ export default function BirdsStockMonthlySummary() {
 
             const currentAvgRate = cumulativePurchWeight > 0 ? (cumulativePurchAmount / cumulativePurchWeight) : 0;
 
-            month.inwardWeight = currentOpeningWeight + periodPurchWeight;
-            month.inwardAmount = currentOpeningAmount + periodPurchAmount;
+            // Month inward is strictly the period purchases
+            month.inwardWeight = periodPurchWeight;
+            month.inwardAmount = periodPurchAmount;
 
             month.outwardWeight = periodSaleWeight;
             month.outwardAmount = periodSaleAmount; // Outward amount is based on actual sales revenue
@@ -211,18 +212,38 @@ export default function BirdsStockMonthlySummary() {
     const handleExportToExcel = () => {
         if (!monthlyData.length) return;
 
-        const exportData = monthlyData.map(month => ({
-            'Month': `${month.name} ${month.year}`,
-            'Inward Qty (kg)': month.inwardWeight,
-            'Inward Rate': month.inwardRate.toFixed(2),
-            'Inward Amount': month.inwardAmount,
-            'Outward Qty (kg)': month.outwardWeight,
-            'Outward Rate': month.outwardRate.toFixed(2),
-            'Outward Amount': month.outwardAmount,
-            'Closing Qty (kg)': month.closingWeight,
-            'Closing Rate': month.closingRate.toFixed(2),
-            'Closing Amount': month.closingAmount
-        }));
+        const exportData = [];
+        const opW = monthlyData[0]?.openingWeight || 0;
+        const opA = monthlyData[0]?.openingAmount || 0;
+        const opR = opW > 0 ? (opA / opW) : 0;
+        
+        exportData.push({
+            'Month': 'OP STOCK',
+            'Inward Qty (kg)': opW,
+            'Inward Rate': opR.toFixed(2),
+            'Inward Amount': opA,
+            'Outward Qty (kg)': 0,
+            'Outward Rate': '0.00',
+            'Outward Amount': 0,
+            'Closing Qty (kg)': opW,
+            'Closing Rate': opR.toFixed(2),
+            'Closing Amount': opA
+        });
+
+        monthlyData.forEach(month => {
+            exportData.push({
+                'Month': `${month.name} ${month.year}`,
+                'Inward Qty (kg)': month.inwardWeight,
+                'Inward Rate': month.inwardRate.toFixed(2),
+                'Inward Amount': month.inwardAmount,
+                'Outward Qty (kg)': month.outwardWeight,
+                'Outward Rate': month.outwardRate.toFixed(2),
+                'Outward Amount': month.outwardAmount,
+                'Closing Qty (kg)': month.closingWeight,
+                'Closing Rate': month.closingRate.toFixed(2),
+                'Closing Amount': month.closingAmount
+            });
+        });
 
         // Calculate Totals row
         const totals = monthlyData.reduce((acc, curr) => ({
@@ -342,6 +363,25 @@ export default function BirdsStockMonthlySummary() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
+                        {monthlyData.length > 0 && (
+                            <tr className="bg-yellow-50/60 font-medium hover:bg-yellow-50">
+                                <td className="py-3 px-4 border-r text-gray-900 flex items-center gap-2">
+                                    <Package className="w-4 h-4 text-orange-500" />
+                                    OP STOCK
+                                </td>
+                                <td className="py-3 px-4 text-right text-green-700">{monthlyData[0].openingWeight ? monthlyData[0].openingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+                                <td className="py-3 px-4 text-right text-gray-600">{monthlyData[0].openingWeight ? (monthlyData[0].openingAmount / monthlyData[0].openingWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
+                                <td className="py-3 px-4 text-right border-r text-gray-800">{monthlyData[0].openingAmount ? monthlyData[0].openingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+
+                                <td className="py-3 px-4 text-right text-red-700">-</td>
+                                <td className="py-3 px-4 text-right text-gray-600">-</td>
+                                <td className="py-3 px-4 text-right border-r text-gray-800">-</td>
+
+                                <td className="py-3 px-4 text-right text-blue-700 font-bold">{monthlyData[0].openingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td className="py-3 px-4 text-right text-gray-600">{monthlyData[0].openingWeight ? (monthlyData[0].openingAmount / monthlyData[0].openingWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</td>
+                                <td className="py-3 px-4 text-right font-bold text-gray-900">{monthlyData[0].openingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                        )}
                         {monthlyData.map((month) => (
                             <tr
                                 key={month.monthKey}

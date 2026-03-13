@@ -184,9 +184,10 @@ export default function FeedStockDailySummary() {
 
             const currentAvgRate = cumulativePurchWeight > 0 ? (cumulativePurchAmount / cumulativePurchWeight) : 0;
 
-            day.inwardBags = currentOpeningBags + periodPurchBags;
-            day.inwardWeight = currentOpeningWeight + periodPurchWeight;
-            day.inwardAmount = currentOpeningAmount + periodPurchAmount;
+            // Day inward is strictly the period purchases
+            day.inwardBags = periodPurchBags;
+            day.inwardWeight = periodPurchWeight;
+            day.inwardAmount = periodPurchAmount;
 
             day.outwardBags = periodConsBags;
             day.outwardWeight = periodConsWeight;
@@ -216,21 +217,45 @@ export default function FeedStockDailySummary() {
     const handleExportToExcel = () => {
         if (!dailyData.length) return;
 
-        const exportData = dailyData.map(day => ({
-            'Date': day.dayKey,
-            'Inward Bags': day.inwardBags,
-            'Inward Qty (kg)': day.inwardWeight,
-            'Inward Rate': day.inwardRate.toFixed(2),
-            'Inward Amount': day.inwardAmount.toFixed(2),
-            'Outward Bags': day.outwardBags,
-            'Outward Qty (kg)': day.outwardWeight,
-            'Outward Rate': day.outwardRate.toFixed(2),
-            'Outward Amount': day.outwardAmount.toFixed(2),
-            'Closing Bags': day.closingBags,
-            'Closing Qty (kg)': day.closingWeight,
-            'Closing Rate': day.closingRate.toFixed(2),
-            'Closing Amount': day.closingAmount.toFixed(2)
-        }));
+        const exportData = [];
+        const opB = dailyData[0]?.openingBags || 0;
+        const opW = dailyData[0]?.openingWeight || 0;
+        const opA = dailyData[0]?.openingAmount || 0;
+        const opR = opW > 0 ? (opA / opW) : 0;
+        
+        exportData.push({
+            'Date': 'OP STOCK',
+            'Inward Bags': opB,
+            'Inward Qty (kg)': opW.toFixed(2),
+            'Inward Rate': opR.toFixed(2),
+            'Inward Amount': opA.toFixed(2),
+            'Outward Bags': 0,
+            'Outward Qty (kg)': '0.00',
+            'Outward Rate': '0.00',
+            'Outward Amount': '0.00',
+            'Closing Bags': opB,
+            'Closing Qty (kg)': opW.toFixed(2),
+            'Closing Rate': opR.toFixed(2),
+            'Closing Amount': opA.toFixed(2)
+        });
+
+        dailyData.forEach(day => {
+            exportData.push({
+                'Date': day.dayKey,
+                'Inward Bags': day.inwardBags,
+                'Inward Qty (kg)': day.inwardWeight,
+                'Inward Rate': day.inwardRate.toFixed(2),
+                'Inward Amount': day.inwardAmount.toFixed(2),
+                'Outward Bags': day.outwardBags,
+                'Outward Qty (kg)': day.outwardWeight,
+                'Outward Rate': day.outwardRate.toFixed(2),
+                'Outward Amount': day.outwardAmount.toFixed(2),
+                'Closing Bags': day.closingBags,
+                'Closing Qty (kg)': day.closingWeight,
+                'Closing Rate': day.closingRate.toFixed(2),
+                'Closing Amount': day.closingAmount.toFixed(2)
+            });
+        });
 
         const totals = dailyData.reduce((acc, curr) => ({
             inBags: acc.inBags + curr.periodPurchBags,
@@ -353,6 +378,28 @@ export default function FeedStockDailySummary() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 text-center text-xs">
+                        {dailyData.length > 0 && (
+                            <tr className="bg-yellow-50/60 font-medium hover:bg-yellow-50">
+                                <td className="py-3 px-4 border-r text-gray-900 flex items-center justify-start gap-2 text-sm">
+                                    <Package className="w-4 h-4 text-orange-500" />
+                                    OP STOCK
+                                </td>
+                                <td className="py-3 px-4 border-r text-green-700 font-medium">{dailyData[0].openingBags ? dailyData[0].openingBags : '-'}</td>
+                                <td className="py-3 px-4 border-r text-green-700 font-medium">{dailyData[0].openingWeight ? dailyData[0].openingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+                                <td className="py-3 px-4 border-r text-gray-600">{dailyData[0].openingWeight ? (dailyData[0].openingAmount / dailyData[0].openingWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
+                                <td className="py-3 px-4 border-r font-medium text-gray-800">{dailyData[0].openingAmount ? dailyData[0].openingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+
+                                <td className="py-3 px-4 border-r text-red-700 font-medium">-</td>
+                                <td className="py-3 px-4 border-r text-red-700 font-medium">-</td>
+                                <td className="py-3 px-4 border-r text-gray-600">-</td>
+                                <td className="py-3 px-4 border-r font-medium text-gray-800">-</td>
+
+                                <td className="py-3 px-4 border-r text-blue-700 font-bold">{dailyData[0].openingBags}</td>
+                                <td className="py-3 px-4 border-r text-blue-700 font-bold">{dailyData[0].openingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td className="py-3 px-4 border-r text-gray-600">{dailyData[0].openingWeight ? (dailyData[0].openingAmount / dailyData[0].openingWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</td>
+                                <td className="py-3 px-4 font-bold text-gray-900">{dailyData[0].openingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                        )}
                         {dailyData.map((day) => (
                             <tr
                                 key={day.dayKey}

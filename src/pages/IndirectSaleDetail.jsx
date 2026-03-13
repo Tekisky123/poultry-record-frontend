@@ -354,51 +354,41 @@ export default function IndirectSaleDetail() {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-          <div className="px-6 py-5 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Financial Summary</h3>
-            <p className="text-sm text-gray-500">Automatically calculated profitability snapshot</p>
-          </div>
-          <div className="px-5 py-5">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 border border-gray-200 rounded-lg bg-gray-50 flex flex-col justify-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Sales Amount</p>
-                <p className="text-lg font-bold text-gray-900">
-                  ₹{formatCurrency(record.summary?.salesAmount || 0)}
-                </p>
-              </div>
-              <div className="p-3 border border-gray-200 rounded-lg bg-gray-50 flex flex-col justify-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Purchase Amount</p>
-                <p className="text-lg font-bold text-gray-900">
-                  ₹{formatCurrency(record.summary?.purchaseAmount || 0)}
-                </p>
-              </div>
-              <div className="p-3 border border-gray-200 rounded-lg bg-gray-50 flex flex-col justify-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Gross Profit</p>
-                <p className="text-lg font-bold text-gray-900">
-                  ₹{formatCurrency(record.summary?.grossProfit || 0)}
-                </p>
-              </div>
-              <div className="p-3 border border-gray-200 rounded-lg bg-gray-50 flex flex-col justify-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Mortality Loss</p>
-                <p className="text-lg font-bold text-gray-900">
-                  ₹{formatCurrency(record.summary?.mortalityAmount || 0)}
-                </p>
-              </div>
-              <div className="p-3 border border-gray-200 rounded-lg bg-gray-50 flex flex-col justify-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Net Profit</p>
-                <p className="text-lg font-bold text-gray-900">
-                  ₹{formatCurrency(record.summary?.netProfit || 0)}
-                </p>
-              </div>
-              <div className="p-3 border border-gray-200 rounded-lg bg-gray-50 flex flex-col justify-center">
-                <p className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Margin (₹/Kg)</p>
-                <p className="text-lg font-bold text-gray-900">
-                  ₹{formatCurrency(record.summary?.margin || 0)}
-                </p>
-              </div>
-            </div>
-          </div>
+        <div className="flex justify-center items-center h-full bg-white rounded-xl shadow-sm border border-gray-200 p-6 overflow-x-auto">
+          <table className="w-full max-w-sm border-collapse border border-black bg-white">
+            <thead>
+              <tr>
+                <th colSpan="2" className="border border-black px-3 py-1 text-center text-xl font-bold text-black uppercase">
+                  FINANCIAL SUMMARY
+                </th>
+              </tr>
+            </thead>
+            <tbody className="text-lg text-black font-medium">
+              <tr>
+                <td className="border border-black px-3 py-1 uppercase">SALES AMOUNT</td>
+                <td className="border border-black px-3 py-1">{Number(record.summary?.salesAmount || 0)}</td>
+              </tr>
+              <tr>
+                <td className="border border-black px-3 py-1 uppercase">PURCHASE AMOUNT</td>
+                <td className="border border-black px-3 py-1">{Number(record.summary?.purchaseAmount || 0)}</td>
+              </tr>
+              <tr className="bg-yellow-300">
+                <td className="border border-black px-3 py-1 uppercase">MORTALITY/W L</td>
+                <td className="border border-black px-3 py-1 relative">
+                  <span className="absolute top-0 left-0 w-0 h-0 border-t-[8px] border-t-green-600 border-r-[8px] border-r-transparent"></span>
+                  {Number(record.summary?.mortalityAmount || 0)}
+                </td>
+              </tr>
+              <tr>
+                <td className="border border-black px-3 py-1 uppercase">NETT PROFIT</td>
+                <td className="border border-black px-3 py-1">{Number(record.summary?.grossProfit || 0)}</td>
+              </tr>
+              <tr>
+                <td className="border border-black px-3 py-1 uppercase">MARGINE</td>
+                <td className="border border-black px-3 py-1">{Number(record.summary?.margin || 0)}</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
 

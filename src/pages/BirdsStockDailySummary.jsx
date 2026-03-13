@@ -169,9 +169,9 @@ export default function BirdsStockDailySummary() {
 
             const currentAvgRate = cumulativePurchWeight > 0 ? (cumulativePurchAmount / cumulativePurchWeight) : 0;
 
-            // Display inward as OP + Period Purchases
-            day.inwardWeight = currentOpeningWeight + periodPurchWeight;
-            day.inwardAmount = currentOpeningAmount + periodPurchAmount;
+            // Day inward is strictly the period purchases
+            day.inwardWeight = periodPurchWeight;
+            day.inwardAmount = periodPurchAmount;
 
             day.outwardWeight = periodSaleWeight;
             day.outwardAmount = periodSaleAmount; // Outward amount is true Sales Revenue
@@ -198,18 +198,38 @@ export default function BirdsStockDailySummary() {
     const handleExportToExcel = () => {
         if (!dailyData.length) return;
 
-        const exportData = dailyData.map(day => ({
-            'Date': day.dayKey,
-            'Inward Qty (kg)': day.inwardWeight,
-            'Inward Rate': day.inwardRate.toFixed(2),
-            'Inward Amount': day.inwardAmount,
-            'Outward Qty (kg)': day.outwardWeight,
-            'Outward Rate': day.outwardRate.toFixed(2),
-            'Outward Amount': day.outwardAmount,
-            'Closing Qty (kg)': day.closingWeight,
-            'Closing Rate': day.closingRate.toFixed(2),
-            'Closing Amount': day.closingAmount
-        }));
+        const exportData = [];
+        const opW = dailyData[0]?.openingWeight || 0;
+        const opA = dailyData[0]?.openingAmount || 0;
+        const opR = opW > 0 ? (opA / opW) : 0;
+        
+        exportData.push({
+            'Date': 'OP STOCK',
+            'Inward Qty (kg)': opW,
+            'Inward Rate': opR.toFixed(2),
+            'Inward Amount': opA,
+            'Outward Qty (kg)': 0,
+            'Outward Rate': '0.00',
+            'Outward Amount': 0,
+            'Closing Qty (kg)': opW,
+            'Closing Rate': opR.toFixed(2),
+            'Closing Amount': opA
+        });
+
+        dailyData.forEach(day => {
+            exportData.push({
+                'Date': day.dayKey,
+                'Inward Qty (kg)': day.inwardWeight,
+                'Inward Rate': day.inwardRate.toFixed(2),
+                'Inward Amount': day.inwardAmount,
+                'Outward Qty (kg)': day.outwardWeight,
+                'Outward Rate': day.outwardRate.toFixed(2),
+                'Outward Amount': day.outwardAmount,
+                'Closing Qty (kg)': day.closingWeight,
+                'Closing Rate': day.closingRate.toFixed(2),
+                'Closing Amount': day.closingAmount
+            });
+        });
 
         const totals = dailyData.reduce((acc, curr) => ({
             inWeight: acc.inWeight + curr.periodPurchWeight,
@@ -316,6 +336,25 @@ export default function BirdsStockDailySummary() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
+                        {dailyData.length > 0 && (
+                            <tr className="bg-yellow-50/60 font-medium hover:bg-yellow-50">
+                                <td className="py-3 px-4 border-r text-gray-900 flex items-center gap-2">
+                                    <Package className="w-4 h-4 text-orange-500" />
+                                    OP STOCK
+                                </td>
+                                <td className="py-3 px-4 text-right text-green-700">{dailyData[0].openingWeight ? dailyData[0].openingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+                                <td className="py-3 px-4 text-right text-gray-600">{dailyData[0].openingWeight ? (dailyData[0].openingAmount / dailyData[0].openingWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
+                                <td className="py-3 px-4 text-right border-r text-gray-800">{dailyData[0].openingAmount ? dailyData[0].openingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+
+                                <td className="py-3 px-4 text-right text-red-700">-</td>
+                                <td className="py-3 px-4 text-right text-gray-600">-</td>
+                                <td className="py-3 px-4 text-right border-r text-gray-800">-</td>
+
+                                <td className="py-3 px-4 text-right text-blue-700 font-bold">{dailyData[0].openingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td className="py-3 px-4 text-right text-gray-600">{dailyData[0].openingWeight ? (dailyData[0].openingAmount / dailyData[0].openingWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</td>
+                                <td className="py-3 px-4 text-right font-bold text-gray-900">{dailyData[0].openingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                        )}
                         {dailyData.map((day) => (
                             <tr
                                 key={day.dayKey}

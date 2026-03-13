@@ -197,9 +197,10 @@ export default function FeedStockMonthlySummary() {
 
             const currentAvgRate = cumulativePurchWeight > 0 ? (cumulativePurchAmount / cumulativePurchWeight) : 0;
 
-            month.inwardBags = currentOpeningBags + periodPurchBags;
-            month.inwardWeight = currentOpeningWeight + periodPurchWeight;
-            month.inwardAmount = currentOpeningAmount + periodPurchAmount;
+            // Month inward is strictly the period purchases
+            month.inwardBags = periodPurchBags;
+            month.inwardWeight = periodPurchWeight;
+            month.inwardAmount = periodPurchAmount;
 
             month.outwardBags = periodConsBags;
             month.outwardWeight = periodConsWeight;
@@ -229,21 +230,45 @@ export default function FeedStockMonthlySummary() {
     const handleExportToExcel = () => {
         if (!monthlyData.length) return;
 
-        const exportData = monthlyData.map(month => ({
-            'Month': `${month.name} ${month.year}`,
-            'Inward Bags': month.inwardBags,
-            'Inward Qty (kg)': month.inwardWeight,
-            'Inward Rate': month.inwardRate.toFixed(2),
-            'Inward Amount': month.inwardAmount.toFixed(2),
-            'Outward Bags': month.outwardBags,
-            'Outward Qty (kg)': month.outwardWeight,
-            'Outward Rate': month.outwardRate.toFixed(2),
-            'Outward Amount': month.outwardAmount.toFixed(2),
-            'Closing Bags': month.closingBags,
-            'Closing Qty (kg)': month.closingWeight,
-            'Closing Rate': month.closingRate.toFixed(2),
-            'Closing Amount': month.closingAmount.toFixed(2)
-        }));
+        const exportData = [];
+        const opB = monthlyData[0]?.openingBags || 0;
+        const opW = monthlyData[0]?.openingWeight || 0;
+        const opA = monthlyData[0]?.openingAmount || 0;
+        const opR = opW > 0 ? (opA / opW) : 0;
+        
+        exportData.push({
+            'Month': 'OP STOCK',
+            'Inward Bags': opB,
+            'Inward Qty (kg)': opW.toFixed(2),
+            'Inward Rate': opR.toFixed(2),
+            'Inward Amount': opA.toFixed(2),
+            'Outward Bags': 0,
+            'Outward Qty (kg)': '0.00',
+            'Outward Rate': '0.00',
+            'Outward Amount': '0.00',
+            'Closing Bags': opB,
+            'Closing Qty (kg)': opW.toFixed(2),
+            'Closing Rate': opR.toFixed(2),
+            'Closing Amount': opA.toFixed(2)
+        });
+
+        monthlyData.forEach(month => {
+            exportData.push({
+                'Month': `${month.name} ${month.year}`,
+                'Inward Bags': month.inwardBags,
+                'Inward Qty (kg)': month.inwardWeight,
+                'Inward Rate': month.inwardRate.toFixed(2),
+                'Inward Amount': month.inwardAmount.toFixed(2),
+                'Outward Bags': month.outwardBags,
+                'Outward Qty (kg)': month.outwardWeight,
+                'Outward Rate': month.outwardRate.toFixed(2),
+                'Outward Amount': month.outwardAmount.toFixed(2),
+                'Closing Bags': month.closingBags,
+                'Closing Qty (kg)': month.closingWeight,
+                'Closing Rate': month.closingRate.toFixed(2),
+                'Closing Amount': month.closingAmount.toFixed(2)
+            });
+        });
 
         const totals = monthlyData.reduce((acc, curr) => ({
             inBags: acc.inBags + curr.periodPurchBags,
@@ -375,6 +400,28 @@ export default function FeedStockMonthlySummary() {
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200 text-center text-xs">
+                        {monthlyData.length > 0 && (
+                            <tr className="bg-yellow-50/60 font-medium hover:bg-yellow-50">
+                                <td className="py-3 px-4 border-r text-gray-900 flex items-center justify-start gap-2 text-sm">
+                                    <Package className="w-4 h-4 text-orange-500" />
+                                    OP STOCK
+                                </td>
+                                <td className="py-3 px-4 border-r text-green-700 font-medium">{monthlyData[0].openingBags ? monthlyData[0].openingBags : '-'}</td>
+                                <td className="py-3 px-4 border-r text-green-700 font-medium">{monthlyData[0].openingWeight ? monthlyData[0].openingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+                                <td className="py-3 px-4 border-r text-gray-600">{monthlyData[0].openingWeight ? (monthlyData[0].openingAmount / monthlyData[0].openingWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
+                                <td className="py-3 px-4 border-r font-medium text-gray-800">{monthlyData[0].openingAmount ? monthlyData[0].openingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+
+                                <td className="py-3 px-4 border-r text-red-700 font-medium">-</td>
+                                <td className="py-3 px-4 border-r text-red-700 font-medium">-</td>
+                                <td className="py-3 px-4 border-r text-gray-600">-</td>
+                                <td className="py-3 px-4 border-r font-medium text-gray-800">-</td>
+
+                                <td className="py-3 px-4 border-r text-blue-700 font-bold">{monthlyData[0].openingBags}</td>
+                                <td className="py-3 px-4 border-r text-blue-700 font-bold">{monthlyData[0].openingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td className="py-3 px-4 border-r text-gray-600">{monthlyData[0].openingWeight ? (monthlyData[0].openingAmount / monthlyData[0].openingWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</td>
+                                <td className="py-3 px-4 font-bold text-gray-900">{monthlyData[0].openingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                            </tr>
+                        )}
                         {monthlyData.map((month) => (
                             <tr
                                 key={month.monthKey}

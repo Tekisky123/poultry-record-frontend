@@ -1514,9 +1514,7 @@ export default function TripDetails() {
                       <div className="flex justify-between bg-black text-white px-3 py-2 rounded">
                         <span className="text-sm font-bold">MARGIN:</span>
                         <span className="font-bold">
-                          ₹{(trip.summary?.totalWeightSold && trip.summary?.totalWeightSold > 0)
-                            ? (trip.summary.netProfit / trip.summary.totalWeightSold).toFixed(2)
-                            : '0.00'}
+                          ₹{(trip.summary?.profitPerKg || 0).toFixed(2)}
                         </span>
                       </div>
                     </div>
