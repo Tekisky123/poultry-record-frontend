@@ -54,9 +54,22 @@ import SupervisorHeader from './components/SupervisorHeader';
 import ManageStocks from './pages/ManageStocks';
 import StockMonthlySummary from './pages/StockMonthlySummary';
 import StockDailySummary from './pages/StockDailySummary';
-import BirdsStockMonthlySummary from './pages/BirdsStockMonthlySummary';
-import BirdsStockDailySummary from './pages/BirdsStockDailySummary';
+import BirdsStockMonthlySummary from "./pages/BirdsStockMonthlySummary";
+import LivePoultryMonthlySummary from "./pages/LivePoultryMonthlySummary";
+import LivePoultryDailySummary from "./pages/LivePoultryDailySummary";
+import LivePoultryPurchase from "./pages/LivePoultryPurchase";
+import LivePoultrySales from "./pages/LivePoultrySales";
+import BirdsStockDailySummary from "./pages/BirdsStockDailySummary";
 import BirdsStockRecord from './pages/BirdsStockRecord';
+import ClosingStockMonthlySummary from './pages/ClosingStockMonthlySummary';
+import ClosingStockDailySummary from './pages/ClosingStockDailySummary';
+
+import TripExpensesMonthlySummary from './pages/TripExpensesMonthlySummary';
+import TripExpensesDailySummary from './pages/TripExpensesDailySummary';
+import BirdsMortalityMonthlySummary from './pages/BirdsMortalityMonthlySummary';
+import BirdsMortalityDailySummary from './pages/BirdsMortalityDailySummary';
+import BirdsWeightLossMonthlySummary from './pages/BirdsWeightLossMonthlySummary';
+import BirdsWeightLossDailySummary from './pages/BirdsWeightLossDailySummary';
 
 import FeedStockMonthlySummary from './pages/FeedStockMonthlySummary';
 import FeedStockDailySummary from './pages/FeedStockDailySummary';
@@ -211,6 +224,24 @@ const AppContent = () => {
               <Route path="/feed-stock/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><FeedStockMonthlySummary /></ProtectedRoute>} />
               <Route path="/feed-stock/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><FeedStockDailySummary /></ProtectedRoute>} />
               <Route path="/feed-stock/final-records" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><FeedStockRecord /></ProtectedRoute>} />
+
+              <Route path="/live-poultry-stock/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LivePoultryMonthlySummary /></ProtectedRoute>} />
+              <Route path="/live-poultry-stock/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LivePoultryDailySummary /></ProtectedRoute>} />
+
+              <Route path="/live-poultry-purchase/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LivePoultryPurchase /></ProtectedRoute>} />
+              <Route path="/live-poultry-sales/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LivePoultrySales /></ProtectedRoute>} />
+
+              <Route path="/live-poultry-closing-stock/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><ClosingStockMonthlySummary /></ProtectedRoute>} />
+              <Route path="/live-poultry-closing-stock/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><ClosingStockDailySummary /></ProtectedRoute>} />
+
+              <Route path="/trip-expenses/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><TripExpensesMonthlySummary /></ProtectedRoute>} />
+              <Route path="/trip-expenses/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><TripExpensesDailySummary /></ProtectedRoute>} />
+
+              <Route path="/birds-mortality/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BirdsMortalityMonthlySummary /></ProtectedRoute>} />
+              <Route path="/birds-mortality/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BirdsMortalityDailySummary /></ProtectedRoute>} />
+
+              <Route path="/birds-weight-loss/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BirdsWeightLossMonthlySummary /></ProtectedRoute>} />
+              <Route path="/birds-weight-loss/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BirdsWeightLossDailySummary /></ProtectedRoute>} />
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

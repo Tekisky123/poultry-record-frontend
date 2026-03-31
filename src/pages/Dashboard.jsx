@@ -5,8 +5,8 @@ import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 
-// Render group node with one level of nesting (memoized for performance)
-const GroupNode = memo(({ group, level = 0 }) => {
+// Render group node with infinite level of nesting (memoized for performance)
+const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const balance = Math.abs(group.balance || 0);
@@ -24,8 +24,36 @@ const GroupNode = memo(({ group, level = 0 }) => {
     // Pass date filter params
     const startDate = searchParams.get('startDate') || '';
     const endDate = searchParams.get('endDate') || new Date().toISOString().split('T')[0];
+    
+    // Redirect LIVE POULTRY BIRDS group to its special stock pages
+    const lowerName = group.name ? group.name.toLowerCase() : "";
+    const lowerParentName = parentName ? parentName.toLowerCase() : "";
+
+    if (lowerName.includes("live poultry birds") && lowerName.includes("purchase")) {
+      navigate(`/live-poultry-purchase/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    } else if (lowerName.includes("live poultry birds") && lowerName.includes("sales")) {
+      navigate(`/live-poultry-sales/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    } else if (lowerName.includes("live poultry birds") && lowerParentName.includes("closing")) {
+      navigate(`/live-poultry-closing-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    } else if (lowerName.includes("live poultry birds")) {
+      navigate(`/live-poultry-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    } else if (lowerName.includes("trip expenses")) {
+      navigate(`/trip-expenses/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    } else if (lowerName.includes("birds mortality")) {
+      navigate(`/birds-mortality/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    } else if (lowerName.includes("birds weight loss")) {
+      navigate(`/birds-weight-loss/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    }
+
     navigate(`/group-summary/${groupId}?startDate=${startDate}&endDate=${endDate}`);
-  }, [navigate, groupId, searchParams, level]);
+  }, [navigate, groupId, searchParams, level, group.name, parentName]);
 
   return (
     <div className="select-none">
@@ -55,14 +83,15 @@ const GroupNode = memo(({ group, level = 0 }) => {
         </span>
       </div>
 
-      {/* Direct Children (one level only) */}
-      {hasChildren && level === 0 && (
-        <div>
+      {/* Direct Children (render recursively) */}
+      {hasChildren && (
+        <div className="ml-1">
           {group.children.map((child) => (
             <GroupNode
               key={child.id || child._id}
               group={child}
-              level={1}
+              level={level + 1}
+              parentName={group.name}
             />
           ))}
         </div>
@@ -75,6 +104,7 @@ const GroupNode = memo(({ group, level = 0 }) => {
     prevProps.group.id === nextProps.group.id &&
     prevProps.group.balance === nextProps.group.balance &&
     prevProps.level === nextProps.level &&
+    prevProps.parentName === nextProps.parentName &&
     JSON.stringify(prevProps.group.children) === JSON.stringify(nextProps.group.children)
   );
 });

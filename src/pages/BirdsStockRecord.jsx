@@ -135,6 +135,7 @@ export default function BirdsStockRecord() {
         // OP
         exportData.push({
             Date: '-',
+            Particular: '-',
             Type: 'OP',
             Invoices: '-',
             'Quantity (kg)': calculatedData.opWeight,
@@ -144,8 +145,10 @@ export default function BirdsStockRecord() {
 
         // Purchases
         calculatedData.purchases.forEach(s => {
+            const particular = s.vendorId?.vendorName || s.vendorId?.name || s.vendorId?.companyName || s.customerId?.shopName || s.customerId?.ownerName || '-';
             exportData.push({
                 Date: new Date(s.date).toLocaleDateString('en-GB'),
+                Particular: particular,
                 Type: s.type.toUpperCase(),
                 Invoices: s.refNo || s.billNumber || '-',
                 'Quantity (kg)': Number(s.weight) || 0,
@@ -156,8 +159,10 @@ export default function BirdsStockRecord() {
 
         // Sales
         calculatedData.sales.forEach(s => {
+            const particular = s.customerId?.shopName || s.customerId?.ownerName || s.customerId?.name || s.vendorId?.vendorName || '-';
             exportData.push({
                 Date: new Date(s.date).toLocaleDateString('en-GB'),
+                Particular: particular,
                 Type: s.type.toUpperCase(),
                 Invoices: s.refNo || s.billNumber || '-',
                 'Quantity (kg)': Number(s.weight) || 0,
@@ -169,6 +174,7 @@ export default function BirdsStockRecord() {
         // Closing
         exportData.push({
             Date: '-',
+            Particular: '-',
             Type: 'CLOSING STOCK',
             Invoices: '-',
             'Quantity (kg)': calculatedData.closingWeight,
@@ -225,6 +231,7 @@ export default function BirdsStockRecord() {
                         <thead className="bg-gray-100 text-gray-700 font-semibold border-b border-gray-300 border-dashed">
                             <tr>
                                 <th className="py-3 px-4 border-r border-gray-300 border-dashed">Date</th>
+                                <th className="py-3 px-4 border-r border-gray-300 border-dashed">Particular</th>
                                 <th className="py-3 px-4 border-r border-gray-300 border-dashed">Type</th>
                                 <th className="py-3 px-4 border-r border-gray-300 border-dashed">Invoices</th>
                                 <th className="py-3 px-4 border-r border-gray-300 border-dashed">Quantity (kg)</th>
@@ -236,6 +243,7 @@ export default function BirdsStockRecord() {
                             {/* OP STOCK */}
                             <tr className="hover:bg-gray-50">
                                 <td className="py-3 px-4 border-r border-gray-300 border-dashed">-</td>
+                                <td className="py-3 px-4 border-r border-gray-300 border-dashed text-gray-400">-</td>
                                 <td className="py-3 px-4 border-r border-gray-300 border-dashed text-blue-600 font-medium tracking-wide">OP</td>
                                 <td className="py-3 px-4 border-r border-gray-300 border-dashed text-gray-500">-</td>
                                 <td className="py-3 px-4 text-right border-r border-gray-300 border-dashed font-medium">{calculatedData.opWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
@@ -244,36 +252,44 @@ export default function BirdsStockRecord() {
                             </tr>
 
                             {/* PURCHASES */}
-                            {calculatedData.purchases.map((s, i) => (
+                            {calculatedData.purchases.map((s, i) => {
+                                const particular = s.vendorId?.vendorName || s.vendorId?.name || s.vendorId?.companyName || s.customerId?.shopName || s.customerId?.ownerName || '-';
+                                return (
                                 <tr key={s._id || i} className="hover:bg-gray-50">
                                     <td className="py-3 px-4 border-r border-gray-300 border-dashed whitespace-nowrap">{new Date(s.date).toLocaleDateString('en-GB')}</td>
-                                    <td className="py-3 px-4 border-r border-gray-300 border-dashed uppercase text-green-700 font-medium tracking-wide">PURCHASE</td>
+                                    <td className="py-3 px-4 border-r border-gray-300 border-dashed text-left font-medium text-gray-900">{particular}</td>
+                                    <td className="py-3 px-4 border-r border-gray-300 border-dashed uppercase text-green-700 font-medium tracking-wide">{s.type}</td>
                                     <td className="py-3 px-4 border-r border-gray-300 border-dashed text-gray-700">{s.refNo || s.billNumber || '-'}</td>
                                     <td className="py-3 px-4 text-right border-r border-gray-300 border-dashed">{Number(s.weight || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                     <td className="py-3 px-4 text-right border-r border-gray-300 border-dashed">{Number(s.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                     <td className="py-3 px-4 text-right">{Number(s.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                 </tr>
-                            ))}
+                                )
+                            })}
 
                             {/* SALES */}
-                            {calculatedData.sales.map((s, i) => (
+                            {calculatedData.sales.map((s, i) => {
+                                const particular = s.customerId?.shopName || s.customerId?.ownerName || s.customerId?.name || s.vendorId?.vendorName || '-';
+                                return (
                                 <tr key={s._id || `out-${i}`} className="hover:bg-gray-50">
                                     <td className="py-3 px-4 border-r border-gray-300 border-dashed whitespace-nowrap">{new Date(s.date).toLocaleDateString('en-GB')}</td>
+                                    <td className="py-3 px-4 border-r border-gray-300 border-dashed text-left font-medium text-gray-900">{particular}</td>
                                     <td className="py-3 px-4 border-r border-gray-300 border-dashed uppercase text-red-700 font-medium tracking-wide text-xs">{s.type.replace('_', ' ')}</td>
                                     <td className="py-3 px-4 border-r border-gray-300 border-dashed text-gray-700">{s.refNo || s.billNumber || '-'}</td>
                                     <td className="py-3 px-4 text-right border-r border-gray-300 border-dashed">{Number(s.weight || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                     <td className="py-3 px-4 text-right border-r border-gray-300 border-dashed">{Number(s.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                     <td className="py-3 px-4 text-right">{Number(s.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                 </tr>
-                            ))}
+                                )
+                            })}
                         </tbody>
                         <tfoot className="bg-gray-50">
                             {/* SPACER */}
                             <tr>
-                                <td colSpan="6" className="py-2 border-t border-gray-400"></td>
+                                <td colSpan="7" className="py-2 border-t border-gray-400"></td>
                             </tr>
                             <tr className="border-t border-b border-gray-400 font-bold text-gray-900 border-dashed">
-                                <td colSpan="3" className="py-4 px-4 text-center uppercase tracking-widest border-r border-gray-300 border-dashed">Closing Stock</td>
+                                <td colSpan="4" className="py-4 px-4 text-center uppercase tracking-widest border-r border-gray-300 border-dashed">Closing Stock</td>
                                 <td className="py-4 px-4 text-right border-r border-gray-300 border-dashed text-blue-800">{calculatedData.closingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                 <td className="py-4 px-4 text-right border-r border-gray-300 border-dashed text-blue-800">{calculatedData.closingRate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                                 <td className="py-4 px-4 text-right text-blue-800 text-lg">{calculatedData.closingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>

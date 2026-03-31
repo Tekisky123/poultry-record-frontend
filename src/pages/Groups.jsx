@@ -395,11 +395,9 @@ export default function Groups() {
     return matchesType;
   });
 
-  // Get available parent groups (filter by type and exclude current group and its descendants)
+  // Get available parent groups (exclude current group and its descendants)
   const getAvailableParents = () => {
-    if (!selectedType) return [];
     return groups.filter(g =>
-      g.type === selectedType &&
       g.id !== editingGroup?.id &&
       g.isActive
     );
