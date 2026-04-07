@@ -4,6 +4,16 @@ import { Loader2, ArrowLeft, Download, FileText } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 
+const formatDateDisplay = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '-';
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+};
+
 export default function BirdsMortalityDailySummary() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -42,9 +52,12 @@ export default function BirdsMortalityDailySummary() {
         if (!data) return;
 
         const exportData = data.records.map(record => ({
-            Date: record.date,
+            Date: formatDateDisplay(record.date),
             Particular: record.particular,
             Reference: record.reference,
+            'No.Of Birds': record.birds || 0,
+            Weight: record.weight || 0,
+            Rate: record.rate || 0,
             Amount: record.amount
         }));
 
@@ -52,6 +65,9 @@ export default function BirdsMortalityDailySummary() {
             Date: 'Grand Total',
             Particular: '',
             Reference: '',
+            'No.Of Birds': '',
+            Weight: '',
+            Rate: '',
             Amount: data.totals.amount
         });
 
@@ -155,34 +171,56 @@ export default function BirdsMortalityDailySummary() {
                                 <th className="px-6 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Date</th>
                                 <th className="px-6 py-3 text-left font-medium text-gray-700">Particular</th>
                                 <th className="px-6 py-3 text-left font-medium text-gray-700">Reference</th>
+                                <th className="px-6 py-3 text-left font-medium text-gray-700 whitespace-nowrap">No.Of Birds</th>
+                                <th className="px-6 py-3 text-left font-medium text-gray-700">Weight</th>
+                                <th className="px-6 py-3 text-left font-medium text-gray-700">Rate</th>
                                 <th className="px-6 py-3 text-right font-medium text-gray-700">Amount</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                             {data?.records.length === 0 ? (
                                 <tr>
-                                    <td colSpan="4" className="px-6 py-8 text-center text-gray-500">
+                                    <td colSpan="7" className="px-6 py-8 text-center text-gray-500">
                                         No birds mortality found for this month.
                                     </td>
                                 </tr>
                             ) : (
                                 data?.records.map((record, index) => (
-                                    <tr key={index} className="hover:bg-gray-50 transition-colors">
-                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{new Date(record.date).toLocaleDateString()}</td>
+                                    <tr 
+                                        key={index} 
+                                        onClick={() => {
+                                            if (record.tripDbId) {
+                                                navigate(`/trips/${record.tripDbId}`);
+                                            } else if (record.isStock) {
+                                                const d = new Date(record.date);
+                                                const year = d.getFullYear();
+                                                const month = String(d.getMonth() + 1).padStart(2, '0');
+                                                const day = String(d.getDate()).padStart(2, '0');
+                                                navigate(`/stocks/manage?date=${year}-${month}-${day}`);
+                                            } else if (record.indirectDbId) {
+                                                navigate(`/indirect-sales/${record.indirectDbId}`);
+                                            }
+                                        }}
+                                        className={`hover:bg-gray-50 transition-colors ${(record.tripDbId || record.isStock || record.indirectDbId) ? 'cursor-pointer' : ''}`}
+                                    >
+                                        <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDateDisplay(record.date)}</td>
                                         <td className="px-6 py-4 text-gray-900">{record.particular}</td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${record.reference !== '-' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
                                                 {record.reference}
                                             </span>
                                         </td>
+                                        <td className="px-6 py-4 text-gray-900">{record.birds || 0}</td>
+                                        <td className="px-6 py-4 text-gray-900">{record.weight ? Number(record.weight).toFixed(2) : '0.00'}</td>
+                                        <td className="px-6 py-4 text-gray-900">₹{record.rate ? Number(record.rate).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '0.00'}</td>
                                         <td className="px-6 py-4 text-right font-bold text-red-600">
-                                            ₹{record.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                            ₹{record.amount ? Number(record.amount).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '0.00'}
                                         </td>
                                     </tr>
                                 ))
                             )}
                             <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
-                                <td colSpan="3" className="px-6 py-4 text-gray-900">Total</td>
+                                <td colSpan="6" className="px-6 py-4 text-gray-900 text-right">Grand Total</td>
                                 <td className="px-6 py-4 text-right text-red-700 text-base">
                                     ₹{data?.totals.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </td>

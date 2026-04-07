@@ -1,39 +1,123 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Download, Package, Calendar, ArrowLeft } from 'lucide-react';
+import { Loader2, Download, Package, Calendar, ArrowLeft, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
+
+const formatDateDisplay = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
 
 export default function LivePoultryPurchase() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    
+
     // We'll store normalized purchase records here
     const [purchaseRecords, setPurchaseRecords] = useState([]);
 
-    const year = Number(searchParams.get('year')) || new Date().getFullYear();
-    const month = Number(searchParams.get('month')) || new Date().getMonth() + 1; // 1-12
+    const [dateFilter, setDateFilter] = useState({
+        startDate: searchParams.get('startDate') || '',
+        endDate: searchParams.get('endDate') || ''
+    });
+
+    // Date Filter Modal States
+    const [showDateFilterModal, setShowDateFilterModal] = useState(false);
+    const [tempDateFilter, setTempDateFilter] = useState({
+        startDate: '',
+        endDate: ''
+    });
+
+    const isDateFilterActive = !!(dateFilter.startDate || dateFilter.endDate);
+
+    const getEffectiveDates = () => {
+        let start = dateFilter.startDate;
+        let end = dateFilter.endDate;
+        const d = new Date();
+        const year = d.getFullYear();
+        if (start && !end) {
+            end = `${year}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        } else if (!start && end) {
+            start = `${year}-01-01`;
+        }
+        return { start, end };
+    };
+
+    const { start: effectiveStart, end: effectiveEnd } = getEffectiveDates();
+
+    const openDateFilterModal = () => {
+        setTempDateFilter(dateFilter);
+        setShowDateFilterModal(true);
+    };
+
+    const handleApplyDateFilter = () => {
+        setDateFilter(tempDateFilter);
+        setShowDateFilterModal(false);
+        const params = new URLSearchParams(searchParams);
+        if (tempDateFilter.startDate) params.set('startDate', tempDateFilter.startDate);
+        else params.delete('startDate');
+        if (tempDateFilter.endDate) params.set('endDate', tempDateFilter.endDate);
+        else params.delete('endDate');
+        navigate(`/live-poultry-purchase/monthly-summary?${params.toString()}`);
+    };
+
+    const handleClearDateFilter = () => {
+        setDateFilter({ startDate: '', endDate: '' });
+        const params = new URLSearchParams(searchParams);
+        params.delete('startDate');
+        params.delete('endDate');
+        navigate(`/live-poultry-purchase/monthly-summary?${params.toString()}`);
+    };
+
+    // For infinite scroll
+    const [visibleCount, setVisibleCount] = useState(50);
 
     useEffect(() => {
+        setVisibleCount(50);
         fetchData();
-    }, [year, month]);
+    }, [dateFilter.startDate, dateFilter.endDate]);
+
+    // Handle scroll for infinite loading
+    useEffect(() => {
+        const handleScroll = () => {
+            if (window.innerHeight + window.scrollY >= document.documentElement.offsetHeight - 500) {
+                setVisibleCount(prev => prev + 50);
+            }
+        };
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
 
     const fetchData = async () => {
         setLoading(true);
         setError('');
         try {
-            // Get the first and last day of the selected month
-            // month is 1-indexed (1=Jan)
-            const startOfMonth = new Date(year, month - 1, 1).toISOString().split('T')[0];
-            const endOfMonth = new Date(year, month, 0).toISOString().split('T')[0];
+            let startOfPeriod, endOfPeriod;
+            if (dateFilter.startDate && dateFilter.endDate) {
+                startOfPeriod = dateFilter.startDate;
+                endOfPeriod = dateFilter.endDate;
+            } else if (dateFilter.startDate) {
+                startOfPeriod = dateFilter.startDate;
+                const d = new Date();
+                endOfPeriod = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            } else if (dateFilter.endDate) {
+                startOfPeriod = `${new Date().getFullYear()}-01-01`;
+                endOfPeriod = dateFilter.endDate;
+            } else {
+                const year = new Date().getFullYear();
+                startOfPeriod = `${year}-01-01`;
+                endOfPeriod = `${year}-12-31`;
+            }
 
             // 1. Fetch Inventory & Trip Stocks
             const invRes = await api.get('/inventory-stock', {
                 params: {
-                    startDate: startOfMonth,
-                    endDate: endOfMonth,
+                    startDate: startOfPeriod,
+                    endDate: endOfPeriod,
                     type: 'purchase'
                 }
             });
@@ -45,13 +129,13 @@ export default function LivePoultryPurchase() {
             do {
                 const indRes = await api.get('/indirect-sales', {
                     params: {
-                        startDate: startOfMonth,
-                        endDate: endOfMonth,
+                        startDate: startOfPeriod,
+                        endDate: endOfPeriod,
                         page,
                         limit: 50
                     }
                 });
-                
+
                 if (indRes.data.success && indRes.data.data) {
                     indirectSalesList.push(...indRes.data.data.records);
                     totalPages = indRes.data.data.pagination?.totalPages || 1;
@@ -60,6 +144,31 @@ export default function LivePoultryPurchase() {
                 }
                 page++;
             } while (page <= totalPages && page <= 20); // safe break at page 20 to avoid infinite loops
+            // 3. Fetch Trips (contains direct purchases)
+            let tripsList = [];
+            let tripPage = 1;
+            let tripTotalPages = 1;
+            do {
+                const tripRes = await api.get('/trip', {
+                    params: {
+                        startDate: startOfPeriod,
+                        endDate: endOfPeriod,
+                        page: tripPage,
+                        limit: 50
+                    }
+                });
+
+                if (tripRes.data.success && tripRes.data.trips) {
+                    tripsList.push(...tripRes.data.trips);
+                    tripTotalPages = tripRes.data.pagination?.pages || 1;
+                } else if (tripRes.data.data && tripRes.data.data.trips) {
+                    tripsList.push(...tripRes.data.data.trips);
+                    tripTotalPages = tripRes.data.data.pagination?.pages || 1;
+                } else {
+                    break;
+                }
+                tripPage++;
+            } while (tripPage <= tripTotalPages && tripPage <= 20);
 
             // Process and normalize records
             let combinedRecords = [];
@@ -68,25 +177,29 @@ export default function LivePoultryPurchase() {
             if (invRes.data.success && invRes.data.data) {
                 invRes.data.data.forEach(stock => {
                     const vendorName = stock.vendorId?.vendorName || stock.vendorId?.companyName || stock.vendorId?.name || 'N/A';
-                    
-                    let typeLabel = 'other purchase';
+
+                    if (stock.inventoryType === 'feed') return;
+
+                    let typeLabel = 'OTHER PURCHASE';
                     if (stock.source === 'trip') {
-                        typeLabel = 'trip purchase';
+                        // Skip 'trip' source stocks because we now fetch them from exact trip purchases
+                        return;
                     } else if (stock.inventoryType === 'bird') {
-                        typeLabel = 'birds stock purchase';
-                    } else if (stock.inventoryType === 'feed') {
-                        typeLabel = 'feed stock purchase';
+                        typeLabel = 'STOCK POINT PURCHASE';
                     }
 
                     const weight = Number(stock.weight) || 0;
+                    const birds = Number(stock.birds) || 0;
                     const amount = Number(stock.amount) || 0;
                     const rate = Number(stock.rate) || (weight > 0 ? amount / weight : 0);
 
                     combinedRecords.push({
                         id: stock._id,
+                        tripId: stock.tripId,
                         date: new Date(stock.date),
                         particular: vendorName,
                         type: typeLabel,
+                        birds: birds,
                         quantity: weight,
                         rate: rate,
                         amount: amount
@@ -97,18 +210,47 @@ export default function LivePoultryPurchase() {
             // B. Process Indirect Purchases
             indirectSalesList.forEach(indSale => {
                 const vendorName = indSale.vendor?.vendorName || indSale.vendor?.companyName || 'N/A';
-                
+
                 if (indSale.purchases && Array.isArray(indSale.purchases)) {
                     indSale.purchases.forEach(p => {
                         const weight = Number(p.weight) || 0;
+                        const birds = Number(p.birds) || 0;
                         const amount = Number(p.amount) || 0;
                         const rate = Number(p.rate) || 0;
 
                         combinedRecords.push({
                             id: p._id || `${indSale._id}-${Math.random()}`,
+                            indirectId: indSale._id,
                             date: new Date(indSale.date), // The indirect sale date applies to its purchases
                             particular: vendorName,
-                            type: 'indirect purchase',
+                            type: 'INDIRECT PURCHASE',
+                            birds: birds,
+                            quantity: weight,
+                            rate: rate,
+                            amount: amount
+                        });
+                    });
+                }
+            });
+
+            // C. Process Direct Purchases from Trips
+            tripsList.forEach(trip => {
+                if (trip.purchases && Array.isArray(trip.purchases)) {
+                    trip.purchases.forEach(p => {
+                        const vendorName = p.supplier?.vendorName || p.supplier?.companyName || p.supplier?.name || p.vendorName || p.supplierName || 'N/A';
+                        const weight = Number(p.weight) || 0;
+                        const birds = Number(p.birds) || 0;
+                        const amount = Number(p.amount) || 0;
+                        // For rate: sometimes p.rate is set, otherwise calculate from weight/amount
+                        const rate = Number(p.rate) || (weight > 0 ? amount / weight : 0);
+
+                        combinedRecords.push({
+                            id: p._id || `${trip._id}-${Math.random()}`,
+                            tripId: trip.id || trip._id,
+                            date: new Date(trip.date || p.date), // The trip date
+                            particular: vendorName,
+                            type: 'DIRECT PURCHASE (Trip Purchase)',
+                            birds: birds,
                             quantity: weight,
                             rate: rate,
                             amount: amount
@@ -136,11 +278,13 @@ export default function LivePoultryPurchase() {
             'Date': record.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-'),
             'Particular': record.particular,
             'Type': record.type,
+            'No. Of Birds': record.birds,
             'Quantity (kg)': record.quantity,
             'Rate': record.rate.toFixed(2),
             'Amount': record.amount
         }));
 
+        const totalBirds = purchaseRecords.reduce((sum, r) => sum + (r.birds || 0), 0);
         const totalQty = purchaseRecords.reduce((sum, r) => sum + r.quantity, 0);
         const totalAmount = purchaseRecords.reduce((sum, r) => sum + r.amount, 0);
 
@@ -148,6 +292,7 @@ export default function LivePoultryPurchase() {
             'Date': 'Total',
             'Particular': '',
             'Type': '',
+            'No. Of Birds': totalBirds,
             'Quantity (kg)': totalQty,
             'Rate': '',
             'Amount': totalAmount
@@ -156,24 +301,36 @@ export default function LivePoultryPurchase() {
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Monthly Purchases");
-        
-        const monthName = new Date(year, month - 1, 1).toLocaleString('default', { month: 'short' });
-        XLSX.writeFile(wb, `Live_Poultry_Purchases_${monthName}_${year}.xlsx`);
+
+        const fileName = (dateFilter.startDate || dateFilter.endDate)
+            ? `Live_Poultry_Purchases_${dateFilter.startDate || 'start'}_to_${dateFilter.endDate || 'end'}.xlsx`
+            : `Live_Poultry_Purchases_Year_${new Date().getFullYear()}.xlsx`;
+
+        XLSX.writeFile(wb, fileName);
     };
 
-    // Helper for changing the selected month
-    const handleMonthChange = (e) => {
-        const [y, m] = e.target.value.split('-');
-        navigate(`/live-poultry-purchase/monthly-summary?year=${y}&month=${m}`);
-    };
-    
-    // default value for month picker YYYY-MM
-    const currentMonthValue = `${year}-${String(month).padStart(2, '0')}`;
+
 
     if (loading && !purchaseRecords.length) return <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-blue-600" /></div>;
 
+    const totalBirds = purchaseRecords.reduce((sum, r) => sum + (r.birds || 0), 0);
     const totalQty = purchaseRecords.reduce((sum, r) => sum + r.quantity, 0);
     const totalAmount = purchaseRecords.reduce((sum, r) => sum + r.amount, 0);
+
+    const visibleRecords = purchaseRecords.slice(0, visibleCount);
+
+    const handleRowClick = (record) => {
+        if (record.type === 'DIRECT PURCHASE (Trip Purchase)' && record.tripId) {
+            navigate(`/trips/${record.tripId}`);
+        } else if (record.type === 'STOCK POINT PURCHASE') {
+            const y = record.date.getFullYear();
+            const m = String(record.date.getMonth() + 1).padStart(2, '0');
+            const d = String(record.date.getDate()).padStart(2, '0');
+            navigate(`/stocks/manage?date=${y}-${m}-${d}`);
+        } else if (record.type === 'INDIRECT PURCHASE' && record.indirectId) {
+            navigate(`/indirect-sales/${record.indirectId}`);
+        }
+    };
 
     return (
         <div className="space-y-6">
@@ -191,16 +348,34 @@ export default function LivePoultryPurchase() {
                             Live Poultry Birds Purchase
                         </h1>
                     </div>
-                    <p className="text-gray-600 mt-1">Monthly Summary of All Purchases</p>
+                    <p className="text-gray-600 mt-1">{isDateFilterActive ? 'Summary for Selected Period' : 'Yearly Summary of All Purchases'}</p>
                 </div>
-                
-                <div className="flex gap-3 items-center">
-                    <input 
-                        type="month"
-                        value={currentMonthValue}
-                        onChange={handleMonthChange}
-                        className="p-2 border border-indigo-200 bg-indigo-50 text-indigo-800 rounded-md font-semibold focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
-                    />
+
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t md:border-none border-gray-200">
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={openDateFilterModal}
+                            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors bg-white shadow-sm"
+                            title="Filter by Date Range"
+                        >
+                            <Calendar size={18} className="text-gray-500" />
+                            <span className="font-medium">
+                                {isDateFilterActive
+                                    ? `${formatDateDisplay(effectiveStart)} - ${formatDateDisplay(effectiveEnd)}`
+                                    : 'Filter by Date'}
+                            </span>
+                        </button>
+
+                        {isDateFilterActive && (
+                            <button
+                                onClick={handleClearDateFilter}
+                                className="flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
+                            >
+                                <X size={16} />
+                                Clear
+                            </button>
+                        )}
+                    </div>
                     <button
                         onClick={handleExportToExcel}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors"
@@ -225,25 +400,40 @@ export default function LivePoultryPurchase() {
                             <th className="py-3 px-4 text-left border-r border-gray-300">Date</th>
                             <th className="py-3 px-4 text-left border-r border-gray-300">Particular</th>
                             <th className="py-3 px-4 border-r border-gray-300">Type</th>
+                            <th className="py-3 px-4 border-r border-gray-300 text-right">No. Of Birds</th>
                             <th className="py-3 px-4 border-r border-gray-300 text-right">Quantity (kg)</th>
                             <th className="py-3 px-4 border-r border-gray-300 text-right">Rate</th>
                             <th className="py-3 px-4 text-right">Amount</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                        {purchaseRecords.length > 0 ? (
-                            purchaseRecords.map((record, idx) => (
-                                <tr key={record.id || idx} className="hover:bg-gray-50 transition-colors">
+                        {visibleRecords.length > 0 ? (
+                            visibleRecords.map((record, idx) => (
+                                <tr
+                                    key={record.id || idx}
+                                    onClick={() => handleRowClick(record)}
+                                    className="hover:bg-gray-100 transition-colors cursor-pointer"
+                                >
                                     <td className="py-3 px-4 border-r text-left text-gray-900 whitespace-nowrap">
                                         {record.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}
                                     </td>
                                     <td className="py-3 px-4 border-r text-left font-medium text-gray-900">
                                         {record.particular}
                                     </td>
-                                    <td className="py-3 px-4 border-r text-indigo-700 font-medium">
-                                        <span className="bg-indigo-50 px-2 py-1 rounded-md border border-indigo-100 uppercase text-xs">
+                                    <td className="py-3 px-4 border-r font-medium text-center">
+                                        <span className={`px-2 py-1 rounded-md border uppercase text-xs whitespace-nowrap ${record.type.toLowerCase().includes('indirect')
+                                                ? 'bg-purple-50 border-purple-200 text-purple-700'
+                                                : record.type.toLowerCase().includes('direct')
+                                                    ? 'bg-blue-50 border-blue-200 text-blue-700'
+                                                    : record.type.toLowerCase().includes('stock point')
+                                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                                        : 'bg-gray-50 border-gray-200 text-gray-700'
+                                            }`}>
                                             {record.type}
                                         </span>
+                                    </td>
+                                    <td className="py-3 px-4 text-right border-r text-gray-900 font-medium">
+                                        {record.birds ? record.birds.toLocaleString('en-IN') : 0}
                                     </td>
                                     <td className="py-3 px-4 text-right border-r text-gray-900 font-medium">
                                         {record.quantity.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -258,8 +448,8 @@ export default function LivePoultryPurchase() {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="6" className="py-8 text-center text-gray-500 italic">
-                                    No purchase records found for {new Date(year, month - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                                <td colSpan="7" className="py-8 text-center text-gray-500 italic">
+                                    No purchase records found for {isDateFilterActive ? 'the selected date period' : `the current year`}
                                 </td>
                             </tr>
                         )}
@@ -268,6 +458,7 @@ export default function LivePoultryPurchase() {
                         <tfoot className="bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-400">
                             <tr>
                                 <td colSpan="3" className="py-3 px-4 border-r uppercase text-sm text-right">Totals</td>
+                                <td className="py-3 px-4 text-right border-r">{totalBirds.toLocaleString('en-IN')}</td>
                                 <td className="py-3 px-4 text-right border-r">{totalQty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                 <td className="py-3 px-4 text-right border-r">
                                     {totalQty > 0 ? (totalAmount / totalQty).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
@@ -280,6 +471,65 @@ export default function LivePoultryPurchase() {
                     )}
                 </table>
             </div>
+
+            {/* Date Filter Modal */}
+            {showDateFilterModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                <Calendar size={24} className="text-indigo-600" />
+                                Select Date Range
+                            </h2>
+                            <button
+                                onClick={() => setShowDateFilterModal(false)}
+                                className="text-gray-400 hover:text-gray-600 transition-colors"
+                            >
+                                <X size={24} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                                <input
+                                    type="date"
+                                    value={tempDateFilter.startDate}
+                                    onChange={(e) => setTempDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                                <input
+                                    type="date"
+                                    value={tempDateFilter.endDate}
+                                    onChange={(e) => setTempDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-3 mt-6">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowDateFilterModal(false)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleApplyDateFilter}
+                                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium transition-colors border border-transparent"
+                                >
+                                    Apply Filter
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

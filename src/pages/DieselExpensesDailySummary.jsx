@@ -14,7 +14,7 @@ const formatDateDisplay = (dateString) => {
     return `${day}/${month}/${year}`;
 };
 
-export default function TripExpensesDailySummary() {
+export default function DieselExpensesDailySummary() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [loading, setLoading] = useState(true);
@@ -36,12 +36,12 @@ export default function TripExpensesDailySummary() {
             setLoading(true);
             setError('');
             const params = { year, month };
-            const response = await api.get('/trip-expenses/daily-summary', { params });
+            const response = await api.get('/diesel-expenses/daily-summary', { params });
             if (response.data.success) {
                 setData(response.data.data);
             }
         } catch (err) {
-            console.error('Error fetching trip expenses daily summary:', err);
+            console.error('Error fetching diesel expenses daily summary:', err);
             setError(err.response?.data?.message || 'Failed to fetch daily summary');
         } finally {
             setLoading(false);
@@ -54,23 +54,25 @@ export default function TripExpensesDailySummary() {
         const exportData = data.records.map(record => ({
             Date: formatDateDisplay(record.date),
             'Trip ID': record.tripId,
-            Particular: record.particular,
-            Narration: record.narration,
+            'Indent Number': record.indentNumber,
+            Vol: record.volume,
+            Rate: record.rate,
             Amount: record.amount
         }));
 
         exportData.push({
             Date: 'Grand Total',
             'Trip ID': '',
-            Particular: '',
-            Narration: '',
+            'Indent Number': '',
+            Vol: '',
+            Rate: '',
             Amount: data.totals.amount
         });
 
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Daily Summary");
-        XLSX.writeFile(wb, `Trip_Expenses_Daily_Summary_${month}_${year}.xlsx`);
+        XLSX.writeFile(wb, `Diesel_Expenses_Daily_Summary_${month}_${year}.xlsx`);
     };
 
     const monthOptions = [
@@ -120,7 +122,7 @@ export default function TripExpensesDailySummary() {
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                             <FileText size={24} className="text-blue-600" />
-                            Trip Expenses - Daily Breakdown
+                            Diesel Expenses - Daily Breakdown
                         </h1>
                         <p className="text-gray-600">
                             {monthOptions.find(m => m.value === month)?.label} {year}
@@ -165,17 +167,18 @@ export default function TripExpensesDailySummary() {
                         <thead className="bg-gray-50 border-b border-gray-200">
                             <tr>
                                 <th className="px-6 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Date</th>
-                                <th className="px-6 py-3 text-left font-medium text-gray-700">Particular</th>
                                 <th className="px-6 py-3 text-left font-medium text-gray-700">Trip ID</th>
-                                <th className="px-6 py-3 text-left font-medium text-gray-700">Narration</th>
+                                <th className="px-6 py-3 text-left font-medium text-gray-700">Indent Number</th>
+                                <th className="px-6 py-3 text-left font-medium text-gray-700">Vol</th>
+                                <th className="px-6 py-3 text-left font-medium text-gray-700">Rate</th>
                                 <th className="px-6 py-3 text-right font-medium text-gray-700">Amount</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                             {data?.records.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
-                                        No trip expenses found for this month.
+                                    <td colSpan="6" className="px-6 py-8 text-center text-gray-500">
+                                        No diesel expenses found for this month.
                                     </td>
                                 </tr>
                             ) : (
@@ -190,13 +193,14 @@ export default function TripExpensesDailySummary() {
                                         className={`hover:bg-gray-50 transition-colors ${record.tripDbId ? 'cursor-pointer' : ''}`}
                                     >
                                         <td className="px-6 py-4 font-medium text-gray-900 whitespace-nowrap">{formatDateDisplay(record.date)}</td>
-                                        <td className="px-6 py-4 text-gray-900">{record.particular}</td>
                                         <td className="px-6 py-4">
                                             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${record.tripId !== '-' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'}`}>
                                                 {record.tripId}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4 text-gray-600 max-w-xs truncate" title={record.narration}>{record.narration || '-'}</td>
+                                        <td className="px-6 py-4 text-gray-900">{record.indentNumber}</td>
+                                        <td className="px-6 py-4 text-gray-900">{record.volume ? Number(record.volume).toFixed(2) : '0.00'}</td>
+                                        <td className="px-6 py-4 text-gray-900">₹{record.rate ? Number(record.rate).toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '0.00'}</td>
                                         <td className="px-6 py-4 text-right font-bold text-red-600">
                                             ₹{record.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                         </td>
@@ -204,7 +208,7 @@ export default function TripExpensesDailySummary() {
                                 ))
                             )}
                             <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
-                                <td colSpan="4" className="px-6 py-4 text-gray-900">Total</td>
+                                <td colSpan="5" className="px-6 py-4 text-gray-900 text-right">Total</td>
                                 <td className="px-6 py-4 text-right text-red-700 text-base">
                                     ₹{data?.totals.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </td>

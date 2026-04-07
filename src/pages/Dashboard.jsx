@@ -32,6 +32,12 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
     if (lowerName.includes("live poultry birds") && lowerName.includes("purchase")) {
       navigate(`/live-poultry-purchase/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
+    } else if (lowerName.includes("poultry feed purchase")) {
+      navigate(`/feed-stock-purchase/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    } else if (lowerName.includes("feed consumption")) {
+      navigate(`/feed-stock-consumption/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
     } else if (lowerName.includes("live poultry birds") && lowerName.includes("sales")) {
       navigate(`/live-poultry-sales/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
@@ -43,6 +49,9 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
       return;
     } else if (lowerName.includes("trip expenses")) {
       navigate(`/trip-expenses/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    } else if (lowerName.includes("diesel expenses") || lowerName.includes("diesel expense")) {
+      navigate(`/diesel-expenses/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
     } else if (lowerName.includes("birds mortality")) {
       navigate(`/birds-mortality/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);

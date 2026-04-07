@@ -121,7 +121,7 @@ export default function IndirectSalesMonthlySummary() {
                         className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                     >
                         {yearOptions.map(y => (
-                            <option key={y} value={y}>{y}</option>
+                            <option key={y} value={y}>FY {y}-{y + 1}</option>
                         ))}
                     </select>
 

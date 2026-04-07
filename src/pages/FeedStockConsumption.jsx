@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Download, TrendingUp, ArrowLeft, Calendar, X } from 'lucide-react';
+import { Loader2, Download, Package, Calendar, ArrowLeft, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 
@@ -11,20 +11,20 @@ const formatDateDisplay = (dateString) => {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-export default function LivePoultrySales() {
+export default function FeedStockConsumption() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-
-    // We'll store normalized sale records here
-    const [saleRecords, setSaleRecords] = useState([]);
+    
+    // We'll store normalized consumption records here
+    const [consumptionRecords, setConsumptionRecords] = useState([]);
 
     const [dateFilter, setDateFilter] = useState({
         startDate: searchParams.get('startDate') || '',
         endDate: searchParams.get('endDate') || ''
     });
-
+    
     // Date Filter Modal States
     const [showDateFilterModal, setShowDateFilterModal] = useState(false);
     const [tempDateFilter, setTempDateFilter] = useState({
@@ -46,7 +46,7 @@ export default function LivePoultrySales() {
         }
         return { start, end };
     };
-
+    
     const { start: effectiveStart, end: effectiveEnd } = getEffectiveDates();
 
     const openDateFilterModal = () => {
@@ -62,7 +62,7 @@ export default function LivePoultrySales() {
         else params.delete('startDate');
         if (tempDateFilter.endDate) params.set('endDate', tempDateFilter.endDate);
         else params.delete('endDate');
-        navigate(`/live-poultry-sales/monthly-summary?${params.toString()}`);
+        navigate(`/feed-stock-consumption/monthly-summary?${params.toString()}`);
     };
 
     const handleClearDateFilter = () => {
@@ -70,27 +70,12 @@ export default function LivePoultrySales() {
         const params = new URLSearchParams(searchParams);
         params.delete('startDate');
         params.delete('endDate');
-        navigate(`/live-poultry-sales/monthly-summary?${params.toString()}`);
+        navigate(`/feed-stock-consumption/monthly-summary?${params.toString()}`);
     };
 
-    // For infinite scroll
-    const [visibleCount, setVisibleCount] = useState(50);
-
     useEffect(() => {
-        setVisibleCount(50);
         fetchData();
     }, [dateFilter.startDate, dateFilter.endDate]);
-
-    // Handle scroll for infinite loading
-    useEffect(() => {
-        const handleScroll = () => {
-            if (window.innerHeight + window.scrollY >= document.documentElement.offsetHeight - 500) {
-                setVisibleCount(prev => prev + 50);
-            }
-        };
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
 
     const fetchData = async () => {
         setLoading(true);
@@ -113,40 +98,35 @@ export default function LivePoultrySales() {
                 endOfPeriod = `${year}-12-31`;
             }
 
-            let combinedRecords = [];
-
-            // 1. Fetch Inventory Stocks (type = 'sale')
+            // 1. Fetch Inventory for consume
             const invRes = await api.get('/inventory-stock', {
                 params: {
                     startDate: startOfPeriod,
                     endDate: endOfPeriod,
-                    type: 'sale'
+                    type: 'consume'
                 }
             });
 
+            let combinedRecords = [];
+
             if (invRes.data.success && invRes.data.data) {
                 invRes.data.data.forEach(stock => {
-                    // It's a sale, so vendorId is irrelevant, we look for customerId
-                    const customerName = stock.customerId?.shopName || stock.customerId?.ownerName || stock.customerId?.name || 'N/A';
+                    if (stock.inventoryType !== 'feed') return;
 
-                    let typeLabel = 'OTHER SALES';
-                    if (stock.inventoryType === 'bird') {
-                        typeLabel = 'STOCK POINT SALES';
-                    } else if (stock.inventoryType === 'feed') {
-                        typeLabel = 'FEED STOCK SALE';
-                    }
+                    const particular = stock.notes || stock.narration || 'Feed Consumption';
+                    let typeLabel = 'feed consumption';
 
-                    const weight = Number(stock.weight) || 0;
-                    const birds = Number(stock.birds) || 0;
+                    const weight = Number(stock.feedQty) || Number(stock.weight) || 0;
+                    const bags = Number(stock.bags) || 0;
                     const amount = Number(stock.amount) || 0;
                     const rate = Number(stock.rate) || (weight > 0 ? amount / weight : 0);
 
                     combinedRecords.push({
                         id: stock._id,
                         date: new Date(stock.date),
-                        particular: customerName,
+                        particular: particular,
                         type: typeLabel,
-                        birds: birds,
+                        bags: bags,
                         quantity: weight,
                         rate: rate,
                         amount: amount
@@ -154,138 +134,35 @@ export default function LivePoultrySales() {
                 });
             }
 
-            // 2. Fetch Trip Sales
-            let tripPage = 1;
-            let tripTotalPages = 1;
-            do {
-                const tripsRes = await api.get('/trip', {
-                    params: {
-                        startDate: startOfPeriod,
-                        endDate: endOfPeriod,
-                        page: tripPage,
-                        limit: 50
-                    }
-                });
-                if (tripsRes.data.success) {
-                    const trips = tripsRes.data.trips || (tripsRes.data.data && tripsRes.data.data.trips) || [];
-                    trips.forEach(trip => {
-                        if (trip.sales && Array.isArray(trip.sales)) {
-                            trip.sales.forEach(sale => {
-                                const customerName = sale.client?.shopName || sale.client?.ownerName || sale.client?.name || 'N/A';
-                                const weight = Number(sale.weight) || 0;
-                                const birds = Number(sale.birds) || 0;
-                                const amount = Number(sale.amount) || 0;
-                                const rate = Number(sale.rate) || 0;
-
-                                // Note: We use the embedded timestamp if available, fallback to trip date
-                                const saleDate = sale.timestamp ? new Date(sale.timestamp) : new Date(trip.date);
-
-                                const saleDateStr = saleDate.toISOString().split('T')[0];
-
-                                if (saleDateStr >= startOfPeriod && saleDateStr <= endOfPeriod) {
-                                    combinedRecords.push({
-                                        id: sale._id || `${trip.id || trip._id}-${Math.random()}`,
-                                        tripId: trip.id || trip._id,
-                                        date: saleDate,
-                                        particular: customerName,
-                                        type: 'DIRECT SALES (Trip Sales)',
-                                        birds: birds,
-                                        quantity: weight,
-                                        rate: rate,
-                                        amount: amount
-                                    });
-                                }
-                            });
-                        }
-                    });
-                    tripTotalPages = tripsRes.data.pagination?.pages || tripsRes.data.data?.pagination?.pages || 1;
-                } else {
-                    break;
-                }
-                tripPage++;
-            } while (tripPage <= tripTotalPages && tripPage <= 20);
-
-            // 3. Fetch Indirect Sales (contains indirect sales)
-            let indPage = 1;
-            let indTotalPages = 1;
-            do {
-                const indRes = await api.get('/indirect-sales', {
-                    params: {
-                        startDate: startOfPeriod,
-                        endDate: endOfPeriod,
-                        page: indPage,
-                        limit: 50
-                    }
-                });
-
-                if (indRes.data.success && indRes.data.data) {
-                    const records = indRes.data.data.records || [];
-                    records.forEach(indSale => {
-                        const customerName = indSale.customer?.shopName || indSale.customer?.ownerName || 'N/A';
-
-                        // IndirectSale has a single `.sales` object
-                        if (indSale.sales) {
-                            const weight = Number(indSale.sales.weight) || 0;
-                            const birds = Number(indSale.sales.birds) || 0;
-                            const amount = Number(indSale.sales.amount) || 0;
-                            const rate = Number(indSale.sales.rate) || 0;
-
-                            if (weight > 0 || amount > 0) {
-                                combinedRecords.push({
-                                    id: indSale._id,
-                                    indirectId: indSale._id,
-                                    date: new Date(indSale.date),
-                                    particular: customerName,
-                                    type: 'INDIRECT SALES',
-                                    birds: birds,
-                                    quantity: weight,
-                                    rate: rate,
-                                    amount: amount
-                                });
-                            }
-                        }
-                    });
-                    indTotalPages = indRes.data.data.pagination?.totalPages || 1;
-                } else {
-                    break;
-                }
-                indPage++;
-            } while (indPage <= indTotalPages && indPage <= 20);
-
-            // Sort chronologically
             combinedRecords.sort((a, b) => a.date - b.date);
 
-            setSaleRecords(combinedRecords);
+            setConsumptionRecords(combinedRecords);
         } catch (err) {
-            console.error('Error fetching sales data:', err);
-            setError(err.response?.data?.message || 'Failed to fetch sales data');
+            console.error('Error fetching consumption data:', err);
+            setError(err.response?.data?.message || 'Failed to fetch consumption data');
         } finally {
             setLoading(false);
         }
     };
 
     const handleExportToExcel = () => {
-        if (!saleRecords.length) return;
+        if (!consumptionRecords.length) return;
 
-        const exportData = saleRecords.map(record => ({
+        const exportData = consumptionRecords.map(record => ({
             'Date': record.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-'),
-            'Particular': record.particular,
-            'Type': record.type,
-            'No. Of Birds': record.birds,
+            'No. Of Bags': record.bags,
             'Quantity (kg)': record.quantity,
             'Rate': record.rate.toFixed(2),
             'Amount': record.amount
         }));
 
-        const totalBirds = saleRecords.reduce((sum, r) => sum + (r.birds || 0), 0);
-        const totalQty = saleRecords.reduce((sum, r) => sum + r.quantity, 0);
-        const totalAmount = saleRecords.reduce((sum, r) => sum + r.amount, 0);
+        const totalBags = consumptionRecords.reduce((sum, r) => sum + (r.bags || 0), 0);
+        const totalQty = consumptionRecords.reduce((sum, r) => sum + r.quantity, 0);
+        const totalAmount = consumptionRecords.reduce((sum, r) => sum + r.amount, 0);
 
         exportData.push({
             'Date': 'Total',
-            'Particular': '',
-            'Type': '',
-            'No. Of Birds': totalBirds,
+            'No. Of Bags': totalBags,
             'Quantity (kg)': totalQty,
             'Rate': '',
             'Amount': totalAmount
@@ -293,33 +170,25 @@ export default function LivePoultrySales() {
 
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Monthly Sales");
-
+        XLSX.utils.book_append_sheet(wb, ws, "Monthly Consumption");
+        
         const fileName = (dateFilter.startDate || dateFilter.endDate)
-            ? `Live_Poultry_Sales_${dateFilter.startDate || 'start'}_to_${dateFilter.endDate || 'end'}.xlsx`
-            : `Live_Poultry_Sales_Year_${new Date().getFullYear()}.xlsx`;
+            ? `Feed_Stock_Consumption_${dateFilter.startDate || 'start'}_to_${dateFilter.endDate || 'end'}.xlsx`
+            : `Feed_Stock_Consumption_Year_${new Date().getFullYear()}.xlsx`;
         XLSX.writeFile(wb, fileName);
     };
 
-    if (loading && !saleRecords.length) return <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-blue-600" /></div>;
+    if (loading && !consumptionRecords.length) return <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-blue-600" /></div>;
 
-    const totalBirds = saleRecords.reduce((sum, r) => sum + (r.birds || 0), 0);
-    const totalQty = saleRecords.reduce((sum, r) => sum + r.quantity, 0);
-    const totalAmount = saleRecords.reduce((sum, r) => sum + r.amount, 0);
-
-    const visibleRecords = saleRecords.slice(0, visibleCount);
+    const totalBags = consumptionRecords.reduce((sum, r) => sum + (r.bags || 0), 0);
+    const totalQty = consumptionRecords.reduce((sum, r) => sum + r.quantity, 0);
+    const totalAmount = consumptionRecords.reduce((sum, r) => sum + r.amount, 0);
 
     const handleRowClick = (record) => {
-        if (record.type === 'DIRECT SALES (Trip Sales)' && record.tripId) {
-            navigate(`/trips/${record.tripId}`);
-        } else if (record.type === 'STOCK POINT SALES' || record.type === 'FEED STOCK SALE') {
-            const y = record.date.getFullYear();
-            const m = String(record.date.getMonth() + 1).padStart(2, '0');
-            const d = String(record.date.getDate()).padStart(2, '0');
-            navigate(`/stocks/manage?date=${y}-${m}-${d}`);
-        } else if (record.type === 'INDIRECT SALES' && record.indirectId) {
-            navigate(`/indirect-sales/${record.indirectId}`);
-        }
+        const y = record.date.getFullYear();
+        const m = String(record.date.getMonth() + 1).padStart(2, '0');
+        const d = String(record.date.getDate()).padStart(2, '0');
+        navigate(`/stocks/manage?date=${y}-${m}-${d}`);
     };
 
     return (
@@ -334,36 +203,36 @@ export default function LivePoultrySales() {
                             <ArrowLeft size={20} />
                         </button>
                         <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-                            <TrendingUp className="w-8 h-8 text-indigo-600" />
-                            Live Poultry Birds Sales
+                            <Package className="w-8 h-8 text-indigo-600" />
+                            Feed Stock Consumption
                         </h1>
                     </div>
-                    <p className="text-gray-600 mt-1">{isDateFilterActive ? 'Summary for Selected Period' : 'Yearly Summary of All Sales'}</p>
+                    <p className="text-gray-600 mt-1">{isDateFilterActive ? 'Summary for Selected Period' : 'Yearly Summary of All Feed Consumption'}</p>
                 </div>
-
+                
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t md:border-none border-gray-200">
                     <div className="flex items-center gap-3">
                         <button
-                            onClick={openDateFilterModal}
-                            className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors bg-white shadow-sm"
-                            title="Filter by Date Range"
+                          onClick={openDateFilterModal}
+                          className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors bg-white shadow-sm"
+                          title="Filter by Date Range"
                         >
-                            <Calendar size={18} className="text-gray-500" />
-                            <span className="font-medium">
-                                {isDateFilterActive
-                                    ? `${formatDateDisplay(effectiveStart)} - ${formatDateDisplay(effectiveEnd)}`
-                                    : 'Filter by Date'}
-                            </span>
+                          <Calendar size={18} className="text-gray-500" />
+                          <span className="font-medium">
+                            {isDateFilterActive
+                              ? `${formatDateDisplay(effectiveStart)} - ${formatDateDisplay(effectiveEnd)}`
+                              : 'Filter by Date'}
+                          </span>
                         </button>
 
                         {isDateFilterActive && (
-                            <button
-                                onClick={handleClearDateFilter}
-                                className="flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
-                            >
-                                <X size={16} />
-                                Clear
-                            </button>
+                          <button
+                            onClick={handleClearDateFilter}
+                            className="flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
+                          >
+                            <X size={16} />
+                            Clear
+                          </button>
                         )}
                     </div>
                     <button
@@ -388,42 +257,25 @@ export default function LivePoultrySales() {
                     <thead className="bg-gray-100 text-gray-700 uppercase font-semibold border-b-2 border-gray-300">
                         <tr>
                             <th className="py-3 px-4 text-left border-r border-gray-300">Date</th>
-                            <th className="py-3 px-4 text-left border-r border-gray-300">Particular</th>
-                            <th className="py-3 px-4 border-r border-gray-300">Type</th>
-                            <th className="py-3 px-4 border-r border-gray-300 text-right">No. Of Birds</th>
+                            <th className="py-3 px-4 border-r border-gray-300 text-right">No. Of Bags</th>
                             <th className="py-3 px-4 border-r border-gray-300 text-right">Quantity (kg)</th>
                             <th className="py-3 px-4 border-r border-gray-300 text-right">Rate</th>
                             <th className="py-3 px-4 text-right">Amount</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                        {visibleRecords.length > 0 ? (
-                            visibleRecords.map((record, idx) => (
-                                <tr
-                                    key={record.id || idx}
+                        {consumptionRecords.length > 0 ? (
+                            consumptionRecords.map((record, idx) => (
+                                <tr 
+                                    key={record.id || idx} 
                                     onClick={() => handleRowClick(record)}
                                     className="hover:bg-gray-100 transition-colors cursor-pointer"
                                 >
                                     <td className="py-3 px-4 border-r text-left text-gray-900 whitespace-nowrap">
                                         {record.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}
                                     </td>
-                                    <td className="py-3 px-4 border-r text-left font-medium text-gray-900">
-                                        {record.particular}
-                                    </td>
-                                    <td className="py-3 px-4 border-r font-medium text-center">
-                                        <span className={`px-2 py-1 rounded-md border uppercase text-xs whitespace-nowrap ${record.type.toLowerCase().includes('indirect')
-                                                ? 'bg-purple-50 border-purple-200 text-purple-700'
-                                                : record.type.toLowerCase().includes('direct')
-                                                    ? 'bg-blue-50 border-blue-200 text-blue-700'
-                                                    : record.type.toLowerCase().includes('stock point')
-                                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                                                        : 'bg-gray-50 border-gray-200 text-gray-700'
-                                            }`}>
-                                            {record.type}
-                                        </span>
-                                    </td>
                                     <td className="py-3 px-4 text-right border-r text-gray-900 font-medium">
-                                        {record.birds ? record.birds.toLocaleString('en-IN') : 0}
+                                        {record.bags ? record.bags.toLocaleString('en-IN') : 0}
                                     </td>
                                     <td className="py-3 px-4 text-right border-r text-gray-900 font-medium">
                                         {record.quantity.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -438,17 +290,17 @@ export default function LivePoultrySales() {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan="7" className="py-8 text-center text-gray-500 italic">
-                                    No sales records found for {isDateFilterActive ? 'the selected date period' : `the current year`}
+                                <td colSpan="5" className="py-8 text-center text-gray-500 italic">
+                                    No consumption records found for {isDateFilterActive ? 'the selected date period' : `the current year`}
                                 </td>
                             </tr>
                         )}
                     </tbody>
-                    {saleRecords.length > 0 && (
+                    {consumptionRecords.length > 0 && (
                         <tfoot className="bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-400">
                             <tr>
-                                <td colSpan="3" className="py-3 px-4 border-r uppercase text-sm text-right">Totals</td>
-                                <td className="py-3 px-4 text-right border-r">{totalBirds.toLocaleString('en-IN')}</td>
+                                <td colSpan="1" className="py-3 px-4 border-r uppercase text-sm text-right">Totals</td>
+                                <td className="py-3 px-4 text-right border-r">{totalBags.toLocaleString('en-IN')}</td>
                                 <td className="py-3 px-4 text-right border-r">{totalQty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
                                 <td className="py-3 px-4 text-right border-r">
                                     {totalQty > 0 ? (totalAmount / totalQty).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}

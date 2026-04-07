@@ -58,6 +58,8 @@ import BirdsStockMonthlySummary from "./pages/BirdsStockMonthlySummary";
 import LivePoultryMonthlySummary from "./pages/LivePoultryMonthlySummary";
 import LivePoultryDailySummary from "./pages/LivePoultryDailySummary";
 import LivePoultryPurchase from "./pages/LivePoultryPurchase";
+import FeedStockPurchase from "./pages/FeedStockPurchase";
+import FeedStockConsumption from "./pages/FeedStockConsumption";
 import LivePoultrySales from "./pages/LivePoultrySales";
 import BirdsStockDailySummary from "./pages/BirdsStockDailySummary";
 import BirdsStockRecord from './pages/BirdsStockRecord';
@@ -66,6 +68,8 @@ import ClosingStockDailySummary from './pages/ClosingStockDailySummary';
 
 import TripExpensesMonthlySummary from './pages/TripExpensesMonthlySummary';
 import TripExpensesDailySummary from './pages/TripExpensesDailySummary';
+import DieselExpensesMonthlySummary from './pages/DieselExpensesMonthlySummary';
+import DieselExpensesDailySummary from './pages/DieselExpensesDailySummary';
 import BirdsMortalityMonthlySummary from './pages/BirdsMortalityMonthlySummary';
 import BirdsMortalityDailySummary from './pages/BirdsMortalityDailySummary';
 import BirdsWeightLossMonthlySummary from './pages/BirdsWeightLossMonthlySummary';
@@ -229,6 +233,8 @@ const AppContent = () => {
               <Route path="/live-poultry-stock/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LivePoultryDailySummary /></ProtectedRoute>} />
 
               <Route path="/live-poultry-purchase/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LivePoultryPurchase /></ProtectedRoute>} />
+              <Route path="/feed-stock-purchase/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><FeedStockPurchase /></ProtectedRoute>} />
+              <Route path="/feed-stock-consumption/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><FeedStockConsumption /></ProtectedRoute>} />
               <Route path="/live-poultry-sales/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LivePoultrySales /></ProtectedRoute>} />
 
               <Route path="/live-poultry-closing-stock/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><ClosingStockMonthlySummary /></ProtectedRoute>} />
@@ -236,6 +242,9 @@ const AppContent = () => {
 
               <Route path="/trip-expenses/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><TripExpensesMonthlySummary /></ProtectedRoute>} />
               <Route path="/trip-expenses/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><TripExpensesDailySummary /></ProtectedRoute>} />
+
+              <Route path="/diesel-expenses/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><DieselExpensesMonthlySummary /></ProtectedRoute>} />
+              <Route path="/diesel-expenses/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><DieselExpensesDailySummary /></ProtectedRoute>} />
 
               <Route path="/birds-mortality/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BirdsMortalityMonthlySummary /></ProtectedRoute>} />
               <Route path="/birds-mortality/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BirdsMortalityDailySummary /></ProtectedRoute>} />

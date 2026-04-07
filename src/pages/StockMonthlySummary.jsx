@@ -132,11 +132,11 @@ export default function StockMonthlySummary() {
                     <select
                         value={year}
                         onChange={(e) => setYear(Number(e.target.value))}
-                        className="p-2 border border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        className="px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
                     >
-                        {[0, 1, 2, 3, 4].map(i => {
-                            const y = new Date().getFullYear() - i;
-                            return <option key={y} value={y}>{y}</option>;
+                        {Array.from({ length: 5 }, (_, i) => {
+                            const y = new Date().getFullYear() - 3 + i;
+                            return <option key={y} value={y}>FY {y}-{y + 1}</option>;
                         })}
                     </select>
                     <button

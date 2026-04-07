@@ -1088,7 +1088,7 @@ export default function Trips() {
                 <Calendar size={18} />
                 <span>
                   {isDateFilterActive
-                    ? `${formatDateDisplay(dateFilter.startDate)} - ${formatDateDisplay(dateFilter.endDate)}`
+                    ? `${formatDateDisplay(dateFilter.startDate || (dateFilter.endDate ? `${new Date().getFullYear()}-01-01` : ''))} - ${formatDateDisplay(dateFilter.endDate || (dateFilter.startDate ? `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}` : ''))}`
                     : 'Filter by Date'}
                 </span>
               </button>
