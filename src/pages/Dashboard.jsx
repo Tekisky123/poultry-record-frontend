@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, memo, useCallback } from 'react';
-import { Calendar, Download, Loader2, X } from 'lucide-react';
+import { Calendar, Download, Loader2, X, ChevronDown } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -24,7 +24,7 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
     // Pass date filter params
     const startDate = searchParams.get('startDate') || '';
     const endDate = searchParams.get('endDate') || new Date().toISOString().split('T')[0];
-    
+
     // Redirect LIVE POULTRY BIRDS group to its special stock pages
     const lowerName = group.name ? group.name.toLowerCase() : "";
     const lowerParentName = parentName ? parentName.toLowerCase() : "";
@@ -58,6 +58,18 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
       return;
     } else if (lowerName.includes("birds weight loss")) {
       navigate(`/birds-weight-loss/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    } else if (lowerName.includes("birds opening stock")) {
+      navigate(`/birds-opening-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    } else if (lowerName.includes("feed opening stock")) {
+      navigate(`/feed-opening-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    } else if (lowerName.includes("birds stock")) {
+      navigate(`/birds-closing-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    } else if (lowerName.includes("feed stock")) {
+      navigate(`/feed-closing-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
     }
 
@@ -123,10 +135,56 @@ export default function ProfitAndLoss() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [profitAndLoss, setProfitAndLoss] = useState(null);
 
-  const [dateFilter, setDateFilter] = useState({
-    startDate: searchParams.get('startDate') || '',
-    endDate: searchParams.get('endDate') || new Date().toISOString().split('T')[0]
+  // Financial Year helpers
+  const getCurrentFinancialYear = () => {
+    const now = new Date();
+    return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  };
+
+  const getFYDates = (fyStartYear) => {
+    const startDate = `${fyStartYear}-04-01`;
+    const endDate = `${fyStartYear + 1}-03-31`;
+    return { startDate, endDate };
+  };
+
+  // FY dropdown options (2023 to current+1)
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const options = [];
+    for (let y = 2023; y <= currentYear + 1; y++) {
+      options.push(y);
+    }
+    return options;
+  }, []);
+
+  // Determine initial FY from URL params or default to current FY
+  const getInitialYear = () => {
+    const paramStart = searchParams.get('startDate');
+    if (paramStart) {
+      const d = new Date(paramStart);
+      if (d.getMonth() === 3) return d.getFullYear();
+    }
+    return getCurrentFinancialYear();
+  };
+
+  const [selectedFY, setSelectedFY] = useState(getInitialYear);
+
+  const [dateFilter, setDateFilter] = useState(() => {
+    const paramStart = searchParams.get('startDate');
+    const paramEnd = searchParams.get('endDate');
+    if (paramStart && paramEnd) {
+      return { startDate: paramStart, endDate: paramEnd };
+    }
+    // Default to current FY dates
+    return getFYDates(getCurrentFinancialYear());
   });
+
+  const handleFYChange = (fyYear) => {
+    setSelectedFY(fyYear);
+    const { startDate, endDate } = getFYDates(fyYear);
+    setDateFilter({ startDate, endDate });
+    setSearchParams({ startDate, endDate });
+  };
 
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -142,14 +200,24 @@ export default function ProfitAndLoss() {
   const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
 
   useEffect(() => {
-    // Sync state with URL params
+    // On initial load, ensure URL has the date params
     const start = searchParams.get('startDate');
     const end = searchParams.get('endDate');
-    if (start !== dateFilter.startDate || end !== dateFilter.endDate) {
-      setDateFilter({
-        startDate: start || '',
-        endDate: end || new Date().toISOString().split('T')[0]
-      });
+    if (!start || !end) {
+      // Push default FY dates to URL without triggering re-render loop
+      setSearchParams({ startDate: dateFilter.startDate, endDate: dateFilter.endDate }, { replace: true });
+    }
+  }, []);
+
+  useEffect(() => {
+    // Sync state with URL params when they change
+    const start = searchParams.get('startDate');
+    const end = searchParams.get('endDate');
+    if (start && end && (start !== dateFilter.startDate || end !== dateFilter.endDate)) {
+      setDateFilter({ startDate: start, endDate: end });
+      // Sync FY dropdown
+      const d = new Date(start);
+      if (d.getMonth() === 3) setSelectedFY(d.getFullYear());
     }
   }, [searchParams]);
 
@@ -358,32 +426,63 @@ export default function ProfitAndLoss() {
     });
   };
 
-  const netProfit = profitAndLoss.totals.netProfit;
-  const isProfit = netProfit >= 0;
+  // ── Sort order (includes both direct and indirect names) ──
+  const expensesOrder = ['Opening Stock', 'Purchase Accounts', 'Direct Expenses', 'Indirect Expenses'];
+  const incomeOrder  = ['Sales Accounts', 'Closing Stock', 'Direct Income', 'Direct Incomes', 'Indirect Income', 'Indirect Incomes'];
 
-  // Define custom order for Expenses and Income
-  const expensesOrder = ['Opening Stock', 'Purchase Accounts', 'Direct Expenses'];
-  const incomeOrder = ['Sales Accounts', 'Closing Stock', 'Indirect Incomes'];
-
-  const sortGroups = (groups, orderArray) => {
-    return [...groups].sort((a, b) => {
-      const indexA = orderArray.indexOf(a.name);
-      const indexB = orderArray.indexOf(b.name);
-
-      if (indexA !== -1 && indexB !== -1) return indexA - indexB;
-      if (indexA !== -1) return -1;
-      if (indexB !== -1) return 1;
+  const sortGroups = (groups, orderArray) =>
+    [...groups].sort((a, b) => {
+      const ia = orderArray.indexOf(a.name), ib = orderArray.indexOf(b.name);
+      if (ia !== -1 && ib !== -1) return ia - ib;
+      if (ia !== -1) return -1;
+      if (ib !== -1) return 1;
       return a.name.localeCompare(b.name);
     });
-  };
 
   const sortedExpenses = sortGroups(profitAndLoss.expenses.groups, expensesOrder);
-  const sortedIncome = sortGroups(profitAndLoss.income.groups, incomeOrder);
+  const sortedIncome  = sortGroups(profitAndLoss.income.groups,  incomeOrder);
+
+  // ── Split: direct (gross section) vs indirect (net section) ──
+  const directExpenseGroups   = sortedExpenses.filter(g => !g.name.toLowerCase().includes('indirect'));
+  const indirectExpenseGroups = sortedExpenses.filter(g =>  g.name.toLowerCase().includes('indirect'));
+  const directIncomeGroups    = sortedIncome.filter(g =>  !g.name.toLowerCase().includes('indirect'));
+  const indirectIncomeGroups  = sortedIncome.filter(g =>   g.name.toLowerCase().includes('indirect'));
+
+  // ── Gross P&L ──
+  const topLeftTotal  = directExpenseGroups.reduce((s, g)  => s + Math.abs(g.balance || 0), 0);
+  const topRightTotal = directIncomeGroups.reduce((s, g)   => s + Math.abs(g.balance || 0), 0);
+  const grossDiff   = topRightTotal - topLeftTotal;
+  const grossProfit = grossDiff > 0 ? grossDiff : 0;
+  const grossLoss   = grossDiff < 0 ? Math.abs(grossDiff) : 0;
+
+  // ── Net P&L ──
+  const bottomLeftTotal  = indirectExpenseGroups.reduce((s, g) => s + Math.abs(g.balance || 0), 0);
+  const bottomRightTotal = indirectIncomeGroups.reduce((s, g)  => s + Math.abs(g.balance || 0), 0);
+  const netDiff   = (bottomRightTotal - bottomLeftTotal) + grossProfit - grossLoss;
+  const netProfit = netDiff > 0 ? netDiff : 0;
+  const netLoss   = netDiff < 0 ? Math.abs(netDiff) : 0;
+
+  const fmt = (n) => (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
   return (
     <div className="space-y-6">
       {/* Header Controls */}
       <div className="flex justify-end gap-3">
+        {/* Financial Year Dropdown */}
+        <div className="relative">
+          <select
+            value={selectedFY}
+            onChange={(e) => handleFYChange(Number(e.target.value))}
+            className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-10 font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors cursor-pointer focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
+            {yearOptions.map((y) => (
+              <option key={y} value={y}>
+                FY {y}-{y + 1}
+              </option>
+            ))}
+          </select>
+          <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+        </div>
         <button
           onClick={openDateFilterModal}
           className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 shadow-sm"
@@ -417,89 +516,102 @@ export default function ProfitAndLoss() {
           </p>
         </div>
 
-        {/* Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Expenses Side (Left) */}
-          <div className="border-r border-gray-200 pr-8">
-            <div className="mb-4">
-              {/* Expense Groups */}
-              <div className="space-y-1 min-h-[200px]">
-                {sortedExpenses.map((group) => (
-                  <GroupNode
-                    key={group.id || group._id}
-                    group={group}
-                    level={0}
-                  />
+        {/* ══ TOP SECTION — Gross P&L ══ */}
+        <div className="border border-gray-200 rounded-t-lg overflow-hidden">
+          {/* Groups area */}
+          <div className="grid grid-cols-2 divide-x divide-gray-200">
+            {/* Left: Direct Expenses */}
+            <div className="p-4">
+              <div className="space-y-1 min-h-[160px]">
+                {directExpenseGroups.map((group) => (
+                  <GroupNode key={group.id || group._id} group={group} level={0} />
                 ))}
               </div>
-
-              {/* Net Profit (if Profit, add to Expenses side to balance) */}
-              {isProfit && (
-                <div className="mt-4 pt-2 border-t border-gray-200">
-                  <div className="flex items-center justify-between py-1 px-2 bg-green-50 rounded">
-                    <span className="text-sm font-bold text-green-700">Net Profit</span>
-                    <span className="text-sm font-bold text-right w-32 pl-2">
-                      {netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-4 pt-3 border-t-2 border-gray-400">
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-bold">Total</span>
-                  <span className="text-base font-bold text-right w-32 pl-2">
-                    {/* If Profit, Total = Expenses + Net Profit = Income */}
-                    {/* If Loss, Total = Expenses */}
-                    {(profitAndLoss.totals.totalExpenses + (isProfit ? netProfit : 0)).toLocaleString('en-IN', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}
-                  </span>
-                </div>
+            </div>
+            {/* Right: Direct Income */}
+            <div className="p-4">
+              <div className="space-y-1 min-h-[160px]">
+                {directIncomeGroups.map((group) => (
+                  <GroupNode key={group.id || group._id} group={group} level={0} />
+                ))}
               </div>
             </div>
           </div>
 
-          {/* Income Side (Right) */}
-          <div className="pl-0">
-            <div className="mb-4">
-              {/* Income Groups */}
-              <div className="space-y-1 min-h-[200px]">
-                {sortedIncome.map((group) => (
-                  <GroupNode
-                    key={group.id || group._id}
-                    group={group}
-                    level={0}
-                  />
-                ))}
-              </div>
+          {/* Total row — both sides side by side */}
+          <div className="grid grid-cols-2 divide-x divide-gray-200 border-t-2 border-gray-400">
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="text-sm font-bold">Total</span>
+              <span className="text-sm font-bold">{fmt(topLeftTotal)}</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="text-sm font-bold">Total</span>
+              <span className="text-sm font-bold">{fmt(topRightTotal)}</span>
+            </div>
+          </div>
 
-              {/* Net Loss (if Loss, add to Income side to balance) */}
-              {!isProfit && (
-                <div className="mt-4 pt-2 border-t border-gray-200">
-                  <div className="flex items-center justify-between py-1 px-2 bg-red-50 rounded">
-                    <span className="text-sm font-bold text-red-700">Net Loss</span>
-                    <span className="text-sm font-bold text-right w-32 pl-2">
-                      {Math.abs(netProfit).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                </div>
-              )}
+          {/* Gross Profit | Gross Loss row */}
+          <div className="grid grid-cols-2 divide-x divide-gray-200 border-t border-gray-300 bg-gray-50">
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="text-sm font-bold italic text-green-700">Gross Profit</span>
+              <span className="text-sm font-bold text-green-700">{fmt(grossProfit)}</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="text-sm font-bold italic text-red-600">Gross loss</span>
+              <span className="text-sm font-bold text-red-600">{fmt(grossLoss)}</span>
+            </div>
+          </div>
+        </div>
 
-              <div className="mt-4 pt-3 border-t-2 border-gray-400">
-                <div className="flex items-center justify-between">
-                  <span className="text-base font-bold">Total</span>
-                  <span className="text-base font-bold text-right w-32 pl-2">
-                    {/* If Profit, Total = Income */}
-                    {/* If Loss, Total = Income + Net Loss = Expenses */}
-                    {(profitAndLoss.totals.totalIncome + (!isProfit ? Math.abs(netProfit) : 0)).toLocaleString('en-IN', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}
-                  </span>
-                </div>
+        {/* ══ BOTTOM SECTION — Net P&L ══ */}
+        <div className="border border-t-0 border-gray-200 rounded-b-lg overflow-hidden">
+          {/* Groups area */}
+          <div className="grid grid-cols-2 divide-x divide-gray-200">
+            {/* Left: Indirect Expenses */}
+            <div className="p-4">
+              <div className="space-y-1 min-h-[100px]">
+                {indirectExpenseGroups.length > 0
+                  ? indirectExpenseGroups.map((group) => (
+                      <GroupNode key={group.id || group._id} group={group} level={0} />
+                    ))
+                  : <p className="text-sm text-gray-400 italic py-2">No indirect expenses</p>
+                }
               </div>
+            </div>
+            {/* Right: Indirect Income */}
+            <div className="p-4">
+              <div className="space-y-1 min-h-[100px]">
+                {indirectIncomeGroups.length > 0
+                  ? indirectIncomeGroups.map((group) => (
+                      <GroupNode key={group.id || group._id} group={group} level={0} />
+                    ))
+                  : <p className="text-sm text-gray-400 italic py-2">No indirect income</p>
+                }
+              </div>
+            </div>
+          </div>
+
+          {/* Total row — both sides side by side */}
+          <div className="grid grid-cols-2 divide-x divide-gray-200 border-t-2 border-gray-400">
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="text-sm font-bold">Total</span>
+              <span className="text-sm font-bold">{fmt(bottomLeftTotal)}</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="text-sm font-bold">Total</span>
+              <span className="text-sm font-bold">{fmt(bottomRightTotal)}</span>
+            </div>
+          </div>
+
+          {/* Net Profit | Net Loss row */}
+          <div className="grid grid-cols-2 divide-x divide-gray-200 border-t border-gray-300 bg-gray-50">
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="text-sm font-bold italic text-green-700">Net Profit</span>
+              <span className="text-sm font-bold text-green-700">{fmt(netProfit)}</span>
+            </div>
+            <div className="flex items-center justify-between px-4 py-2">
+              <span className="text-sm font-bold italic text-red-600">Net Loss</span>
+              <span className="text-sm font-bold text-red-600">{fmt(netLoss)}</span>
             </div>
           </div>
         </div>
@@ -514,57 +626,29 @@ export default function ProfitAndLoss() {
                 <Calendar size={24} className="text-blue-600" />
                 Select Date Range
               </h2>
-              <button
-                onClick={() => setShowDateFilterModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
+              <button onClick={() => setShowDateFilterModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <X size={24} />
               </button>
             </div>
-
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                <input
-                  type="date"
-                  value={tempDateFilter.startDate}
+                <input type="date" value={tempDateFilter.startDate}
                   onChange={(e) => setTempDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                <input
-                  type="date"
-                  value={tempDateFilter.endDate}
+                <input type="date" value={tempDateFilter.endDate}
                   onChange={(e) => setTempDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
-
               <div className="flex justify-end gap-3 mt-6">
-                <button
-                  type="button"
-                  onClick={handleClearDateFilter}
-                  className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors mr-auto"
-                >
-                  Reset
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowDateFilterModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleApplyDateFilter}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
-                >
-                  Apply Filter
-                </button>
+                <button type="button" onClick={handleClearDateFilter} className="px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors mr-auto">Reset</button>
+                <button type="button" onClick={() => setShowDateFilterModal(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors">Cancel</button>
+                <button type="button" onClick={handleApplyDateFilter} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors">Apply Filter</button>
               </div>
             </div>
           </div>

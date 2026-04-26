@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Download, TrendingUp, ArrowLeft, Calendar, X } from 'lucide-react';
+import { Loader2, Download, TrendingUp, ArrowLeft, Calendar, X, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 
@@ -20,10 +20,58 @@ export default function LivePoultrySales() {
     // We'll store normalized sale records here
     const [saleRecords, setSaleRecords] = useState([]);
 
-    const [dateFilter, setDateFilter] = useState({
-        startDate: searchParams.get('startDate') || '',
-        endDate: searchParams.get('endDate') || ''
+    // Financial Year helpers
+    const getCurrentFinancialYear = () => {
+        const now = new Date();
+        return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    };
+
+    const getFYDates = (fyStartYear) => {
+        const startDate = `${fyStartYear}-04-01`;
+        const endDate = `${fyStartYear + 1}-03-31`;
+        return { startDate, endDate };
+    };
+
+    const yearOptions = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        const options = [];
+        for (let y = 2023; y <= currentYear + 1; y++) {
+            options.push(y);
+        }
+        return options;
+    }, []);
+
+    const getInitialYear = () => {
+        const paramStart = searchParams.get('startDate');
+        if (paramStart) {
+            const d = new Date(paramStart);
+            if (d.getMonth() === 3) return d.getFullYear();
+            return d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+        }
+        return getCurrentFinancialYear();
+    };
+
+    const [selectedFY, setSelectedFY] = useState(getInitialYear);
+
+    const [dateFilter, setDateFilter] = useState(() => {
+        const paramStart = searchParams.get('startDate');
+        const paramEnd = searchParams.get('endDate');
+        if (paramStart || paramEnd) {
+            return { startDate: paramStart || '', endDate: paramEnd || '' };
+        }
+        return getFYDates(getCurrentFinancialYear());
     });
+
+    const handleFYChange = (fyYear) => {
+        setSelectedFY(fyYear);
+        const { startDate, endDate } = getFYDates(fyYear);
+        setDateFilter({ startDate, endDate });
+
+        const params = new URLSearchParams(searchParams);
+        params.set('startDate', startDate);
+        params.set('endDate', endDate);
+        navigate(`/live-poultry-sales/monthly-summary?${params.toString()}`);
+    };
 
     // Date Filter Modal States
     const [showDateFilterModal, setShowDateFilterModal] = useState(false);
@@ -66,51 +114,58 @@ export default function LivePoultrySales() {
     };
 
     const handleClearDateFilter = () => {
-        setDateFilter({ startDate: '', endDate: '' });
+        const fyDates = getFYDates(getCurrentFinancialYear());
+        setSelectedFY(getCurrentFinancialYear());
+        setDateFilter(fyDates);
         const params = new URLSearchParams(searchParams);
         params.delete('startDate');
         params.delete('endDate');
         navigate(`/live-poultry-sales/monthly-summary?${params.toString()}`);
     };
 
-    // For infinite scroll
-    const [visibleCount, setVisibleCount] = useState(50);
-
+    // Sync FY from URL if navigates back/forth
     useEffect(() => {
-        setVisibleCount(50);
-        fetchData();
+        const start = searchParams.get('startDate');
+        const end = searchParams.get('endDate');
+        if (start || end) {
+            setDateFilter({ startDate: start || '', endDate: end || '' });
+            if (start) {
+                const d = new Date(start);
+                if (d.getMonth() === 3) setSelectedFY(d.getFullYear());
+            }
+        } else {
+            setDateFilter(getFYDates(getCurrentFinancialYear()));
+            setSelectedFY(getCurrentFinancialYear());
+        }
+    }, [searchParams]);
+
+    // For infinite scroll
+    useEffect(() => {
+        fetchData(dateFilter.startDate, dateFilter.endDate);
     }, [dateFilter.startDate, dateFilter.endDate]);
 
-    // Handle scroll for infinite loading
-    useEffect(() => {
-        const handleScroll = () => {
-            if (window.innerHeight + window.scrollY >= document.documentElement.offsetHeight - 500) {
-                setVisibleCount(prev => prev + 50);
-            }
-        };
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, []);
+    const fetchData = async (startDateParam, endDateParam) => {
+        // Use passed params (from useEffect) to avoid stale closure issues
+        const resolvedStart = startDateParam !== undefined ? startDateParam : dateFilter.startDate;
+        const resolvedEnd = endDateParam !== undefined ? endDateParam : dateFilter.endDate;
 
-    const fetchData = async () => {
         setLoading(true);
         setError('');
         try {
             let startOfPeriod, endOfPeriod;
-            if (dateFilter.startDate && dateFilter.endDate) {
-                startOfPeriod = dateFilter.startDate;
-                endOfPeriod = dateFilter.endDate;
-            } else if (dateFilter.startDate) {
-                startOfPeriod = dateFilter.startDate;
+            if (resolvedStart && resolvedEnd) {
+                startOfPeriod = resolvedStart;
+                endOfPeriod = resolvedEnd;
+            } else if (resolvedStart) {
+                startOfPeriod = resolvedStart;
                 const d = new Date();
                 endOfPeriod = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            } else if (dateFilter.endDate) {
-                startOfPeriod = `${new Date().getFullYear()}-01-01`;
-                endOfPeriod = dateFilter.endDate;
+            } else if (resolvedEnd) {
+                startOfPeriod = `${selectedFY}-04-01`;
+                endOfPeriod = resolvedEnd;
             } else {
-                const year = new Date().getFullYear();
-                startOfPeriod = `${year}-01-01`;
-                endOfPeriod = `${year}-12-31`;
+                startOfPeriod = `${selectedFY}-04-01`;
+                endOfPeriod = `${selectedFY + 1}-03-31`;
             }
 
             let combinedRecords = [];
@@ -163,7 +218,7 @@ export default function LivePoultrySales() {
                         startDate: startOfPeriod,
                         endDate: endOfPeriod,
                         page: tripPage,
-                        limit: 50
+                        limit: 500
                     }
                 });
                 if (tripsRes.data.success) {
@@ -203,7 +258,7 @@ export default function LivePoultrySales() {
                     break;
                 }
                 tripPage++;
-            } while (tripPage <= tripTotalPages && tripPage <= 20);
+            } while (tripPage <= tripTotalPages && tripPage <= 200); // fetches all pages (up to 100,000 records)
 
             // 3. Fetch Indirect Sales (contains indirect sales)
             let indPage = 1;
@@ -214,7 +269,7 @@ export default function LivePoultrySales() {
                         startDate: startOfPeriod,
                         endDate: endOfPeriod,
                         page: indPage,
-                        limit: 50
+                        limit: 500
                     }
                 });
 
@@ -250,7 +305,7 @@ export default function LivePoultrySales() {
                     break;
                 }
                 indPage++;
-            } while (indPage <= indTotalPages && indPage <= 20);
+            } while (indPage <= indTotalPages && indPage <= 200); // fetches all pages (up to 100,000 records)
 
             // Sort chronologically
             combinedRecords.sort((a, b) => a.date - b.date);
@@ -307,7 +362,7 @@ export default function LivePoultrySales() {
     const totalQty = saleRecords.reduce((sum, r) => sum + r.quantity, 0);
     const totalAmount = saleRecords.reduce((sum, r) => sum + r.amount, 0);
 
-    const visibleRecords = saleRecords.slice(0, visibleCount);
+    const visibleRecords = saleRecords;
 
     const handleRowClick = (record) => {
         if (record.type === 'DIRECT SALES (Trip Sales)' && record.tripId) {
@@ -343,6 +398,20 @@ export default function LivePoultrySales() {
 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t md:border-none border-gray-200">
                     <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <select
+                                value={selectedFY}
+                                onChange={(e) => handleFYChange(Number(e.target.value))}
+                                className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-10 font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors cursor-pointer focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            >
+                                {yearOptions.map((y) => (
+                                    <option key={y} value={y}>
+                                        FY {y}-{y + 1}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                        </div>
                         <button
                             onClick={openDateFilterModal}
                             className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors bg-white shadow-sm"
@@ -412,12 +481,12 @@ export default function LivePoultrySales() {
                                     </td>
                                     <td className="py-3 px-4 border-r font-medium text-center">
                                         <span className={`px-2 py-1 rounded-md border uppercase text-xs whitespace-nowrap ${record.type.toLowerCase().includes('indirect')
-                                                ? 'bg-purple-50 border-purple-200 text-purple-700'
-                                                : record.type.toLowerCase().includes('direct')
-                                                    ? 'bg-blue-50 border-blue-200 text-blue-700'
-                                                    : record.type.toLowerCase().includes('stock point')
-                                                        ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                                                        : 'bg-gray-50 border-gray-200 text-gray-700'
+                                            ? 'bg-purple-50 border-purple-200 text-purple-700'
+                                            : record.type.toLowerCase().includes('direct')
+                                                ? 'bg-blue-50 border-blue-200 text-blue-700'
+                                                : record.type.toLowerCase().includes('stock point')
+                                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                                                    : 'bg-gray-50 border-gray-200 text-gray-700'
                                             }`}>
                                             {record.type}
                                         </span>

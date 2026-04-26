@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, ArrowLeft, Download, FileText } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
@@ -9,7 +9,17 @@ export default function BirdsWeightLossMonthlySummary() {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
-    const [year, setYear] = useState(new Date().getMonth() >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1);
+    const [searchParams] = useSearchParams();
+    const getInitialYear = () => {
+        const paramStart = searchParams.get('startDate');
+        if (paramStart) {
+            const d = new Date(paramStart);
+            if (d.getMonth() === 3) return d.getFullYear();
+            return d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+        }
+        return new Date().getMonth() >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1;
+    };
+    const [year, setYear] = useState(getInitialYear);
 
     useEffect(() => {
         fetchMonthlySummary();

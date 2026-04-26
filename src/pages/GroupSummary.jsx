@@ -399,10 +399,30 @@ export default function GroupSummary() {
                           const query = `?startDate=${dateFilter.startDate}&endDate=${dateFilter.endDate}`;
                           const encodedGroupName = encodeURIComponent(groupSummary.group.name);
                           if (entry.type === 'subgroup') {
-                            if (entry.name && entry.name.toLowerCase() === 'birds stock') {
-                              navigate(`/birds-stock/monthly-summary${query}`);
-                            } else if (entry.name && entry.name.toLowerCase() === 'feed stock') {
-                              navigate(`/feed-stock/monthly-summary${query}`);
+                            const currentGroupName = groupSummary.group.name.toLowerCase();
+                            const isClosingStockGroup = currentGroupName === 'closing stock';
+                            const isOpeningStockGroup = currentGroupName === 'opening stock';
+                            const entryNameLower = entry.name ? entry.name.toLowerCase() : '';
+                            if (entryNameLower === 'birds opening stock') {
+                              navigate(`/birds-opening-stock/monthly-summary${query}`);
+                            } else if (entryNameLower === 'feed opening stock') {
+                              navigate(`/feed-opening-stock/monthly-summary${query}`);
+                            } else if (entryNameLower === 'birds stock') {
+                              if (isClosingStockGroup) {
+                                navigate(`/birds-closing-stock/monthly-summary${query}`);
+                              } else if (isOpeningStockGroup) {
+                                navigate(`/birds-opening-stock/monthly-summary${query}`);
+                              } else {
+                                navigate(`/birds-stock/monthly-summary${query}`);
+                              }
+                            } else if (entryNameLower === 'feed stock') {
+                              if (isClosingStockGroup) {
+                                navigate(`/feed-closing-stock/monthly-summary${query}`);
+                              } else if (isOpeningStockGroup) {
+                                navigate(`/feed-opening-stock/monthly-summary${query}`);
+                              } else {
+                                navigate(`/feed-stock/monthly-summary${query}`);
+                              }
                             } else {
                               navigate(`/group-summary/${entry.id}${query}`);
                             }
@@ -418,7 +438,7 @@ export default function GroupSummary() {
                           } else if (entry.type === 'ledger') {
                             navigate(`/monthly-summary/ledger/${entry.id}${query}&groupName=${encodedGroupName}`);
                           } else if (entry.type === 'dieselStation') {
-                            navigate(`/monthly-summary/dieselStation/${entry.id}`);
+                            navigate(`/monthly-summary/dieselStation/${entry.id}${query}`);
                           }
                         }}
                       >

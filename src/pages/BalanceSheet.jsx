@@ -95,9 +95,49 @@ export default function BalanceSheet() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [balanceSheet, setBalanceSheet] = useState(null);
 
-  const [dateFilter, setDateFilter] = useState({
-    startDate: searchParams.get('startDate') || '',
-    endDate: searchParams.get('endDate') || new Date().toISOString().split('T')[0]
+  // Financial Year helpers
+  const getCurrentFinancialYear = () => {
+    const now = new Date();
+    // If current month is Jan-Mar, FY started previous calendar year
+    return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  };
+
+  const getFYDates = (fyStartYear) => {
+    const startDate = `${fyStartYear}-04-01`;
+    const endDate = `${fyStartYear + 1}-03-31`;
+    return { startDate, endDate };
+  };
+
+  // Financial Year dropdown options (2023 to current+1)
+  const yearOptions = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const options = [];
+    for (let y = 2023; y <= currentYear + 1; y++) {
+      options.push(y);
+    }
+    return options;
+  }, []);
+
+  // Determine initial FY from URL params or default to current FY
+  const getInitialYear = () => {
+    const paramStart = searchParams.get('startDate');
+    if (paramStart) {
+      // If startDate is April of some year, extract that year
+      const d = new Date(paramStart);
+      if (d.getMonth() === 3) return d.getFullYear(); // April = month index 3
+    }
+    return getCurrentFinancialYear();
+  };
+
+  const [selectedYear, setSelectedYear] = useState(getInitialYear);
+
+  const [dateFilter, setDateFilter] = useState(() => {
+    const paramStart = searchParams.get('startDate');
+    const paramEnd = searchParams.get('endDate');
+    if (paramStart && paramEnd) {
+      return { startDate: paramStart, endDate: paramEnd };
+    }
+    return getFYDates(getCurrentFinancialYear());
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -154,15 +194,26 @@ export default function BalanceSheet() {
     });
   }, [balanceSheet]);
 
+  // Handle financial year dropdown change
+  const handleYearChange = useCallback((e) => {
+    const year = parseInt(e.target.value);
+    setSelectedYear(year);
+    const { startDate, endDate } = getFYDates(year);
+    setDateFilter({ startDate, endDate });
+    setSearchParams({ startDate, endDate });
+  }, [setSearchParams]);
+
   useEffect(() => {
     // Sync state with URL params
     const start = searchParams.get('startDate');
     const end = searchParams.get('endDate');
-    if (start !== dateFilter.startDate || end !== dateFilter.endDate) {
-      setDateFilter({
-        startDate: start || '',
-        endDate: end || new Date().toISOString().split('T')[0]
-      });
+    if (start && end && (start !== dateFilter.startDate || end !== dateFilter.endDate)) {
+      setDateFilter({ startDate: start, endDate: end });
+      // Try to sync the year dropdown with the URL params
+      const d = new Date(start);
+      if (d.getMonth() === 3) { // April
+        setSelectedYear(d.getFullYear());
+      }
     }
   }, [searchParams]);
 
@@ -386,7 +437,17 @@ export default function BalanceSheet() {
           <h1 className="text-3xl font-bold text-gray-900">Balance Sheet</h1>
           <p className="text-gray-600 mt-1">Financial position as on selected date</p>
         </div>
-        <div className="flex gap-3 mt-4 sm:mt-0">
+        <div className="flex flex-wrap gap-3 mt-4 sm:mt-0 items-center">
+          <select
+            id="fy-dropdown"
+            value={selectedYear}
+            onChange={handleYearChange}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-700 font-medium shadow-sm cursor-pointer"
+          >
+            {yearOptions.map(y => (
+              <option key={y} value={y}>FY {y}-{y + 1}</option>
+            ))}
+          </select>
           <button
             onClick={openDateFilterModal}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 shadow-sm"

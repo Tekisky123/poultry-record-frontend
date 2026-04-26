@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, Loader2, Download, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,7 +11,24 @@ export default function TripMonthlySummary() {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
-    const [year, setYear] = useState('');
+
+    // Financial Year helpers
+    const getCurrentFinancialYear = () => {
+        const now = new Date();
+        return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    };
+
+    const [year, setYear] = useState(getCurrentFinancialYear);
+
+    // Generate FY options (2023 to current+1)
+    const yearOptions = (() => {
+        const currentYear = new Date().getFullYear();
+        const options = [];
+        for (let y = 2023; y <= currentYear + 1; y++) {
+            options.push(y);
+        }
+        return options;
+    })();
 
     useEffect(() => {
         fetchMonthlySummary();
@@ -93,6 +110,21 @@ export default function TripMonthlySummary() {
                     </div>
                 </div>
                 <div className="flex gap-3 mt-4 sm:mt-0">
+                    {/* Financial Year Dropdown */}
+                    <div className="relative">
+                        <select
+                            value={year}
+                            onChange={(e) => setYear(Number(e.target.value))}
+                            className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-10 font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors cursor-pointer focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                            {yearOptions.map((y) => (
+                                <option key={y} value={y}>
+                                    FY {y}-{y + 1}
+                                </option>
+                            ))}
+                        </select>
+                        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                    </div>
                     <button
                         onClick={handleExportToExcel}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors"

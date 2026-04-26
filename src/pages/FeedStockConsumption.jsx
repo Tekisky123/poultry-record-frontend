@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Download, Package, Calendar, ArrowLeft, X } from 'lucide-react';
+import { Loader2, Download, Package, Calendar, ArrowLeft, X, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 
@@ -20,10 +20,58 @@ export default function FeedStockConsumption() {
     // We'll store normalized consumption records here
     const [consumptionRecords, setConsumptionRecords] = useState([]);
 
-    const [dateFilter, setDateFilter] = useState({
-        startDate: searchParams.get('startDate') || '',
-        endDate: searchParams.get('endDate') || ''
+    // Financial Year helpers
+    const getCurrentFinancialYear = () => {
+        const now = new Date();
+        return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    };
+
+    const getFYDates = (fyStartYear) => {
+        const startDate = `${fyStartYear}-04-01`;
+        const endDate = `${fyStartYear + 1}-03-31`;
+        return { startDate, endDate };
+    };
+
+    const yearOptions = useMemo(() => {
+        const currentYear = new Date().getFullYear();
+        const options = [];
+        for (let y = 2023; y <= currentYear + 1; y++) {
+            options.push(y);
+        }
+        return options;
+    }, []);
+
+    const getInitialYear = () => {
+        const paramStart = searchParams.get('startDate');
+        if (paramStart) {
+            const d = new Date(paramStart);
+            if (d.getMonth() === 3) return d.getFullYear();
+            return d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+        }
+        return getCurrentFinancialYear();
+    };
+
+    const [selectedFY, setSelectedFY] = useState(getInitialYear);
+
+    const [dateFilter, setDateFilter] = useState(() => {
+        const paramStart = searchParams.get('startDate');
+        const paramEnd = searchParams.get('endDate');
+        if (paramStart || paramEnd) {
+            return { startDate: paramStart || '', endDate: paramEnd || '' };
+        }
+        return getFYDates(getCurrentFinancialYear());
     });
+
+    const handleFYChange = (fyYear) => {
+        setSelectedFY(fyYear);
+        const { startDate, endDate } = getFYDates(fyYear);
+        setDateFilter({ startDate, endDate });
+        
+        const params = new URLSearchParams(searchParams);
+        params.set('startDate', startDate);
+        params.set('endDate', endDate);
+        navigate(`/feed-stock-consumption/monthly-summary?${params.toString()}`);
+    };
     
     // Date Filter Modal States
     const [showDateFilterModal, setShowDateFilterModal] = useState(false);
@@ -66,12 +114,30 @@ export default function FeedStockConsumption() {
     };
 
     const handleClearDateFilter = () => {
-        setDateFilter({ startDate: '', endDate: '' });
+        const fyDates = getFYDates(getCurrentFinancialYear());
+        setSelectedFY(getCurrentFinancialYear());
+        setDateFilter(fyDates);
         const params = new URLSearchParams(searchParams);
         params.delete('startDate');
         params.delete('endDate');
         navigate(`/feed-stock-consumption/monthly-summary?${params.toString()}`);
     };
+
+    // Sync FY from URL if navigates back/forth
+    useEffect(() => {
+        const start = searchParams.get('startDate');
+        const end = searchParams.get('endDate');
+        if (start || end) {
+             setDateFilter({ startDate: start || '', endDate: end || '' });
+             if (start) {
+                 const d = new Date(start);
+                 if (d.getMonth() === 3) setSelectedFY(d.getFullYear());
+             }
+        } else {
+             setDateFilter(getFYDates(getCurrentFinancialYear()));
+             setSelectedFY(getCurrentFinancialYear());
+        }
+    }, [searchParams]);
 
     useEffect(() => {
         fetchData();
@@ -90,12 +156,11 @@ export default function FeedStockConsumption() {
                 const d = new Date();
                 endOfPeriod = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             } else if (dateFilter.endDate) {
-                startOfPeriod = `${new Date().getFullYear()}-01-01`;
+                startOfPeriod = `${selectedFY}-04-01`;
                 endOfPeriod = dateFilter.endDate;
             } else {
-                const year = new Date().getFullYear();
-                startOfPeriod = `${year}-01-01`;
-                endOfPeriod = `${year}-12-31`;
+                startOfPeriod = `${selectedFY}-04-01`;
+                endOfPeriod = `${selectedFY + 1}-03-31`;
             }
 
             // 1. Fetch Inventory for consume
@@ -212,6 +277,20 @@ export default function FeedStockConsumption() {
                 
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t md:border-none border-gray-200">
                     <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <select
+                                value={selectedFY}
+                                onChange={(e) => handleFYChange(Number(e.target.value))}
+                                className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-10 font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors cursor-pointer focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                            >
+                                {yearOptions.map((y) => (
+                                    <option key={y} value={y}>
+                                        FY {y}-{y + 1}
+                                    </option>
+                                ))}
+                            </select>
+                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                        </div>
                         <button
                           onClick={openDateFilterModal}
                           className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors bg-white shadow-sm"

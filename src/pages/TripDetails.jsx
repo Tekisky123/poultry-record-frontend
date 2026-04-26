@@ -249,7 +249,7 @@ export default function TripDetails() {
 
       // Find groups by name (they might be nested, so search through all groups)
       const bankAccountsGroup = groups.find(g => g.name === 'Bank Accounts');
-      const cashInHandGroup = groups.find(g => g.name === 'Cash-in-Hand');
+      const cashInHandGroup = groups.find(g => g.name === 'Cash-in-Hand' || g.name === 'CASH A/C');
 
       const promises = [];
       if (bankAccountsGroup && bankAccountsGroup.id) {

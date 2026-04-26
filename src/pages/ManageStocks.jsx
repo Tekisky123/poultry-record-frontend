@@ -81,13 +81,7 @@ const ManageStocks = () => {
         sendSms: false
     });
 
-    const [openingStockData, setOpeningStockData] = useState({
-        birds: '',
-        weight: '',
-        rate: '',
-        refNo: '',
-        date: defaultDate
-    });
+
 
     // Calculate Avg and Amount Effects
     const [showMortalityModal, setShowMortalityModal] = useState(false);
@@ -190,13 +184,7 @@ const ManageStocks = () => {
         }));
     }, [feedConsumeData.weight, feedConsumeData.rate]);
 
-    const [showFeedOpeningStockModal, setShowFeedOpeningStockModal] = useState(false);
-    const [feedOpeningStockData, setFeedOpeningStockData] = useState({
-        bags: '',
-        weight: '',
-        rate: '',
-        date: defaultDate
-    });
+
 
     useEffect(() => {
         const birds = Number(saleData.birds) || 0;
@@ -242,7 +230,20 @@ const ManageStocks = () => {
         fetchInitialData();
     }, [dateParam]);
 
+    // Helper: convert a DB date value to local YYYY-MM-DD string.
+    // Using .toISOString() shifts IST dates to the previous UTC day, causing wrong comparisons.
+    // This function uses the browser's local timezone instead.
+    const toLocalDateStr = (dateVal) => {
+        if (!dateVal) return '';
+        const d = new Date(dateVal);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
     const fetchInitialData = async () => {
+
         setLoading(true);
         try {
             const targetDate = dateParam || new Date().toISOString().split('T')[0];
@@ -287,17 +288,15 @@ const ManageStocks = () => {
                     baseBirdOpsList = baseBirdRes.data.data;
                     const sortedBirdOps = [...baseBirdOpsList].sort((a, b) => new Date(a.date) - new Date(b.date));
                     const baseBirdOp = sortedBirdOps[0];
-
-                    const bOpDate = new Date(baseBirdOp.date);
-                    const bOpYear = bOpDate.getFullYear();
-                    const bOpMonth = bOpDate.getMonth();
-                    const bOpFyStartYear = bOpMonth >= 3 ? bOpYear : bOpYear - 1;
-                    birdAnchorDate = `${bOpFyStartYear}-04-01`;
+                    // Use LOCAL date (not UTC) to avoid timezone shift errors.
+                    // IST dates stored in DB shift to previous UTC day, so .toISOString() gives wrong date.
+                    birdAnchorDate = toLocalDateStr(baseBirdOp.date);
                 }
             }
 
             const shouldFetchHistory = dateParam && prevDateStr >= anchorDate;
-            const shouldFetchBirdHistory = dateParam && prevDateStr >= birdAnchorDate;
+            // FIX Bug 3: shouldFetchBirdHistory checks against actual opening stock date
+            const shouldFetchBirdHistory = dateParam && baseBirdOpsList.length > 0 && prevDateStr >= birdAnchorDate;
 
             const [stocksRes, vendorsRes, customersRes, ledgersRes, prevStocksRes, historicalFeedRes, historicalBirdRes] = await Promise.all([
                 api.get('/inventory-stock', { params: dateParam ? { startDate: dateParam, endDate: dateParam } : {} }),
@@ -306,30 +305,13 @@ const ManageStocks = () => {
                 api.get('/ledger'),
                 api.get('/inventory-stock', { params: { startDate: prevDateStr, endDate: prevDateStr } }),
                 shouldFetchHistory ? api.get('/inventory-stock', { params: { startDate: anchorDate, endDate: prevDateStr, inventoryType: 'feed' } }) : Promise.resolve({ data: { success: true, data: [] } }),
+                // FIX Bug 3: fetch from actual opening stock date, include all types so opening entries in range are also captured
                 shouldFetchBirdHistory ? api.get('/inventory-stock', { params: { startDate: birdAnchorDate, endDate: prevDateStr, inventoryType: 'bird' } }) : Promise.resolve({ data: { success: true, data: [] } })
             ]);
 
             if (stocksRes.data.success) {
                 const fetchedStocks = stocksRes.data.data;
                 setStocks(fetchedStocks);
-
-                // Check for Opening Stock (Admin only check) - Only when not filtering by date
-                if (!dateParam && (user?.role === 'admin' || user?.role === 'superadmin')) {
-                    const hasBirdOpening = fetchedStocks.some(s => s.type === 'opening' && s.inventoryType !== 'feed');
-                    const hasFeedOpening = fetchedStocks.some(s => s.type === 'opening' && s.inventoryType === 'feed');
-
-                    if (!hasBirdOpening) {
-                        setShowOpeningStockModal(true);
-                    }
-                    // Sequential check: if bird opening modal is shown, maybe wait? 
-                    // But for simplicity, we can just show feed modal if bird modal is not showing, 
-                    // or let them overlap (user handles one then other).
-                    // Better UX: Show Feed Opening only if Bird Opening is present OR after Bird Opening is closed?
-                    // For now, let's just trigger it if missing. React state might handle batching or stacking.
-                    if (!hasFeedOpening) {
-                        setShowFeedOpeningStockModal(true);
-                    }
-                }
             }
 
             if (prevStocksRes.data.success) {
@@ -377,26 +359,25 @@ const ManageStocks = () => {
                     amount: totalOpAmount + totalPurchAmount - totalConsAmount
                 });
 
-                // Bird Calculation
-                const includeBirdBase = dateParam >= birdAnchorDate;
-                let histBirdOp = [];
-                if (includeBirdBase && baseBirdOpsList.length > 0) {
-                    const sortedBirdOps = [...baseBirdOpsList].sort((a, b) => new Date(a.date) - new Date(b.date));
-                    histBirdOp = [sortedBirdOps[0]];
-                }
-                const rawHistBirds = historicalBirdRes.data?.success ? historicalBirdRes.data.data : [];
-                // Transactions: Purchase, Sale, Mortality, WeightLoss
-                // Bird Opening = Base Op + Purchases - Sales - Mortality. 
-                // Note: Weight Loss usually affects weight/amount, not birds count? But let's verify logic.
-                // Standard Closing Stock Formula used in Render:
-                // Gross Birds = Total Birds (Op + Purch) - Solb Birds.
-                // Closing Birds = Gross Birds - Mortality Birds.
-                // So Closing = Op + Purch - Sales - Mortality.
+                // TIMEZONE FIX:
+                // DB dates stored in IST shift 1 day earlier in UTC (.toISOString()).
+                // The backend endDate query includes IST entries from the NEXT day.
+                // Fix: after fetching, filter rawHistBirds to local date <= prevDateStr.
+                const rawHistBirdsAll = historicalBirdRes.data?.success ? historicalBirdRes.data.data : [];
+                // Strictly exclude any entry whose LOCAL date is beyond prevDateStr
+                const rawHistBirds = rawHistBirdsAll.filter(s => toLocalDateStr(s.date) <= prevDateStr);
 
+                // Use ONLY the first opening stock (sorted by date) as the base.
+                // eligibleBirdOps: opening stocks whose local date is <= prevDateStr.
+                const sortedBirdOpsAll = [...baseBirdOpsList].sort((a, b) => new Date(a.date) - new Date(b.date));
+                const firstBirdOp = sortedBirdOpsAll.find(s => toLocalDateStr(s.date) <= prevDateStr);
+                const histBirdOp = firstBirdOp ? [firstBirdOp] : [];
+
+                // Transactions (exclude opening type — counted via histBirdOp)
                 const histBirdPurch = rawHistBirds.filter(s => s.type === 'purchase');
-                const histBirdSales = rawHistBirds.filter(s => (s.type === 'sale' || s.type === 'receipt'));
+                const histBirdSales = rawHistBirds.filter(s => s.type === 'sale' || s.type === 'receipt');
                 const histBirdMort = rawHistBirds.filter(s => s.type === 'mortality');
-                // Weight loss type 'weight_loss' or 'natural_weight_loss' usually has 0 birds, just weight.
+                const histWeightLoss = rawHistBirds.filter(s => s.type === 'weight_loss' || s.type === 'natural_weight_loss');
 
                 // Summing Birds
                 const bOpBirds = histBirdOp.reduce((sum, s) => sum + (Number(s.birds) || 0), 0);
@@ -408,57 +389,45 @@ const ManageStocks = () => {
                 const bOpWeight = histBirdOp.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
                 const bPurchWeight = histBirdPurch.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
                 const bSaleWeight = histBirdSales.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
-                const bMortWeight = histBirdMort.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
-                // Weight Loss?
-                const histWeightLoss = rawHistBirds.filter(s => s.type === 'weight_loss' || s.type === 'natural_weight_loss');
                 const bLossWeight = histWeightLoss.reduce((sum, s) => sum + (Number(s.weight) || 0), 0);
 
-                // Summing Amount
+                // Summing Amount (cost basis)
                 const bOpAmount = histBirdOp.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
                 const bPurchAmount = histBirdPurch.reduce((sum, s) => sum + (Number(s.amount) || 0), 0);
-                // Sales Amount doesn't reduce STOCK AMOUNT directly in accounting? 
-                // In Inventory Stock (Value): Closing Value = Closing Weight * Rate.
-                // Rate is derived.
-                // Let's rely on standard flow:
-                // We need 1 value: The Opening Stock for Today.
-                // Opening Stock Today = Closing Stock Yesterday.
-                // Closing Stock Yesterday = (Op + Purch - Sales - Mort) Birds...
-                // Weight = (OpWeight + PurchWeight - SaleWeight - MortWeight - LossWeight).
-                // Amount = Weight * Rate? Or Amount = (OpAmt + PurchAmt ...)?
-                // Usually Amount tracks Cost. Sales remove Cost (COGS).
-                // Ensure we subtract Cost of Sales, not Sale Amount (Revenue).
-                // In this app, stock entries for sales might track revenue or cost? 
-                // 'sale' stock has 'amount' = sale value.
-                // To get Stock Value, we usually do: Weight * Avg Purchase Rate.
-                // Let's stick to simple: Birds & Weight are physical. Rate/Amount derived.
 
+                // Birds: Op + Purchases - Sales - Mortality
                 const finalBirds = bOpBirds + bPurchBirds - bSaleBirds - bMortBirds;
-                const finalWeight = bOpWeight + bPurchWeight - bSaleWeight - bMortWeight - bLossWeight; // Weight loss is reduction
 
-                // Rate? Keep it simple: if birds > 0, calculate.
-                // We mainly need Birds & Weight to populate the "OP STOCK" row.
-                // Amount can be derived or we can approximate.
+                // Weight: use same mortality weight formula as closing stock display
+                // (mortBirds × saleAvg) so that next-day opening = prev-day closing exactly
+                const historicalSaleAvg = bSaleBirds > 0 ? bSaleWeight / bSaleBirds : 0;
+                const bMortWeightComputed = bMortBirds * historicalSaleAvg;
+                const finalWeight = bOpWeight + bPurchWeight - bSaleWeight - bMortWeightComputed - bLossWeight;
 
-                // If we need amount, we'd assume FIFO or Avg Cost. 
-                // Let's just set Birds and Weight accurately, and let the table derive Rate/Amount if possible, or carry forward Rate from yesterday?
-                // `totalRate` (Purchase Rate) is usually used for valuation.
-                // Let's try to sum Amount for Purchase/Op and subtract proporational amount?
-                // Complex. Let's just pass Birds/Weight/Amount(0) or Amount(Simple).
-                // Actually `amount` in `birdOpeningStockCalculated` is used? 
-                // Render logic for sortedPurchaseStocks uses stock.amount directly.
-                // We should try to estimate value.
-                // Value = finalWeight * (Average Purchase Rate).
-                // Avg Purch Rate = (OpAmount + PurchAmount) / (OpWeight + PurchWeight).
-
+                // Amount: weighted average cost
                 const totalInputWeight = bOpWeight + bPurchWeight;
                 const totalInputAmount = bOpAmount + bPurchAmount;
                 const avgRate = totalInputWeight > 0 ? totalInputAmount / totalInputWeight : 0;
                 const finalAmount = finalWeight * avgRate;
 
+                // ======= DEBUG LOGS — remove after fix =======
+                console.group(`[BirdOP Debug] dateParam=${dateParam} prevDate=${prevDateStr}`);
+                console.log('rawHistBirdsAll count:', rawHistBirdsAll.length, rawHistBirdsAll.map(s => ({ type: s.type, birds: s.birds, weight: s.weight, date: s.date, localDate: toLocalDateStr(s.date) })));
+                console.log('rawHistBirds (after tz filter) count:', rawHistBirds.length);
+                console.log('firstBirdOp:', firstBirdOp ? { birds: firstBirdOp.birds, weight: firstBirdOp.weight, date: firstBirdOp.date, localDate: toLocalDateStr(firstBirdOp.date) } : null);
+                console.log('histBirdPurch:', histBirdPurch.map(s => ({ birds: s.birds, weight: s.weight, date: s.date, localDate: toLocalDateStr(s.date) })));
+                console.log('histBirdSales:', histBirdSales.map(s => ({ birds: s.birds, weight: s.weight, date: s.date, localDate: toLocalDateStr(s.date) })));
+                console.log('histBirdMort:', histBirdMort.map(s => ({ birds: s.birds, weight: s.weight, date: s.date, localDate: toLocalDateStr(s.date) })));
+                console.log('TOTALS → bOpBirds:', bOpBirds, 'bPurchBirds:', bPurchBirds, 'bSaleBirds:', bSaleBirds, 'bMortBirds:', bMortBirds);
+                console.log('TOTALS → bOpWeight:', bOpWeight, 'bPurchWeight:', bPurchWeight, 'bSaleWeight:', bSaleWeight, 'bLossWeight:', bLossWeight);
+                console.log('finalBirds:', finalBirds, 'finalWeight:', finalWeight);
+                console.groupEnd();
+                // ======= END DEBUG LOGS =======
+
                 setBirdOpeningStockCalculated({
                     birds: finalBirds,
-                    weight: finalWeight,
-                    amount: finalAmount
+                    weight: Number(finalWeight.toFixed(2)),
+                    amount: Number(finalAmount.toFixed(2))
                 });
 
             } else {
@@ -598,60 +567,6 @@ const ManageStocks = () => {
             fetchInitialData();
         } catch (error) {
             alert(error.response?.data?.message || "Failed to save receipt");
-        }
-    };
-
-    const handleOpeningStockSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            await api.post('/inventory-stock/purchase', { // Re-using purchase endpoint? Or special opening type?
-                ...openingStockData,
-                type: 'opening',
-                inventoryType: 'bird',
-                amount: (Number(openingStockData.weight) * Number(openingStockData.rate))
-            });
-
-            setShowOpeningStockModal(false);
-            setOpeningStockData({ birds: '', weight: '', rate: '', refNo: '', date: defaultDate });
-            fetchInitialData();
-            alert("Opening Stock added successfully!");
-        } catch (error) {
-            alert(error.response?.data?.message || "Failed to add opening stock");
-        }
-    };
-
-    const handleFeedOpeningStockSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            if (isEditMode && currentStockId) {
-                // Update implementation
-                await api.put(`/inventory-stock/${currentStockId}`, {
-                    ...feedOpeningStockData,
-                    type: 'opening',
-                    inventoryType: 'feed',
-                    birds: 0,
-                    amount: (Number(feedOpeningStockData.weight) * Number(feedOpeningStockData.rate))
-                });
-                alert("Feed Opening Stock updated successfully!");
-            } else {
-                // Add implementation
-                await api.post('/inventory-stock/purchase', {
-                    ...feedOpeningStockData,
-                    type: 'opening',
-                    inventoryType: 'feed',
-                    birds: 0,
-                    amount: (Number(feedOpeningStockData.weight) * Number(feedOpeningStockData.rate))
-                });
-                alert("Feed Opening Stock added successfully!");
-            }
-
-            setShowFeedOpeningStockModal(false);
-            setFeedOpeningStockData({ weight: '', rate: '', date: defaultDate });
-            setIsEditMode(false);
-            setCurrentStockId(null);
-            fetchInitialData();
-        } catch (error) {
-            alert(error.response?.data?.message || "Failed to save feed opening stock");
         }
     };
 
@@ -945,26 +860,32 @@ const ManageStocks = () => {
     });
 
     // Sort Purchase Stocks (Birds): Opening Stock First, then by Date
-    // If dateParam is present, WE INJECT THE CALCULATED OPENING STOCK.
+    // If dateParam is present, inject the CALCULATED opening stock (= prev day closing).
+    // Exception: on the opening stock date itself, the calc will be {0,0,0} (no prior history),
+    // so we fall back to showing the actual DB opening stock entry directly.
+    const hasCalcOpeningData = birdOpeningStockCalculated.birds > 0 || birdOpeningStockCalculated.weight > 0;
+
     const sortedPurchaseStocks = (() => {
         let base = [];
         if (dateParam) {
-            // Check if we have calculated opening stock to show?
-            // Only show if it's not empty? Or always show "OP STOCK" row?
-            // Usually always show OP STOCK row for continuity.
-            const calcOp = {
-                _id: 'calc-op-bird',
-                type: 'opening',
-                inventoryType: 'bird', // or explicitly undefined if bird is default
-                vendorId: { vendorName: 'OP STOCK' }, // Mock for display
-                birds: birdOpeningStockCalculated.birds,
-                weight: birdOpeningStockCalculated.weight,
-                amount: birdOpeningStockCalculated.amount,
-                rate: birdOpeningStockCalculated.weight > 0 ? birdOpeningStockCalculated.amount / birdOpeningStockCalculated.weight : 0,
-                date: dateParam // appears as of today
-            };
-            // Filter out any physical 'opening' stocks from the day's list to avoid double counting if they exist (though unlikely if anchoring working)
-            base = [calcOp, ...rawPurchaseStocks.filter(s => s.type !== 'opening')];
+            if (hasCalcOpeningData) {
+                // Normal case (Jan 2+): inject the calculated row, hide actual opening entry
+                const calcOp = {
+                    _id: 'calc-op-bird',
+                    type: 'opening',
+                    inventoryType: 'bird',
+                    vendorId: { vendorName: 'OP STOCK' },
+                    birds: birdOpeningStockCalculated.birds,
+                    weight: birdOpeningStockCalculated.weight,
+                    amount: birdOpeningStockCalculated.amount,
+                    rate: birdOpeningStockCalculated.weight > 0 ? birdOpeningStockCalculated.amount / birdOpeningStockCalculated.weight : 0,
+                    date: dateParam
+                };
+                base = [calcOp, ...rawPurchaseStocks.filter(s => s.type !== 'opening')];
+            } else {
+                // Opening stock date itself (Jan 1): show actual DB opening entry as-is
+                base = [...rawPurchaseStocks];
+            }
         } else {
             base = [...rawPurchaseStocks];
         }
@@ -1659,15 +1580,23 @@ const ManageStocks = () => {
                 const actTotalComputed = actRate * actWeight;
 
                 // 4. CLOSING STOCK CALCS
+                // FIX Bug 1: Use direct weight subtraction instead of closeBirds * saleAvg.
+                // Closing weight = what's physically left after sales, mortality, and actual weight loss.
+                // This value is what becomes tomorrow's opening weight — it must be accurate.
                 const closeBirds = grossBirds - mortBirds;
-                const closeAvg = totalSaleAvg;
-                const closeWeight = closeBirds * closeAvg;
+                // FIX: Natural weight loss stock actual value (if entered by user)
+                const enteredNatWeight = naturalWeightLossStock ? Number(naturalWeightLossStock.weight) : 0;
+                // FIX Bug 1: closeWeight = actual remaining weight (direct subtraction, not avg-derived)
+                const closeWeight = grossWeight - mortWeightComputed - actWeight - enteredNatWeight;
+                const closeAvg = closeBirds > 0 ? closeWeight / closeBirds : 0;
                 const closeRate = grossRate;
                 const closeTotal = closeRate * closeWeight;
 
                 // 5. NATURAL WEIGHT LOSS / ON CALCS
+                // FIX Bug 2: If user entered natural weight loss, use that value.
+                // Otherwise compute as residual (what weight can't be explained by other entries).
                 const natBirds = 0;
-                const natWeight = grossWeight - mortWeightComputed - actWeight - closeWeight;
+                const natWeight = enteredNatWeight;
                 const natRate = grossRate;
                 const natTotalComputed = natRate * natWeight;
 
@@ -2585,87 +2514,6 @@ const ManageStocks = () => {
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* Opening Stock Modal */}
-            {
-                showOpeningStockModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white p-6 rounded-lg w-full max-w-lg">
-                            <h3 className="text-xl font-bold mb-4">Add Opening Stock</h3>
-                            <form onSubmit={handleOpeningStockSubmit} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium">Birds <span className="text-red-500">*</span></label>
-                                        <input type="number" value={openingStockData.birds} onChange={e => setOpeningStockData({ ...openingStockData, birds: e.target.value })} className="w-full border p-2 rounded" required />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium">Weight <span className="text-red-500">*</span></label>
-                                        <input type="number" value={openingStockData.weight} onChange={e => setOpeningStockData({ ...openingStockData, weight: e.target.value })} className="w-full border p-2 rounded" required />
-                                    </div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium">Rate <span className="text-red-500">*</span></label>
-                                        <input type="number" value={openingStockData.rate} onChange={e => setOpeningStockData({ ...openingStockData, rate: e.target.value })} className="w-full border p-2 rounded" required />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium">Ref No (DC No)</label>
-                                        <input type="text" value={openingStockData.refNo} onChange={e => setOpeningStockData({ ...openingStockData, refNo: e.target.value })} className="w-full border p-2 rounded" />
-                                    </div>
-                                </div>
-                                <div className="flex justify-end gap-2 mt-4">
-                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Submit</button>
-                                </div>
-                            </form>
-
-                        </div>
-                    </div>
-                )
-            }
-
-            {/* Feed Opening Stock Modal */}
-            {
-                showFeedOpeningStockModal && (
-                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white p-6 rounded-lg w-full max-w-lg">
-                            <h3 className="text-xl font-bold mb-4">Add Feed Opening Stock</h3>
-                            <form onSubmit={handleFeedOpeningStockSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium">Date</label>
-                                    <input
-                                        type="date"
-                                        value={feedOpeningStockData.date}
-                                        onChange={(e) => setFeedOpeningStockData({ ...feedOpeningStockData, date: e.target.value })}
-                                        className="w-full border rounded p-2"
-                                        required
-                                    />
-                                </div>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <label className="block text-sm font-medium">Bags <span className="text-red-500">*</span></label>
-                                        <input type="number" value={feedOpeningStockData.bags} onChange={e => setFeedOpeningStockData({ ...feedOpeningStockData, bags: e.target.value })} className="w-full border p-2 rounded" required />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium">Weight (Kg) <span className="text-red-500">*</span></label>
-                                        <input type="number" step="0.01" value={feedOpeningStockData.weight} onChange={e => setFeedOpeningStockData({ ...feedOpeningStockData, weight: e.target.value })} className="w-full border p-2 rounded" required />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium">Rate <span className="text-red-500">*</span></label>
-                                        <input type="number" step="0.01" value={feedOpeningStockData.rate} onChange={e => setFeedOpeningStockData({ ...feedOpeningStockData, rate: e.target.value })} className="w-full border p-2 rounded" required />
-                                    </div>
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium">Amount</label>
-                                    <input type="number" value={(Number(feedOpeningStockData.weight || 0) * Number(feedOpeningStockData.rate || 0)).toFixed(2)} className="w-full border p-2 rounded bg-gray-100" readOnly />
-                                </div>
-                                <div className="flex justify-end gap-2 mt-4">
-                                    <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Submit</button>
-                                </div>
-                            </form>
                         </div>
                     </div>
                 )

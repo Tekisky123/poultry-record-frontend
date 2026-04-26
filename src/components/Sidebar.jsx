@@ -58,7 +58,7 @@ const getMenuItems = (user) => {
 
       { name: 'Groups', path: '/groups', icon: FolderTree },
       { name: 'Ledgers', path: '/ledgers', icon: BookOpen },
-      ,
+      { name: 'Stock Items', path: '/stock-items', icon: Package }
     ]
   });
 

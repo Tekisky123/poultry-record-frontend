@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, Loader2, Download, ChevronDown } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,8 +18,32 @@ export default function MonthlySummary() {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
-    const [year, setYear] = useState(''); // Optional, default to current FY in backend if empty
+
+    // Derive financial year from URL search params if available
+    const getInitialYear = () => {
+        const paramStartDate = searchParams.get('startDate');
+        if (paramStartDate) {
+            const d = new Date(paramStartDate);
+            // If startDate is April of some year, that's the FY start year
+            if (d.getMonth() === 3) return d.getFullYear();
+            // Otherwise derive: Jan-Mar belongs to previous year's FY
+            return d.getMonth() >= 3 ? d.getFullYear() : d.getFullYear() - 1;
+        }
+        // Default to current financial year
+        const now = new Date();
+        return now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    };
+
+    const [year, setYear] = useState(getInitialYear);
     const [showPercentage, setShowPercentage] = useState(false);
+
+    // Financial Year options: 2023 up to current year + 1
+    const yearOptions = (() => {
+        const opts = [];
+        const currentYear = new Date().getFullYear();
+        for (let y = 2023; y <= currentYear + 1; y++) opts.push(y);
+        return opts;
+    })();
 
     const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
 
@@ -207,13 +231,28 @@ export default function MonthlySummary() {
                         <p className="text-sm text-gray-500 capitalize">{data.subject.type}</p>
                     </div>
                 </div>
-                <div className="flex gap-3 mt-4 sm:mt-0">
+                <div className="flex gap-3 mt-4 sm:mt-0 items-center">
+                    {/* Financial Year Dropdown */}
+                    <div className="relative">
+                        <select
+                            value={year}
+                            onChange={(e) => setYear(parseInt(e.target.value))}
+                            className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-10 font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors cursor-pointer focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                        >
+                            {yearOptions.map(y => (
+                                <option key={y} value={y}>FY {y}-{y + 1}</option>
+                            ))}
+                        </select>
+                        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
+                    </div>
+
                     <button
                         onClick={() => setShowPercentage(!showPercentage)}
-                        className={`px-4 py-2 border rounded-lg font-medium transition-colors shadow-sm ${showPercentage
-                            ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
-                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                            }`}
+                        className={`px-4 py-2 border rounded-lg font-medium transition-colors shadow-sm ${
+                            showPercentage
+                                ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
+                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
                     >
                         % Percentage
                     </button>

@@ -40,6 +40,7 @@ import GroupSummary from './pages/GroupSummary';
 import MonthlySummary from './pages/MonthlySummary';
 import Security from './pages/Security';
 import SettingsPage from './pages/SettingsPage';
+import StockItems from './pages/StockItems';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -65,6 +66,14 @@ import BirdsStockDailySummary from "./pages/BirdsStockDailySummary";
 import BirdsStockRecord from './pages/BirdsStockRecord';
 import ClosingStockMonthlySummary from './pages/ClosingStockMonthlySummary';
 import ClosingStockDailySummary from './pages/ClosingStockDailySummary';
+import LiveBirdsClosingStockMonthlySummary from './pages/LiveBirdsClosingStockMonthlySummary';
+import LiveBirdsClosingStockDailySummary from './pages/LiveBirdsClosingStockDailySummary';
+import LiveFeedClosingStockMonthlySummary from './pages/LiveFeedClosingStockMonthlySummary';
+import LiveFeedClosingStockDailySummary from './pages/LiveFeedClosingStockDailySummary';
+import LiveBirdsOpeningStockMonthlySummary from './pages/LiveBirdsOpeningStockMonthlySummary';
+import LiveBirdsOpeningStockDailySummary from './pages/LiveBirdsOpeningStockDailySummary';
+import LiveFeedOpeningStockMonthlySummary from './pages/LiveFeedOpeningStockMonthlySummary';
+import LiveFeedOpeningStockDailySummary from './pages/LiveFeedOpeningStockDailySummary';
 
 import TripExpensesMonthlySummary from './pages/TripExpensesMonthlySummary';
 import TripExpensesDailySummary from './pages/TripExpensesDailySummary';
@@ -217,6 +226,7 @@ const AppContent = () => {
               <Route path="/monthly-summary/:type/:id" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><MonthlySummary /></ProtectedRoute>} />
               <Route path="/security" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><Security /></ProtectedRoute>} />
               <Route path="/settings" element={<ProtectedRoute allowedRoles={["superadmin"]}><SettingsPage /></ProtectedRoute>} />
+              <Route path="/stock-items" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><StockItems /></ProtectedRoute>} />
 
               <Route path="/stocks" element={<StockMonthlySummary />} />
               <Route path="/stocks/daily" element={<StockDailySummary />} />
@@ -232,6 +242,12 @@ const AppContent = () => {
               <Route path="/live-poultry-stock/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LivePoultryMonthlySummary /></ProtectedRoute>} />
               <Route path="/live-poultry-stock/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LivePoultryDailySummary /></ProtectedRoute>} />
 
+              <Route path="/birds-opening-stock/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LiveBirdsOpeningStockMonthlySummary /></ProtectedRoute>} />
+              <Route path="/birds-opening-stock/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LiveBirdsOpeningStockDailySummary /></ProtectedRoute>} />
+
+              <Route path="/feed-opening-stock/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LiveFeedOpeningStockMonthlySummary /></ProtectedRoute>} />
+              <Route path="/feed-opening-stock/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LiveFeedOpeningStockDailySummary /></ProtectedRoute>} />
+
               <Route path="/live-poultry-purchase/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LivePoultryPurchase /></ProtectedRoute>} />
               <Route path="/feed-stock-purchase/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><FeedStockPurchase /></ProtectedRoute>} />
               <Route path="/feed-stock-consumption/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><FeedStockConsumption /></ProtectedRoute>} />
@@ -239,6 +255,12 @@ const AppContent = () => {
 
               <Route path="/live-poultry-closing-stock/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><ClosingStockMonthlySummary /></ProtectedRoute>} />
               <Route path="/live-poultry-closing-stock/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><ClosingStockDailySummary /></ProtectedRoute>} />
+
+              <Route path="/birds-closing-stock/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LiveBirdsClosingStockMonthlySummary /></ProtectedRoute>} />
+              <Route path="/birds-closing-stock/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LiveBirdsClosingStockDailySummary /></ProtectedRoute>} />
+
+              <Route path="/feed-closing-stock/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LiveFeedClosingStockMonthlySummary /></ProtectedRoute>} />
+              <Route path="/feed-closing-stock/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><LiveFeedClosingStockDailySummary /></ProtectedRoute>} />
 
               <Route path="/trip-expenses/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><TripExpensesMonthlySummary /></ProtectedRoute>} />
               <Route path="/trip-expenses/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><TripExpensesDailySummary /></ProtectedRoute>} />
