@@ -25,7 +25,8 @@ import {
   TrendingUp,
   ChevronDown,
   ChevronUp,
-  Download
+  Download,
+  CheckCircle
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -379,6 +380,15 @@ export default function Trips() {
   const downloadDropdownRef = useRef(null);
   const [isDownloading, setIsDownloading] = useState(false);
 
+  // Complete Trip Modal States
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [completingTrip, setCompletingTrip] = useState(null);
+  const [completeData, setCompleteData] = useState({
+    closingOdometer: '',
+    mortality: '',
+    finalRemarks: ''
+  });
+
   // Date Filter Modal States
   const [showDateFilterModal, setShowDateFilterModal] = useState(false);
   const [tempDateFilter, setTempDateFilter] = useState({
@@ -661,6 +671,33 @@ export default function Trips() {
   const handleView = async (trip) => {
     // Navigate to trip details page using React Router
     navigate(`/trips/${trip.id}`);
+  };
+
+  const handleCompleteClick = (trip) => {
+    setCompletingTrip(trip);
+    // Pre-fill mortality with remaining birds
+    const remainingBirds = trip.summary?.birdsRemaining || 0;
+    setCompleteData({ closingOdometer: '', mortality: remainingBirds, finalRemarks: '' });
+    setShowCompleteModal(true);
+  };
+
+  const handleCompleteSubmit = async (e) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const { data } = await api.put(`/trip/${completingTrip.id}/complete`, completeData);
+      if (data.success) {
+        setShowCompleteModal(false);
+        setCompletingTrip(null);
+        alert('Trip completed successfully!');
+        await fetchTrips();
+      }
+    } catch (error) {
+      console.error('Error completing trip:', error);
+      alert(error.response?.data?.message || 'Failed to complete trip');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const onSubmit = (data) => {
@@ -1184,6 +1221,15 @@ export default function Trips() {
                         >
                           <Eye size={16} />
                         </button>
+                        {isAdmin && trip.status !== 'completed' && (
+                          <button
+                            onClick={() => handleCompleteClick(trip)}
+                            className="p-1 text-gray-400 hover:text-purple-600 transition-colors"
+                            title="Complete trip"
+                          >
+                            <CheckCircle size={16} />
+                          </button>
+                        )}
                         {isAdmin && (
                           <button
                             onClick={() => handleEdit(trip)}
@@ -1490,6 +1536,88 @@ export default function Trips() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Complete Trip Modal */}
+      {showCompleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Complete Trip</h3>
+              <form onSubmit={handleCompleteSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Closing Odometer Reading *
+                  </label>
+                  <input
+                    type="number"
+                    required
+                    value={completeData.closingOdometer}
+                    onChange={(e) => setCompleteData({ ...completeData, closingOdometer: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter closing reading"
+                    min={completingTrip?.vehicleReadings?.opening || 0}
+                  />
+                  {completingTrip?.vehicleReadings?.opening && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Must be greater than opening reading ({completingTrip.vehicleReadings.opening})
+                    </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Mortality (Death Birds)
+                  </label>
+                  <input
+                    type="number"
+                    value={completeData.mortality}
+                    onChange={(e) => setCompleteData({ ...completeData, mortality: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Enter number of death birds"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Remaining birds: {completingTrip?.summary?.birdsRemaining || 0}
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Final Remarks
+                  </label>
+                  <textarea
+                    value={completeData.finalRemarks}
+                    onChange={(e) => setCompleteData({ ...completeData, finalRemarks: e.target.value })}
+                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="Any final notes about the trip"
+                    rows="3"
+                  />
+                </div>
+
+                <div className="flex gap-4 pt-4 border-t border-gray-100">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCompleteModal(false);
+                      setCompletingTrip(null);
+                    }}
+                    className="flex-1 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-purple-400"
+                  >
+                    {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Complete Trip'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

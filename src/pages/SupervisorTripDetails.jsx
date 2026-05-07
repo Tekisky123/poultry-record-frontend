@@ -1605,20 +1605,7 @@ const SupervisorTripDetails = () => {
               <span className="ml-2 text-sm font-medium">Trip Completed - No modifications allowed</span>
             </div>
           )}
-          {trip.status !== 'completed' && (
-            <button
-              onClick={() => {
-                // Pre-fill mortality with remaining birds
-                const remainingBirds = trip.summary?.birdsRemaining || 0;
-                setCompleteData(prev => ({ ...prev, mortality: remainingBirds }));
-                setShowCompleteModal(true);
-              }}
-              className="flex-shrink-0 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center gap-2 whitespace-nowrap"
-            >
-              <CheckCircle size={16} />
-              Complete Trip
-            </button>
-          )}
+
         </div>
       </div>
 

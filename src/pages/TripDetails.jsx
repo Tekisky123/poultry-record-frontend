@@ -349,10 +349,21 @@ export default function TripDetails() {
       setTrip(data.data);
       setShowCompleteModal(false);
       alert('Trip completed successfully!');
-      navigate('/supervisor/trips');
+      // Refresh the trip details instead of navigating away
+      fetchTrip();
     } catch (err) {
       alert(`Error: ${err.message}`);
     }
+  };
+
+  const handleCompleteClick = () => {
+    const { remainingBirds } = getPurchaseAndSaleStats();
+    setCompleteData({
+      closingOdometer: trip?.vehicleReadings?.opening || 0,
+      mortality: remainingBirds > 0 ? remainingBirds : 0,
+      finalRemarks: ''
+    });
+    setShowCompleteModal(true);
   };
 
   // Fetch next bill number
@@ -941,6 +952,17 @@ export default function TripDetails() {
             Download PDF
           </button>
 
+          {/* Admin-only buttons */}
+          {isAdmin && trip.status !== 'completed' && (
+            <button
+              onClick={handleCompleteClick}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+            >
+              <CheckCircle size={20} />
+              Complete Trip
+            </button>
+          )}
+
           {/* Supervisor-only buttons */}
           {isSupervisor && trip.status !== 'completed' && (
             <>
@@ -967,13 +989,6 @@ export default function TripDetails() {
               >
                 <Plus size={20} />
                 Add Expense
-              </button>
-              <button
-                onClick={() => setShowCompleteModal(true)}
-                className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-              >
-                <CheckCircle size={20} />
-                Complete Trip
               </button>
             </>
           )}
