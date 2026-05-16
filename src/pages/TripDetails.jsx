@@ -247,32 +247,49 @@ export default function TripDetails() {
 
       const groups = groupsRes.data.data || [];
 
-      // Find groups by name (they might be nested, so search through all groups)
-      const bankAccountsGroup = groups.find(g => g.name === 'Bank Accounts');
-      const cashInHandGroup = groups.find(g => g.name === 'Cash-in-Hand' || g.name === 'CASH A/C');
+      // Find bank groups (Bank Accounts, Bank OD A/c)
+      const bankGroups = groups.filter(g => {
+        const name = g.name?.toLowerCase() || '';
+        const slug = g.slug || '';
+        return name === 'bank accounts' || name === 'bank a/c' || slug === 'bank-accounts' || slug === 'bank-od-a-c';
+      });
 
-      const promises = [];
-      if (bankAccountsGroup && bankAccountsGroup.id) {
-        promises.push(api.get(`/ledger/group/${bankAccountsGroup.id}`));
-      } else {
-        promises.push(Promise.resolve({ data: { success: true, data: [] } }));
-      }
+      // Find cash groups (Cash-in-Hand)
+      const cashGroups = groups.filter(g => {
+        const name = g.name?.toLowerCase() || '';
+        const slug = g.slug || '';
+        return name === 'cash-in-hand' || name === 'cash a/c' || slug === 'cash-in-hand' || slug === 'cash-a-c';
+      });
 
-      if (cashInHandGroup && cashInHandGroup.id) {
-        promises.push(api.get(`/ledger/group/${cashInHandGroup.id}`));
-      } else {
-        promises.push(Promise.resolve({ data: { success: true, data: [] } }));
-      }
+      const bankPromises = bankGroups.map(g => api.get(`/ledger/group/${g.id || g._id}`));
+      const cashPromises = cashGroups.map(g => api.get(`/ledger/group/${g.id || g._id}`));
 
-      const [bankLedgersRes, cashLedgersRes] = await Promise.all(promises);
+      const [bankResArray, cashResArray] = await Promise.all([
+        Promise.all(bankPromises),
+        Promise.all(cashPromises)
+      ]);
 
-      if (bankLedgersRes.data.success) {
-        setBankAccountLedgers(bankLedgersRes.data.data || []);
-      }
+      // Combine all bank ledgers
+      const allBankLedgers = bankResArray.reduce((acc, res) => {
+        if (res.data.success) {
+          return [...acc, ...(res.data.data || [])];
+        }
+        return acc;
+      }, []);
 
-      if (cashLedgersRes.data.success) {
-        setCashInHandLedgers(cashLedgersRes.data.data || []);
-      }
+      // Combine all cash ledgers
+      const allCashLedgers = cashResArray.reduce((acc, res) => {
+        if (res.data.success) {
+          return [...acc, ...(res.data.data || [])];
+        }
+        return acc;
+      }, []);
+
+      setBankAccountLedgers(allBankLedgers);
+      setCashInHandLedgers(allCashLedgers);
+
+      console.log('Set bank account ledgers:', allBankLedgers);
+      console.log('Set cash in hand ledgers:', allCashLedgers);
     } catch (error) {
       console.error('Error fetching ledgers:', error);
     } finally {

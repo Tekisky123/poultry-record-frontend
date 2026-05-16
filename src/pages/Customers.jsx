@@ -62,7 +62,6 @@ const customerSchema = z.object({
       // If not empty, validate password strength
       return val.length >= 6 && /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(val);
     }, 'Password must contain at least one uppercase letter, one lowercase letter, and one number'),
-  tdsApplicable: z.boolean().default(false)
 });
 
 const getStatusColor = (isActive) => {
@@ -121,7 +120,6 @@ export default function Customers() {
       openingBalanceType: 'debit',
       email: '',
       password: '',
-      tdsApplicable: false,
       group: ''
     }
   });
@@ -330,7 +328,6 @@ export default function Customers() {
     setValue('gstOrPanNumber', customer.gstOrPanNumber || '');
     setValue('openingBalance', customer.openingBalance || 0);
     setValue('openingBalanceType', customer.openingBalanceType || 'debit');
-    setValue('tdsApplicable', customer.tdsApplicable || false);
     setValue('group', customer.group?.id || '');
     // Pre-fill user credentials if available
     if (customer.user) {
@@ -356,8 +353,7 @@ export default function Customers() {
     // Add +91 prefix to contact number
     const customerData = {
       ...data,
-      contact: `+91${data.contact}`,
-      tdsApplicable: data.tdsApplicable ?? false
+      contact: `+91${data.contact}`
     };
 
     // For editing, remove password if it's empty (keep current password)
@@ -890,19 +886,6 @@ export default function Customers() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   {errors.gstOrPanNumber && <p className="text-red-500 text-xs mt-1">{errors.gstOrPanNumber.message}</p>}
-                </div>
-                <div className="md:col-span-2">
-                  <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
-                    <input
-                      type="checkbox"
-                      {...register('tdsApplicable')}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <span>TDS applicable</span>
-                  </label>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Enable this if TDS should be applied to this customer&apos;s transactions.
-                  </p>
                 </div>
 
                 {/* Show Opening Balance field only when creating new customer, not when editing */}

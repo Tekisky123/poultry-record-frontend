@@ -70,7 +70,6 @@ const SupervisorTripDetails = () => {
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [showDieselModal, setShowDieselModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
-  const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [showEditTripModal, setShowEditTripModal] = useState(false);
   const [showCompleteTripDetailsModal, setShowCompleteTripDetailsModal] = useState(false);
@@ -151,11 +150,6 @@ const SupervisorTripDetails = () => {
   });
 
 
-  const [completeData, setCompleteData] = useState({
-    closingOdometer: 0,
-    finalRemarks: '',
-    mortality: 0
-  });
 
   const [completeTripDetailsData, setCompleteTripDetailsData] = useState({
     driver: '',
@@ -422,10 +416,14 @@ const SupervisorTripDetails = () => {
 
   // Helper function to find "CASH A/C" ledger ID
   const getCashAcLedgerId = () => {
-    const cashAcLedger = cashInHandLedgers.find(ledger =>
-      ledger.name === 'CASH A/C' || ledger.name === 'CASH A/C' || ledger.name?.toUpperCase() === 'CASH A/C'
-    );
-    return cashAcLedger?.id || cashAcLedger?._id || null;
+    if (!cashInHandLedgers || cashInHandLedgers.length === 0) return null;
+    const cashAcLedger = cashInHandLedgers.find(ledger => {
+      const name = ledger.name?.toUpperCase() || '';
+      return name.includes('CASH') || name === 'CASH A/C' || name === 'CASH-IN-HAND';
+    });
+    // Fallback to first cash ledger if no exact match
+    const target = cashAcLedger || cashInHandLedgers[0];
+    return target?.id || target?._id || null;
   };
 
   const fetchLedgers = async () => {
@@ -439,44 +437,50 @@ const SupervisorTripDetails = () => {
       }
 
       const groups = groupsRes.data.data || [];
-      console.log('Fetched groups:', groups);
 
-      // Find groups by name (they might be nested, so search through all groups)
-      const bankAccountsGroup = groups.find(g => g.name === 'Bank Accounts');
-      const cashInHandGroup = groups.find(g => g.name === 'Cash-in-Hand' || g.name === 'CASH A/C');
+      // Find bank groups (Bank Accounts, Bank OD A/c)
+      const bankGroups = groups.filter(g => {
+        const name = g.name?.toLowerCase() || '';
+        const slug = g.slug || '';
+        return name === 'bank accounts' || name === 'bank a/c' || slug === 'bank-accounts' || slug === 'bank-od-a-c';
+      });
 
-      console.log('Bank Accounts Group:', bankAccountsGroup);
-      console.log('Cash-in-Hand Group:', cashInHandGroup);
+      // Find cash groups (Cash-in-Hand)
+      const cashGroups = groups.filter(g => {
+        const name = g.name?.toLowerCase() || '';
+        const slug = g.slug || '';
+        return name === 'cash-in-hand' || name === 'cash a/c' || slug === 'cash-in-hand' || slug === 'cash-a-c';
+      });
 
-      const promises = [];
-      if (bankAccountsGroup && bankAccountsGroup.id) {
-        promises.push(api.get(`/ledger/group/${bankAccountsGroup.id}`));
-      } else {
-        console.warn('Bank Accounts group not found');
-        promises.push(Promise.resolve({ data: { success: true, data: [] } }));
-      }
+      const bankPromises = bankGroups.map(g => api.get(`/ledger/group/${g.id || g._id}`));
+      const cashPromises = cashGroups.map(g => api.get(`/ledger/group/${g.id || g._id}`));
 
-      if (cashInHandGroup && cashInHandGroup.id) {
-        promises.push(api.get(`/ledger/group/${cashInHandGroup.id}`));
-      } else {
-        console.warn('Cash-in-Hand group not found');
-        promises.push(Promise.resolve({ data: { success: true, data: [] } }));
-      }
+      const [bankResArray, cashResArray] = await Promise.all([
+        Promise.all(bankPromises),
+        Promise.all(cashPromises)
+      ]);
 
-      const [bankLedgersRes, cashLedgersRes] = await Promise.all(promises);
+      // Combine all bank ledgers
+      const allBankLedgers = bankResArray.reduce((acc, res) => {
+        if (res.data.success) {
+          return [...acc, ...(res.data.data || [])];
+        }
+        return acc;
+      }, []);
 
-      console.log('Bank Ledgers Response:', bankLedgersRes.data);
-      console.log('Cash Ledgers Response:', cashLedgersRes.data);
+      // Combine all cash ledgers
+      const allCashLedgers = cashResArray.reduce((acc, res) => {
+        if (res.data.success) {
+          return [...acc, ...(res.data.data || [])];
+        }
+        return acc;
+      }, []);
 
-      if (bankLedgersRes.data.success) {
-        setBankAccountLedgers(bankLedgersRes.data.data || []);
-        console.log('Set bank account ledgers:', bankLedgersRes.data.data);
-      }
+      setBankAccountLedgers(allBankLedgers);
+      setCashInHandLedgers(allCashLedgers);
 
-      if (cashLedgersRes.data.success) {
-        setCashInHandLedgers(cashLedgersRes.data.data || []);
-        console.log('Set cash in hand ledgers:', cashLedgersRes.data.data);
-      }
+      console.log('Set bank account ledgers:', allBankLedgers);
+      console.log('Set cash in hand ledgers:', allCashLedgers);
     } catch (error) {
       console.error('Error fetching ledgers:', error);
       console.error('Error details:', error.response?.data);
@@ -1278,26 +1282,6 @@ const SupervisorTripDetails = () => {
       }
     });
     return errors;
-  };
-
-  const handleCompleteTrip = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    try {
-      const { data } = await api.put(`/trip/${id}/complete`, completeData);
-      if (data.success) {
-        setTrip(data.data);
-        setShowCompleteModal(false);
-        alert('Trip completed successfully!');
-        navigate('/supervisor/trips');
-      }
-    } catch (error) {
-      console.error('Error completing trip:', error);
-      alert(error.response?.data?.message || 'Failed to complete trip');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleCompleteTripDetails = async (e) => {
@@ -3776,6 +3760,28 @@ const SupervisorTripDetails = () => {
 
 
 
+                {/* Cash Ledger Dropdown - Show if cashPaid > 0 */}
+                {Number(saleData.cashPaid) > 0 && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Cash-in-Hand Ledger *
+                    </label>
+                    <select
+                      value={saleData.cashLedger}
+                      onChange={(e) => handleSaleDataChange('cashLedger', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required={Number(saleData.cashPaid) > 0}
+                    >
+                      <option value="">Select Cash Ledger</option>
+                      {cashInHandLedgers.map(ledger => (
+                        <option key={ledger.id || ledger._id} value={ledger.id || ledger._id}>
+                          {ledger.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* Online Ledger Dropdown - Show if onlinePaid > 0 */}
                 {Number(saleData.onlinePaid) > 0 && (
                   <div>
@@ -3790,7 +3796,7 @@ const SupervisorTripDetails = () => {
                     >
                       <option value="">Select Bank Account Ledger</option>
                       {bankAccountLedgers.map(ledger => (
-                        <option key={ledger.id} value={ledger.id}>
+                        <option key={ledger.id || ledger._id} value={ledger.id || ledger._id}>
                           {ledger.name}
                         </option>
                       ))}
@@ -4076,6 +4082,28 @@ const SupervisorTripDetails = () => {
                   </div>
                 </div>
 
+                {/* Cash Ledger Dropdown - Show if cashPaid > 0 */}
+                {Number(saleData.cashPaid) > 0 && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Cash-in-Hand Ledger *
+                    </label>
+                    <select
+                      value={saleData.cashLedger}
+                      onChange={(e) => handleSaleDataChange('cashLedger', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required={Number(saleData.cashPaid) > 0}
+                    >
+                      <option value="">Select Cash Ledger</option>
+                      {cashInHandLedgers.map(ledger => (
+                        <option key={ledger.id || ledger._id} value={ledger.id || ledger._id}>
+                          {ledger.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
                 {/* Online Ledger Dropdown - Show if onlinePaid > 0 */}
                 {Number(saleData.onlinePaid) > 0 && (
                   <div>
@@ -4090,7 +4118,7 @@ const SupervisorTripDetails = () => {
                     >
                       <option value="">Select Bank Account Ledger</option>
                       {bankAccountLedgers.map(ledger => (
-                        <option key={ledger.id} value={ledger.id}>
+                        <option key={ledger.id || ledger._id} value={ledger.id || ledger._id}>
                           {ledger.name}
                         </option>
                       ))}
@@ -4265,159 +4293,6 @@ const SupervisorTripDetails = () => {
         )
       }
 
-      {/* Complete Trip Modal */}
-      {
-        showCompleteModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg w-full max-w-md max-h-[90vh] flex flex-col">
-              <div className="p-4 border-b border-gray-100 flex-shrink-0">
-                <h3 className="text-lg font-semibold">Complete Trip</h3>
-              </div>
-
-              <div className="p-6 overflow-y-auto flex-1 min-h-0">
-                {/* WEIGHT LOSS TRACKING SUMMARY */}
-                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm mb-4 flex-shrink-0">
-                  <div className="bg-white p-3 border-b border-gray-200">
-                    <h4 className="font-bold text-gray-900 text-sm uppercase">WEIGHT LOSS TRACKING</h4>
-                  </div>
-                  {(() => {
-                    const purchaseRate = trip.summary?.avgPurchaseRate || 0;
-                    const deathBirds = trip.summary?.mortality || 0;
-                    const deathWeight = trip.summary?.totalWeightLost || 0;
-                    const deathAvg = deathBirds > 0 ? deathWeight / deathBirds : 0;
-                    const deathAmount = deathWeight * purchaseRate;
-
-                    const totalPurchasedWeight = trip.summary?.totalWeightPurchased || 0;
-                    const totalSoldWeight = trip.summary?.totalWeightSold || 0;
-                    const totalStockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
-                    const naturalWeightLoss = Math.max(0, totalPurchasedWeight - totalSoldWeight - totalStockWeight - deathWeight);
-
-                    const naturalAvg = deathAvg || (trip.summary?.totalWeightPurchased && trip.summary?.totalBirdsPurchased ? trip.summary.totalWeightPurchased / trip.summary.totalBirdsPurchased : 0);
-                    const naturalAmount = naturalWeightLoss * purchaseRate;
-
-                    const totalWeightLoss = deathWeight + naturalWeightLoss;
-                    const totalLossAmount = deathAmount + naturalAmount;
-
-                    return (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-xs">
-                          <thead className="bg-[#E9ECEF] text-gray-600 font-bold tracking-wider">
-                            <tr>
-                              <th className="px-2 py-1.5 text-left w-1/3"></th>
-                              <th className="px-2 py-1.5 text-center">BIRDS</th>
-                              <th className="px-2 py-1.5 text-center">WEIGHT</th>
-                              <th className="px-2 py-1.5 text-center">AVG</th>
-                              <th className="px-2 py-1.5 text-center">RATE</th>
-                              <th className="px-2 py-1.5 text-right">AMOUNT</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {/* Death Birds Row */}
-                            <tr className="bg-white">
-                              <td className="px-2 py-1.5 font-medium text-gray-800">DEATH BIRDS</td>
-                              <td className="px-2 py-1.5 text-center text-gray-600">{deathBirds}</td>
-                              <td className="px-2 py-1.5 text-center text-gray-600">{deathWeight.toFixed(2)}</td>
-                              <td className="px-2 py-1.5 text-center text-gray-600">{deathAvg.toFixed(2)}</td>
-                              <td className="px-2 py-1.5 text-center text-gray-600">₹{purchaseRate.toFixed(2)}</td>
-                              <td className="px-2 py-1.5 text-right font-bold text-gray-900">₹{deathAmount.toFixed(2)}</td>
-                            </tr>
-
-                            {/* Natural Weight Loss Row */}
-                            <tr className="bg-white">
-                              <td className="px-2 py-1.5 font-medium text-gray-800">NATURAL WEIGHT LOSS</td>
-                              <td className="px-2 py-1.5 text-center text-gray-600">-</td>
-                              <td className="px-2 py-1.5 text-center text-gray-600">{naturalWeightLoss.toFixed(2)}</td>
-                              <td className="px-2 py-1.5 text-center text-gray-600">{naturalAvg.toFixed(2)}</td>
-                              <td className="px-2 py-1.5 text-center text-gray-600">₹{purchaseRate.toFixed(2)}</td>
-                              <td className="px-2 py-1.5 text-right font-bold text-gray-900">₹{naturalAmount.toFixed(2)}</td>
-                            </tr>
-
-                            {/* Total Row */}
-                            <tr className="bg-black text-white">
-                              <td className="px-2 py-1.5 font-bold uppercase">TOTAL W LOSS</td>
-                              <td className="px-2 py-1.5 text-center font-bold">{deathBirds}</td>
-                              <td className="px-2 py-1.5 text-center font-bold">{totalWeightLoss.toFixed(2)}</td>
-                              <td className="px-2 py-1.5 text-center font-bold">-</td>
-                              <td className="px-2 py-1.5 text-center font-bold">₹{purchaseRate.toFixed(2)}</td>
-                              <td className="px-2 py-1.5 text-right font-bold text-base">₹{totalLossAmount.toFixed(2)}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                <form onSubmit={handleCompleteTrip} className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Closing Odometer
-                      <span className="text-red-500 ml-1">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      min={trip?.vehicleReadings?.opening || 0}
-                      value={completeData.closingOdometer}
-                      onChange={(e) => setCompleteData(prev => ({ ...prev, closingOdometer: Number(e.target.value) }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder={`Min: ${trip?.vehicleReadings?.opening || 0}`}
-                      required
-                    />
-                    {trip?.vehicleReadings?.opening && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Opening reading: {trip.vehicleReadings.opening}
-                      </p>
-                    )}
-                    {completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening &&
-                      completeData.closingOdometer < trip.vehicleReadings.opening && (
-                        <p className="text-xs text-red-500 mt-1">
-                          Closing reading must be greater than opening reading ({trip.vehicleReadings.opening})
-                        </p>
-                      )}
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Final Remarks</label>
-                    <textarea
-                      value={completeData.finalRemarks}
-                      onChange={(e) => setCompleteData(prev => ({ ...prev, finalRemarks: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      rows="3"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Mortality (Death Birds)</label>
-                    <input
-                      type="number"
-                      value={completeData.mortality}
-                      onChange={(e) => setCompleteData(prev => ({ ...prev, mortality: Number(e.target.value) }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                      required
-                      placeholder="Enter number of birds that died"
-                    />
-                    <p className="text-sm text-gray-500 mt-1">
-                      This represents the remaining birds that are automatically considered as death birds.
-                    </p>
-                  </div>
-                  <div className="flex space-x-3 pt-2">
-                    <button
-                      type="button"
-                      onClick={() => setShowCompleteModal(false)}
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={isSubmitting || (completeData.closingOdometer > 0 && trip?.vehicleReadings?.opening &&
-                        completeData.closingOdometer < trip.vehicleReadings.opening)}
-                      className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : 'Complete Trip'}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
           </div>
         )
       }
