@@ -3906,8 +3906,8 @@ const SupervisorTripDetails = () => {
                 </button>
               </div>
             </div>
-          </div >
-        </div >
+          </div>
+        </div>
       )}
 
       {/* Receipt Modal */}
@@ -4219,8 +4219,8 @@ const SupervisorTripDetails = () => {
                 </button>
               </div>
             </div>
-          </div >
-        </div >
+          </div>
+        </div>
       )}
 
       {/* Expense Modal */}
@@ -4289,10 +4289,6 @@ const SupervisorTripDetails = () => {
                 </div>
               </form>
             </div>
-          </div>
-        )
-      }
-
           </div>
         )
       }
@@ -4436,7 +4432,7 @@ const SupervisorTripDetails = () => {
                 </div>
               </form>
             </div>
-          </div >
+          </div>
         )
       }
 
@@ -4944,7 +4940,7 @@ const SupervisorTripDetails = () => {
         }}
       />
 
-    </div >
+    </div>
   );
 };
 
