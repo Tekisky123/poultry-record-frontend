@@ -254,6 +254,28 @@ const SupervisorTripDetails = () => {
     }
   }, [saleData.birds, saleData.weight, saleData.rate, saleData.amount, saleData.cashPaid, saleData.onlinePaid, saleData.discount, customerBalance]);
 
+  // Auto-select cash ledger once cashInHandLedgers loads (fixes race condition when user types amount before ledgers load)
+  useEffect(() => {
+    if (cashInHandLedgers.length > 0 && Number(saleData.cashPaid) > 0 && !saleData.cashLedger) {
+      const cashAcId = getCashAcLedgerId();
+      if (cashAcId) {
+        setSaleData(prev => ({ ...prev, cashLedger: cashAcId }));
+      }
+    }
+  }, [cashInHandLedgers]);
+
+  // Auto-select first bank ledger once bankAccountLedgers loads (fixes race condition when user types amount before ledgers load)
+  useEffect(() => {
+    if (bankAccountLedgers.length > 0 && Number(saleData.onlinePaid) > 0 && !saleData.onlineLedger) {
+      const firstBank = bankAccountLedgers[0];
+      const bankId = firstBank?.id || firstBank?._id || null;
+      if (bankId) {
+        setSaleData(prev => ({ ...prev, onlineLedger: bankId }));
+      }
+    }
+  }, [bankAccountLedgers]);
+
+
   // Auto-calculate amount when diesel volume or rate changes
   useEffect(() => {
     const volume = Number(dieselData.volume) || 0;
@@ -769,15 +791,30 @@ const SupervisorTripDetails = () => {
       const validationErrors = validateMandatoryFields(saleData, mandatoryFields);
 
       // Validate ledger selection if payment amounts are entered
+      // Auto-assign ledgers if available but not yet selected (handles race condition)
+      let effectiveSaleData = saleData;
       const cashPaid = Number(saleData.cashPaid) || 0;
       const onlinePaid = Number(saleData.onlinePaid) || 0;
 
-      if (cashPaid > 0 && !saleData.cashLedger) {
-        validationErrors.push('Please select a Cash-in-Hand Ledger when entering cash payment');
+      if (cashPaid > 0 && !effectiveSaleData.cashLedger) {
+        const autoId = getCashAcLedgerId();
+        if (autoId) {
+          effectiveSaleData = { ...effectiveSaleData, cashLedger: autoId };
+          setSaleData(effectiveSaleData);
+        } else {
+          validationErrors.push('Please select a Cash-in-Hand Ledger when entering cash payment');
+        }
       }
 
-      if (onlinePaid > 0 && !saleData.onlineLedger) {
-        validationErrors.push('Please select a Bank Account Ledger when entering online payment');
+      if (onlinePaid > 0 && !effectiveSaleData.onlineLedger) {
+        const firstBank = bankAccountLedgers[0];
+        const autoId = firstBank?.id || firstBank?._id || null;
+        if (autoId) {
+          effectiveSaleData = { ...effectiveSaleData, onlineLedger: autoId };
+          setSaleData(effectiveSaleData);
+        } else {
+          validationErrors.push('Please select a Bank Account Ledger when entering online payment');
+        }
       }
 
       if (validationErrors.length > 0) {
@@ -843,8 +880,8 @@ const SupervisorTripDetails = () => {
 
       // Clean the data before sending - convert empty string client to null
       const cleanedSaleData = {
-        ...saleData,
-        client: saleData.client === '' ? null : saleData.client
+        ...effectiveSaleData,
+        client: effectiveSaleData.client === '' ? null : effectiveSaleData.client
       };
 
       let data;
@@ -930,15 +967,30 @@ const SupervisorTripDetails = () => {
       }
 
       // Validate ledger selection if payment amounts are entered
+      // Auto-assign ledgers if available but not yet selected (handles race condition)
+      let effectiveSaleData = saleData;
       const cashPaid = Number(saleData.cashPaid) || 0;
       const onlinePaid = Number(saleData.onlinePaid) || 0;
 
-      if (cashPaid > 0 && !saleData.cashLedger) {
-        validationErrors.push('Please select a Cash-in-Hand Ledger when entering cash payment');
+      if (cashPaid > 0 && !effectiveSaleData.cashLedger) {
+        const autoId = getCashAcLedgerId();
+        if (autoId) {
+          effectiveSaleData = { ...effectiveSaleData, cashLedger: autoId };
+          setSaleData(effectiveSaleData);
+        } else {
+          validationErrors.push('Please select a Cash-in-Hand Ledger when entering cash payment');
+        }
       }
 
-      if (onlinePaid > 0 && !saleData.onlineLedger) {
-        validationErrors.push('Please select a Bank Account Ledger when entering online payment');
+      if (onlinePaid > 0 && !effectiveSaleData.onlineLedger) {
+        const firstBank = bankAccountLedgers[0];
+        const autoId = firstBank?.id || firstBank?._id || null;
+        if (autoId) {
+          effectiveSaleData = { ...effectiveSaleData, onlineLedger: autoId };
+          setSaleData(effectiveSaleData);
+        } else {
+          validationErrors.push('Please select a Bank Account Ledger when entering online payment');
+        }
       }
 
       if (validationErrors.length > 0) {
@@ -949,12 +1001,12 @@ const SupervisorTripDetails = () => {
 
       // Prepare receipt data - set birds, weight, rate to 0 for receipts
       const receiptData = {
-        ...saleData,
-        client: saleData.client === '' ? null : saleData.client,
+        ...effectiveSaleData,
+        client: effectiveSaleData.client === '' ? null : effectiveSaleData.client,
         birds: 0,
         weight: 0,
         rate: 0,
-        amount: saleData.amount || 0,
+        amount: effectiveSaleData.amount || 0,
         avgWeight: 0,
         isReceipt: true,
         saleType: 'receipt' // Add label for reports
