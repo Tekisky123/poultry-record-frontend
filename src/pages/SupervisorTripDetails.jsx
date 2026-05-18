@@ -456,22 +456,22 @@ const SupervisorTripDetails = () => {
       const cashPromises = cashGroups.map(g => api.get(`/ledger/group/${g.id || g._id}`));
 
       const [bankResArray, cashResArray] = await Promise.all([
-        Promise.all(bankPromises),
-        Promise.all(cashPromises)
+        Promise.allSettled(bankPromises),
+        Promise.allSettled(cashPromises)
       ]);
 
-      // Combine all bank ledgers
-      const allBankLedgers = bankResArray.reduce((acc, res) => {
-        if (res.data.success) {
-          return [...acc, ...(res.data.data || [])];
+      // Combine all bank ledgers (only from fulfilled promises)
+      const allBankLedgers = bankResArray.reduce((acc, result) => {
+        if (result.status === 'fulfilled' && result.value.data.success) {
+          return [...acc, ...(result.value.data.data || [])];
         }
         return acc;
       }, []);
 
-      // Combine all cash ledgers
-      const allCashLedgers = cashResArray.reduce((acc, res) => {
-        if (res.data.success) {
-          return [...acc, ...(res.data.data || [])];
+      // Combine all cash ledgers (only from fulfilled promises)
+      const allCashLedgers = cashResArray.reduce((acc, result) => {
+        if (result.status === 'fulfilled' && result.value.data.success) {
+          return [...acc, ...(result.value.data.data || [])];
         }
         return acc;
       }, []);
