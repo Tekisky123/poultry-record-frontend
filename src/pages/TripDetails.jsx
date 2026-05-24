@@ -3247,8 +3247,7 @@ export default function TripDetails() {
                             className={`w-full px-3 py-2 border rounded-lg ${isExceeding
                               ? 'border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500'
                               : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                              } ${editingSaleIndex !== null ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-                            readOnly={editingSaleIndex !== null}
+                              }`}
                             required
                             max={adjustedRemainingBirds}
                           />
