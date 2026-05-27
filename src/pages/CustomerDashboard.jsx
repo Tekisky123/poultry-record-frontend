@@ -536,6 +536,19 @@ const CustomerDashboard = () => {
     return entry.particulars;
   };
 
+  const formatCurrency = (amount) => {
+    const numericAmount = Number(amount) || 0;
+    const hasDecimal = numericAmount % 1 !== 0;
+    const formatted = hasDecimal
+      ? Math.abs(numericAmount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      : Math.abs(numericAmount).toLocaleString('en-IN');
+    
+    if (numericAmount < 0) {
+      return `-₹${formatted}`;
+    }
+    return `₹${formatted}`;
+  };
+
   const formatDate = (dateString) => {
     try {
       const date = new Date(dateString);
@@ -709,7 +722,7 @@ const CustomerDashboard = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-gray-600">Outstanding Balance</p>
-                <p className="text-2xl font-bold text-gray-900">₹{(stats.outstandingBalance || 0).toLocaleString()}</p>
+                <p className="text-2xl font-bold text-gray-900">{formatCurrency(stats.outstandingBalance)}</p>
               </div>
               <div className="p-3 bg-orange-100 rounded-lg">
                 <CreditCard className="w-6 h-6 text-orange-600" />
@@ -790,7 +803,7 @@ const CustomerDashboard = () => {
               </div>
               <div>
                 <h3 className="font-semibold text-yellow-800">Outstanding Balance</h3>
-                <p className="text-lg font-bold text-yellow-900">₹{stats.outstandingBalance.toLocaleString()}</p>
+                <p className="text-lg font-bold text-yellow-900">{formatCurrency(stats.outstandingBalance)}</p>
                 <p className="text-sm text-yellow-700">
                   This is your current outstanding balance from all transactions
                 </p>
@@ -1045,7 +1058,7 @@ const CustomerDashboard = () => {
                       {showAllColumns && <td className="px-3 py-3 text-right text-gray-900">{(entry?.avgWeight || 0).toFixed(2)}</td>}
                       {showAllColumns && <td className="px-3 py-3 text-right text-gray-900">₹{(entry?.rate || 0).toLocaleString()}</td>}
                       <td className="px-3 py-3 text-right text-gray-900">₹{(entry?.amount || 0).toLocaleString()}</td>
-                      <td className="px-3 py-3 text-right text-gray-900 font-bold">₹{(entry?.outstandingBalance || 0).toLocaleString()}</td>
+                      <td className="px-3 py-3 text-right text-gray-900 font-bold">{formatCurrency(entry?.outstandingBalance)}</td>
                       {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.product || '-'}</td>}
                       {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.supervisor || '-'}</td>}
                       {showAllColumns && <td className="px-3 py-3 text-gray-900">{entry.vehiclesNo || '-'}</td>}
