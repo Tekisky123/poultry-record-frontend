@@ -165,11 +165,11 @@ const SupervisorDashboard = () => {
                     {trip.vehicle?.vehicleNumber || 'N/A'}
                   </p>
                   <p className="text-xs text-gray-500">
-                    {/* {trip.place || 'Round Trip'} */}
+                    {trip.place || 'Round Trip'}
                   </p>
                 </div>
                 <Link
-                  to={`/supervisor/trips/${trip.id}`}
+                  to={`/supervisor/trips/${trip._id || trip.id}`}
                   className="text-primary-600 hover:text-primary-700 p-2"
                 >
                   <MapPin size={16} />

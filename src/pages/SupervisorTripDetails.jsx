@@ -62,6 +62,7 @@ const SupervisorTripDetails = () => {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   // Form states
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
@@ -158,7 +159,7 @@ const SupervisorTripDetails = () => {
       from: '',
       to: ''
     },
-    // place: '',
+    place: '',
     vehicleReadings: {
       opening: ''
     }
@@ -732,6 +733,8 @@ const SupervisorTripDetails = () => {
 
   const handlePurchaseSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -741,7 +744,6 @@ const SupervisorTripDetails = () => {
 
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
-        setIsSubmitting(false);
         return;
       }
       // Clean the data before sending - convert empty string supplier to null
@@ -778,11 +780,14 @@ const SupervisorTripDetails = () => {
       alert(error.response?.data?.message || 'Failed to save purchase');
     } finally {
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const handleSaleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -819,33 +824,31 @@ const SupervisorTripDetails = () => {
 
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
-        setIsSubmitting(false);
         return;
       }
 
-      // Validation: Check if sale birds exceed remaining purchased birds
-      const { remainingBirds, remainingWeight } = getPurchaseAndSaleStats();
+      // Validation: Check if sale birds exceed available birds (purchased - already sold - in stock)
+      // Use getRemainingStockStats() so stocked birds are properly deducted from available count
+      const { availableForStockBirds: freeBirds, availableForStockWeight: freeWeight } = getRemainingStockStats();
       const currentSaleBirds = saleData.birds || 0;
       const currentSaleWeight = saleData.weight || 0;
 
-      // If editing, subtract the current sale birds from total sold birds to get accurate remaining
+      // If editing, add back the current sale entry's birds/weight to get accurate available count
       const adjustedRemainingBirds = editingSaleIndex !== null
-        ? remainingBirds + (trip.sales[editingSaleIndex]?.birdsCount || trip.sales[editingSaleIndex]?.birds || 0)
-        : remainingBirds;
+        ? freeBirds + (trip.sales[editingSaleIndex]?.birdsCount || trip.sales[editingSaleIndex]?.birds || 0)
+        : freeBirds;
 
       const adjustedRemainingWeight = editingSaleIndex !== null
-        ? remainingWeight + (trip.sales[editingSaleIndex]?.weight || 0)
-        : remainingWeight;
+        ? freeWeight + (trip.sales[editingSaleIndex]?.weight || 0)
+        : freeWeight;
 
       if (currentSaleBirds > adjustedRemainingBirds) {
-        alert(`Cannot sell ${currentSaleBirds} birds. Only ${adjustedRemainingBirds} birds are available for sale.`);
-        setIsSubmitting(false);
+        alert(`Cannot sell ${currentSaleBirds} birds. Only ${adjustedRemainingBirds} birds are available for sale (after accounting for stock entries).`);
         return;
       }
 
       if (currentSaleWeight > adjustedRemainingWeight) {
-        alert(`Cannot sell ${currentSaleWeight} kg. Only ${adjustedRemainingWeight} kg are available for sale.`);
-        setIsSubmitting(false);
+        alert(`Cannot sell ${currentSaleWeight} kg. Only ${adjustedRemainingWeight.toFixed(2)} kg are available for sale (after accounting for stock entries).`);
         return;
       }
 
@@ -872,7 +875,6 @@ const SupervisorTripDetails = () => {
           );
 
           if (!confirmOverpayment) {
-            setIsSubmitting(false);
             return;
           }
         }
@@ -948,11 +950,14 @@ const SupervisorTripDetails = () => {
       alert(error.response?.data?.message || 'Failed to save sale');
     } finally {
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const handleReceiptSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -995,7 +1000,6 @@ const SupervisorTripDetails = () => {
 
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
-        setIsSubmitting(false);
         return;
       }
 
@@ -1072,11 +1076,14 @@ const SupervisorTripDetails = () => {
       alert(error.response?.data?.message || 'Failed to save receipt');
     } finally {
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const handleExpenseSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -1086,7 +1093,6 @@ const SupervisorTripDetails = () => {
 
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
-        setIsSubmitting(false);
         return;
       }
 
@@ -1118,11 +1124,14 @@ const SupervisorTripDetails = () => {
       alert(error.response?.data?.message || 'Failed to save expense');
     } finally {
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const handleDieselSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -1132,13 +1141,11 @@ const SupervisorTripDetails = () => {
 
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
-        setIsSubmitting(false);
         return;
       }
 
       if (dieselData.useCustomStation && !dieselData.paymentLedger) {
         alert('Please select a Payment Ledger for custom station');
-        setIsSubmitting(false);
         return;
       }
 
@@ -1173,11 +1180,14 @@ const SupervisorTripDetails = () => {
       alert(error.response?.data?.message || 'Failed to save diesel record');
     } finally {
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const handleStockSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -1187,7 +1197,6 @@ const SupervisorTripDetails = () => {
 
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
-        setIsSubmitting(false);
         return;
       }
 
@@ -1209,13 +1218,11 @@ const SupervisorTripDetails = () => {
 
       if (currentStockBirds > adjustedAvailableBirds) {
         alert(`Cannot add ${currentStockBirds} birds to stock. Only ${adjustedAvailableBirds} birds are available for stock.`);
-        setIsSubmitting(false);
         return;
       }
 
       if (currentStockWeight > adjustedAvailableWeight) {
         alert(`Cannot add ${currentStockWeight} kg to stock. Only ${adjustedAvailableWeight.toFixed(2)} kg are available for stock.`);
-        setIsSubmitting(false);
         return;
       }
       // Clean the data before sending
@@ -1251,6 +1258,7 @@ const SupervisorTripDetails = () => {
       alert(error.response?.data?.message || 'Failed to update stock');
     } finally {
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -1367,7 +1375,7 @@ const SupervisorTripDetails = () => {
           from: completeTripDetailsData.route.from,
           to: completeTripDetailsData.route.to
         },
-        // place: completeTripDetailsData.place || '',
+        place: completeTripDetailsData.place || '',
         vehicleReadings: {
           opening: Number(completeTripDetailsData.vehicleReadings.opening)
         }
@@ -1896,7 +1904,7 @@ const SupervisorTripDetails = () => {
           {activeTab === 'sales' && (
             <div className="space-y-4">
               <h3 className="text-lg font-semibold text-gray-900">Sales</h3>
-              {trip.sales && trip.sales.length > 0 ? (
+              {trip.sales && trip.sales.filter(sale => !sale.isReceipt && (sale.birds > 0 || sale.weight > 0)).length > 0 ? (
                 <div className="space-y-4">
                   {/* Sales Summary */}
                   <div className="bg-green-50 p-4 rounded-lg border border-green-200">
@@ -1923,7 +1931,8 @@ const SupervisorTripDetails = () => {
 
                   {/* Place-wise Sales */}
                   {(() => {
-                    const salesByPlace = trip.sales.reduce((acc, sale) => {
+                    const actualSales = trip.sales?.filter(sale => !sale.isReceipt && (sale.birds > 0 || sale.weight > 0)) || [];
+                    const salesByPlace = actualSales.reduce((acc, sale) => {
                       const place = sale.client?.place || 'Customers';
                       if (!acc[place]) acc[place] = [];
                       acc[place].push(sale);
@@ -4862,6 +4871,22 @@ const SupervisorTripDetails = () => {
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
                           placeholder="e.g., SNK, Hyderabad"
                           required
+                        />
+                      </div>
+
+                      <div className="md:col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Place Reference (e.g. SNK Area, North Zone)
+                        </label>
+                        <input
+                          type="text"
+                          value={completeTripDetailsData.place || ''}
+                          onChange={(e) => setCompleteTripDetailsData(prev => ({
+                            ...prev,
+                            place: e.target.value
+                          }))}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                          placeholder="e.g., SNK Area, North Zone"
                         />
                       </div>
 

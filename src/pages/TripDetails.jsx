@@ -63,6 +63,7 @@ export default function TripDetails() {
   const [customerBalance, setCustomerBalance] = useState(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
 
   // Ledgers states
   const [bankAccountLedgers, setBankAccountLedgers] = useState([]);
@@ -93,8 +94,6 @@ export default function TripDetails() {
     balance: 0,
     cashPaid: '',
     onlinePaid: '',
-    cashLedger: '',
-    onlineLedger: '',
     cashLedger: '',
     onlineLedger: '',
     narration: '',
@@ -335,6 +334,9 @@ export default function TripDetails() {
 
 
   const addPurchase = async (purchaseData) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     try {
       const { data } = await api.post(`/trip/${id}/purchase`, purchaseData);
       setTrip(data.data);
@@ -342,12 +344,18 @@ export default function TripDetails() {
       alert('Purchase added successfully!');
     } catch (err) {
       alert(`Error: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
 
 
   const addExpense = async (expenseData) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     try {
       const currentExpenses = trip.expenses || [];
       const newExpenses = [...currentExpenses, expenseData];
@@ -357,10 +365,16 @@ export default function TripDetails() {
       alert('Expense added successfully!');
     } catch (err) {
       alert(`Error: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const completeTrip = async (completionData) => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     try {
       const { data } = await api.put(`/trip/${id}/complete`, completionData);
       setTrip(data.data);
@@ -370,6 +384,9 @@ export default function TripDetails() {
       fetchTrip();
     } catch (err) {
       alert(`Error: ${err.message}`);
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -573,6 +590,9 @@ export default function TripDetails() {
   // Edit handlers
   const handleEditPurchase = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     try {
       const cleanedPurchaseData = {
         ...purchaseData,
@@ -590,11 +610,16 @@ export default function TripDetails() {
     } catch (error) {
       console.error('Error updating purchase:', error);
       alert(error.response?.data?.message || 'Failed to update purchase');
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const handleSaleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -616,7 +641,6 @@ export default function TripDetails() {
 
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
-        setIsSubmitting(false);
         return;
       }
 
@@ -636,13 +660,11 @@ export default function TripDetails() {
 
       if (currentSaleBirds > adjustedRemainingBirds) {
         alert(`Cannot sell ${currentSaleBirds} birds. Only ${adjustedRemainingBirds} birds are available for sale.`);
-        setIsSubmitting(false);
         return;
       }
 
       if (currentSaleWeight > adjustedRemainingWeight) {
         alert(`Cannot sell ${currentSaleWeight} kg. Only ${adjustedRemainingWeight} kg are available for sale.`);
-        setIsSubmitting(false);
         return;
       }
 
@@ -669,7 +691,6 @@ export default function TripDetails() {
           );
 
           if (!confirmOverpayment) {
-            setIsSubmitting(false);
             return;
           }
         }
@@ -723,11 +744,14 @@ export default function TripDetails() {
       alert(error.response?.data?.message || 'Failed to save sale');
     } finally {
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const handleReceiptSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
 
     try {
@@ -755,7 +779,6 @@ export default function TripDetails() {
 
       if (validationErrors.length > 0) {
         alert(`Please fill all mandatory fields:\n${validationErrors.join('\n')}`);
-        setIsSubmitting(false);
         return;
       }
 
@@ -814,12 +837,16 @@ export default function TripDetails() {
       alert(error.response?.data?.message || 'Failed to save receipt');
     } finally {
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
 
   const handleEditExpense = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     try {
       const { data } = await api.put(`/trip/${id}/expenses/${editingExpenseIndex}`, expenseData);
       if (data.success) {
@@ -832,11 +859,17 @@ export default function TripDetails() {
     } catch (error) {
       console.error('Error updating expense:', error);
       alert(error.response?.data?.message || 'Failed to update expense');
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const handleEditDiesel = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     try {
       const { data } = await api.put(`/trip/${id}/diesel/${editingDieselIndex}`, dieselData);
       if (data.success) {
@@ -849,11 +882,17 @@ export default function TripDetails() {
     } catch (error) {
       console.error('Error updating diesel record:', error);
       alert(error.response?.data?.message || 'Failed to update diesel record');
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
   const handleEditStock = async (e) => {
     e.preventDefault();
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
     try {
       const cleanedStockData = {
         birds: Number(stockData.birds),
@@ -873,6 +912,9 @@ export default function TripDetails() {
     } catch (error) {
       console.error('Error updating stock:', error);
       alert(error.response?.data?.message || 'Failed to update stock');
+    } finally {
+      setIsSubmitting(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -1872,7 +1914,7 @@ export default function TripDetails() {
                   </button>
                 )}
               </div>
-              {trip.sales && trip.sales.length > 0 ? (
+              {trip.sales && trip.sales.filter(sale => (sale.birds > 0 || sale.weight > 0)).length > 0 ? (
                 isAdmin ? (
                   // Admin view - Detailed table
                   <div className="overflow-x-auto">
@@ -2121,7 +2163,6 @@ export default function TripDetails() {
                                           onlinePaid: receipt.onlinePaid || 0,
                                           cashLedger: defaultCashLedger,
                                           onlineLedger: receipt.onlineLedger || '',
-                                          narration: receipt.narration || '',
                                           narration: receipt.narration || '',
                                           isReceipt: true,
                                           sendSms: false

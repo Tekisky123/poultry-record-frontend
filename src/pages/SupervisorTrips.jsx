@@ -69,16 +69,16 @@ export default function SupervisorTrips() {
   const filteredTrips = trips.filter(trip => {
     const matchesSearch = trip.tripId?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       trip.vehicle?.vehicleNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      trip.place?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (trip.place || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       trip.driver?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'all' || trip.status === statusFilter;
     return matchesSearch && matchesStatus;
   }).sort((a, b) => {
-    // Define status priority: started (1) > ongoing (2) > completed (3)
+    // Define status priority: active (started/ongoing = 1) > completed (2)
     const statusPriority = {
       'started': 1,
-      'ongoing': 2,
-      'completed': 3
+      'ongoing': 1,
+      'completed': 2
     };
 
     const aPriority = statusPriority[a.status] || 4;

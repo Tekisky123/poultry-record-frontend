@@ -1,5 +1,5 @@
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Search, Calendar, FileText, CheckCircle, Save, X, Edit, Trash2, Download, ArrowLeft, ChevronLeft, ChevronRight } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
@@ -45,6 +45,8 @@ const ManageStocks = () => {
     // Forms Data
     const [isEditMode, setIsEditMode] = useState(false);
     const [currentStockId, setCurrentStockId] = useState(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const isSavingRef = useRef(false);
 
     const defaultDate = dateParam || new Date().toISOString().split('T')[0];
 
@@ -168,7 +170,6 @@ const ManageStocks = () => {
         bags: '',
         weight: '',
         rate: '',
-        amount: 0,
         amount: 0,
         date: defaultDate
     });
@@ -447,6 +448,9 @@ const ManageStocks = () => {
 
     const handlePurchaseSubmit = async (e) => {
         e.preventDefault();
+        if (isSavingRef.current) return;
+        isSavingRef.current = true;
+        setIsSaving(true);
         try {
             if (isEditMode && currentStockId) {
                 await api.put(`/inventory-stock/${currentStockId}`, purchaseData);
@@ -478,11 +482,17 @@ const ManageStocks = () => {
 
         } catch (error) {
             alert(error.response?.data?.message || "Failed to save purchase");
+        } finally {
+            setIsSaving(false);
+            isSavingRef.current = false;
         }
     };
 
     const handleSaleSubmit = async (e) => {
         e.preventDefault();
+        if (isSavingRef.current) return;
+        isSavingRef.current = true;
+        setIsSaving(true);
         try {
             if (isEditMode && currentStockId) {
                 console.log("saleData updated", saleData)
@@ -511,7 +521,6 @@ const ManageStocks = () => {
                 cashLedgerId: '',
                 onlineLedgerId: '',
                 saleOutBalance: 0,
-                saleOutBalance: 0,
                 date: defaultDate,
                 narration: '',
                 sendSms: false
@@ -522,11 +531,17 @@ const ManageStocks = () => {
             fetchInitialData();
         } catch (error) {
             alert(error.response?.data?.message || "Failed to save sale");
+        } finally {
+            setIsSaving(false);
+            isSavingRef.current = false;
         }
     };
 
     const handleReceiptSubmit = async (e) => {
         e.preventDefault();
+        if (isSavingRef.current) return;
+        isSavingRef.current = true;
+        setIsSaving(true);
         try {
             // Re-using saleData state for receipt for now or create separate if needed
             // Receipt is just Sale with 0 birds/weight/amount usually, but let's be cleaner
@@ -556,7 +571,6 @@ const ManageStocks = () => {
                 cashLedgerId: '',
                 onlineLedgerId: '',
                 saleOutBalance: 0,
-                saleOutBalance: 0,
                 date: defaultDate,
                 narration: '',
                 sendSms: false
@@ -567,11 +581,17 @@ const ManageStocks = () => {
             fetchInitialData();
         } catch (error) {
             alert(error.response?.data?.message || "Failed to save receipt");
+        } finally {
+            setIsSaving(false);
+            isSavingRef.current = false;
         }
     };
 
     const handleMortalitySubmit = async (e) => {
         e.preventDefault();
+        if (isSavingRef.current) return;
+        isSavingRef.current = true;
+        setIsSaving(true);
         try {
             if (isEditMode && currentStockId) {
                 await api.put(`/inventory-stock/${currentStockId}`, mortalityData);
@@ -587,11 +607,17 @@ const ManageStocks = () => {
             setCurrentStockId(null);
         } catch (error) {
             alert(error.response?.data?.message || "Failed to save mortality");
+        } finally {
+            setIsSaving(false);
+            isSavingRef.current = false;
         }
     };
 
     const handleWeightLossSubmit = async (e) => {
         e.preventDefault();
+        if (isSavingRef.current) return;
+        isSavingRef.current = true;
+        setIsSaving(true);
         try {
             if (isEditMode && currentStockId) {
                 await api.put(`/inventory-stock/${currentStockId}`, weightLossData);
@@ -607,6 +633,9 @@ const ManageStocks = () => {
             setCurrentStockId(null);
         } catch (error) {
             alert(error.response?.data?.message || "Failed to save weight loss/gain");
+        } finally {
+            setIsSaving(false);
+            isSavingRef.current = false;
         }
     };
 
@@ -633,6 +662,9 @@ const ManageStocks = () => {
 
     const handleNaturalWeightLossSubmit = async (e) => {
         e.preventDefault();
+        if (isSavingRef.current) return;
+        isSavingRef.current = true;
+        setIsSaving(true);
         try {
             if (isEditMode && currentStockId) {
                 await api.put(`/inventory-stock/${currentStockId}`, { ...naturalWeightLossData, type: 'natural_weight_loss' });
@@ -651,11 +683,17 @@ const ManageStocks = () => {
             setCurrentStockId(null);
         } catch (error) {
             alert(error.response?.data?.message || "Failed to save natural weight loss");
+        } finally {
+            setIsSaving(false);
+            isSavingRef.current = false;
         }
     };
 
     const handleFeedPurchaseSubmit = async (e) => {
         e.preventDefault();
+        if (isSavingRef.current) return;
+        isSavingRef.current = true;
+        setIsSaving(true);
         try {
             if (isEditMode && currentStockId) {
                 await api.put(`/inventory-stock/${currentStockId}`, {
@@ -685,11 +723,17 @@ const ManageStocks = () => {
             fetchInitialData();
         } catch (error) {
             alert(error.response?.data?.message || "Failed to save feed purchase");
+        } finally {
+            setIsSaving(false);
+            isSavingRef.current = false;
         }
     };
 
     const handleFeedConsumeSubmit = async (e) => {
         e.preventDefault();
+        if (isSavingRef.current) return;
+        isSavingRef.current = true;
+        setIsSaving(true);
         try {
             if (isEditMode && currentStockId) {
                 await api.put(`/inventory-stock/${currentStockId}`, {
@@ -719,6 +763,9 @@ const ManageStocks = () => {
             fetchInitialData();
         } catch (error) {
             alert(error.response?.data?.message || "Failed to save feed consumption");
+        } finally {
+            setIsSaving(false);
+            isSavingRef.current = false;
         }
     };
 
@@ -1035,7 +1082,6 @@ const ManageStocks = () => {
                                 cashLedgerId: '',
                                 onlineLedgerId: '',
                                 saleOutBalance: 0,
-                                saleOutBalance: 0,
                                 date: defaultDate
                             });
                             setShowSaleModal(true);
@@ -1058,7 +1104,6 @@ const ManageStocks = () => {
                                 balance: 0,
                                 cashLedgerId: '',
                                 onlineLedgerId: '',
-                                saleOutBalance: 0,
                                 saleOutBalance: 0,
                                 date: defaultDate
                             });
@@ -1088,7 +1133,6 @@ const ManageStocks = () => {
                                         weight: '',
                                         avgWeight: 0,
                                         rate: totalRate.toFixed(2),
-                                        amount: 0,
                                         amount: 0,
                                         date: defaultDate
                                     });
@@ -1123,7 +1167,6 @@ const ManageStocks = () => {
                                         weight: '',
                                         avgWeight: 0,
                                         rate: totalRate.toFixed(2), // Use Total Purchase Rate
-                                        amount: 0,
                                         amount: 0,
                                         date: defaultDate
                                     });
@@ -2006,25 +2049,26 @@ const ManageStocks = () => {
                                     {isEditMode ? 'Edit Purchase' : 'Add Purchase'}
                                 </h3>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
+                            <form onSubmit={handlePurchaseSubmit} className="flex-1 flex flex-col min-h-0">
+                                <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
 
-                                {/* Summary Section */}
-                                {purchaseData.birds > 0 && purchaseData.weight > 0 && (
-                                    <div className="bg-blue-50 p-1.5 rounded-lg mb-2">
-                                        <div className="text-xs text-blue-800">
-                                            <div className="grid grid-cols-2 gap-1">
-                                                <div><span className="font-medium">DC:</span> {purchaseData.refNo}</div>
-                                                <div><span className="font-medium">Birds:</span> {purchaseData.birds}</div>
-                                                <div><span className="font-medium">Weight:</span> {purchaseData.weight} kg</div>
-                                                <div><span className="font-medium">Avg:</span> {purchaseData.avgWeight} kg/bird</div>
-                                                <div><span className="font-medium">Rate:</span> ₹{purchaseData.rate}/kg</div>
-                                                <div><span className="font-medium">Amount:</span> ₹{purchaseData.amount?.toLocaleString() || '0'}</div>
+                                    {/* Summary Section */}
+                                    {purchaseData.birds > 0 && purchaseData.weight > 0 && (
+                                        <div className="bg-blue-50 p-1.5 rounded-lg mb-2">
+                                            <div className="text-xs text-blue-800">
+                                                <div className="grid grid-cols-2 gap-1">
+                                                    <div><span className="font-medium">DC:</span> {purchaseData.refNo}</div>
+                                                    <div><span className="font-medium">Birds:</span> {purchaseData.birds}</div>
+                                                    <div><span className="font-medium">Weight:</span> {purchaseData.weight} kg</div>
+                                                    <div><span className="font-medium">Avg:</span> {purchaseData.avgWeight} kg/bird</div>
+                                                    <div><span className="font-medium">Rate:</span> ₹{purchaseData.rate}/kg</div>
+                                                    <div><span className="font-medium">Amount:</span> ₹{purchaseData.amount?.toLocaleString() || '0'}</div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
 
-                                <form onSubmit={handlePurchaseSubmit} className="space-y-2">
+                                    <div className="space-y-2">
                                     <div className="relative">
                                         <label className="block text-xs font-medium text-gray-700 mb-1">Vendor *</label>
                                         <div className="relative">
@@ -2181,28 +2225,30 @@ const ManageStocks = () => {
                                             readOnly
                                         />
                                     </div>
-                                </form>
-                            </div>
-
-                            {/* Modal Footer */}
-                            <div className="p-4 pt-3 border-t border-gray-200 bg-gray-50 rounded-b-lg flex-shrink-0">
-                                <div className="flex space-x-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPurchaseModal(false)}
-                                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={handlePurchaseSubmit}
-                                        className="flex-1 px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-medium"
-                                    >
-                                        {isEditMode ? 'Update' : 'Add'}
-                                    </button>
                                 </div>
                             </div>
+
+                                {/* Modal Footer */}
+                                <div className="p-4 pt-3 border-t border-gray-200 bg-gray-50 rounded-b-lg flex-shrink-0">
+                                    <div className="flex space-x-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPurchaseModal(false)}
+                                            className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50"
+                                            disabled={isSaving}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={isSaving}
+                                            className="flex-1 px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-xs font-medium disabled:opacity-50"
+                                        >
+                                            {isSaving ? (isEditMode ? 'Saving...' : 'Submitting...') : (isEditMode ? 'Update' : 'Add')}
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 )
@@ -2218,38 +2264,39 @@ const ManageStocks = () => {
                                     {showReceiptModal ? (isEditMode ? 'Edit Receipt' : 'Add Receipt') : (isEditMode ? 'Edit Sale' : 'Add Sale')}
                                 </h3>
                             </div>
-                            <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
+                            <form onSubmit={showReceiptModal ? handleReceiptSubmit : handleSaleSubmit} className="flex-1 flex flex-col min-h-0">
+                                <div className="flex-1 overflow-y-auto p-4 pt-3 min-h-0">
 
-                                {/* Receipt Info Header */}
-                                {showReceiptModal && (
-                                    <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg">
-                                        <div className="flex items-center gap-2 text-green-700">
-                                            <FileText size={14} />
-                                            <span className="text-xs font-medium">Payment Receipt</span>
+                                    {/* Receipt Info Header */}
+                                    {showReceiptModal && (
+                                        <div className="mb-3 p-2 bg-green-50 border border-green-200 rounded-lg">
+                                            <div className="flex items-center gap-2 text-green-700">
+                                                <FileText size={14} />
+                                                <span className="text-xs font-medium">Payment Receipt</span>
+                                            </div>
+                                            <p className="text-[10px] text-green-600 mt-0.5">
+                                                Customer paying remaining balance without purchasing birds
+                                            </p>
                                         </div>
-                                        <p className="text-[10px] text-green-600 mt-0.5">
-                                            Customer paying remaining balance without purchasing birds
-                                        </p>
-                                    </div>
-                                )}
+                                    )}
 
-                                {/* Sales Summary Header */}
-                                {!showReceiptModal && saleData.birds > 0 && saleData.weight > 0 && (
-                                    <div className="bg-blue-50 p-1.5 rounded-lg mb-2">
-                                        <div className="text-xs text-blue-800">
-                                            <div className="grid grid-cols-2 gap-1">
-                                                <div><span className="font-medium">Bill:</span> {saleData.billNumber}</div>
-                                                <div><span className="font-medium">Birds:</span> {saleData.birds}</div>
-                                                <div><span className="font-medium">Weight:</span> {saleData.weight} kg</div>
-                                                <div><span className="font-medium">Avg:</span> {saleData.avgWeight} kg/bird</div>
-                                                <div><span className="font-medium">Rate:</span> ₹{saleData.rate}/kg</div>
-                                                <div><span className="font-medium">Total:</span> ₹{saleData.amount?.toLocaleString()}</div>
+                                    {/* Sales Summary Header */}
+                                    {!showReceiptModal && saleData.birds > 0 && saleData.weight > 0 && (
+                                        <div className="bg-blue-50 p-1.5 rounded-lg mb-2">
+                                            <div className="text-xs text-blue-800">
+                                                <div className="grid grid-cols-2 gap-1">
+                                                    <div><span className="font-medium">Bill:</span> {saleData.billNumber}</div>
+                                                    <div><span className="font-medium">Birds:</span> {saleData.birds}</div>
+                                                    <div><span className="font-medium">Weight:</span> {saleData.weight} kg</div>
+                                                    <div><span className="font-medium">Avg:</span> {saleData.avgWeight} kg/bird</div>
+                                                    <div><span className="font-medium">Rate:</span> ₹{saleData.rate}/kg</div>
+                                                    <div><span className="font-medium">Total:</span> ₹{saleData.amount?.toLocaleString()}</div>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
 
-                                <form onSubmit={showReceiptModal ? handleReceiptSubmit : handleSaleSubmit} className="space-y-2">
+                                    <div className="space-y-2">
                                     {/* Customer Selection */}
                                     <div className="relative">
                                         <label className="block text-xs font-medium text-gray-700 mb-1">Customer *</label>
@@ -2492,28 +2539,30 @@ const ManageStocks = () => {
                                             </label>
                                         </div>
                                     </div>
-                                </form>
-                            </div>
-
-                            {/* Modal Footer */}
-                            <div className="p-4 pt-3 border-t border-gray-200 bg-gray-50 rounded-b-lg flex-shrink-0">
-                                <div className="flex space-x-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => { setShowSaleModal(false); setShowReceiptModal(false); }}
-                                        className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={showReceiptModal ? handleReceiptSubmit : handleSaleSubmit}
-                                        className={`flex-1 px-2 py-1 text-white rounded text-xs font-medium ${showReceiptModal ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-                                    >
-                                        {isEditMode ? 'Update' : 'Submit'}
-                                    </button>
                                 </div>
                             </div>
+
+                                {/* Modal Footer */}
+                                <div className="p-4 pt-3 border-t border-gray-200 bg-gray-50 rounded-b-lg flex-shrink-0">
+                                    <div className="flex space-x-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => { setShowSaleModal(false); setShowReceiptModal(false); }}
+                                            className="flex-1 px-2 py-1 border border-gray-300 rounded text-xs font-medium hover:bg-gray-50"
+                                            disabled={isSaving}
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            disabled={isSaving}
+                                            className={`flex-1 px-2 py-1 text-white rounded text-xs font-medium disabled:opacity-50 ${showReceiptModal ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                                        >
+                                            {isSaving ? 'Submitting...' : (isEditMode ? 'Update' : 'Submit')}
+                                        </button>
+                                    </div>
+                                </div>
+                            </form>
                         </div>
                     </div>
                 )
@@ -2551,8 +2600,10 @@ const ManageStocks = () => {
                                     <input type="number" value={mortalityData.amount} className="w-full border p-2 rounded bg-gray-100" readOnly />
                                 </div>
                                 <div className="flex justify-end gap-2 mt-4">
-                                    <button type="button" onClick={() => setShowMortalityModal(false)} className="px-4 py-2 border rounded">Cancel</button>
-                                    <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded">Submit</button>
+                                    <button type="button" onClick={() => setShowMortalityModal(false)} className="px-4 py-2 border rounded" disabled={isSaving}>Cancel</button>
+                                    <button type="submit" className="px-4 py-2 bg-red-600 text-white rounded disabled:opacity-50" disabled={isSaving}>
+                                        {isSaving ? 'Submitting...' : 'Submit'}
+                                    </button>
                                 </div>
                             </form>
                         </div>
@@ -2591,8 +2642,10 @@ const ManageStocks = () => {
                                     <input type="number" value={weightLossData.amount} className="w-full border p-2 rounded bg-gray-100" readOnly />
                                 </div>
                                 <div className="flex justify-end gap-2 mt-4">
-                                    <button type="button" onClick={() => setShowWeightLossModal(false)} className="px-4 py-2 border rounded">Cancel</button>
-                                    <button type="submit" className="px-4 py-2 bg-teal-600 text-white rounded">Submit</button>
+                                    <button type="button" onClick={() => setShowWeightLossModal(false)} className="px-4 py-2 border rounded" disabled={isSaving}>Cancel</button>
+                                    <button type="submit" className="px-4 py-2 bg-teal-600 text-white rounded disabled:opacity-50" disabled={isSaving}>
+                                        {isSaving ? 'Submitting...' : 'Submit'}
+                                    </button>
                                 </div>
                             </form>
                         </div>
@@ -2631,8 +2684,10 @@ const ManageStocks = () => {
                                     <input type="number" value={naturalWeightLossData.amount} className="w-full border p-2 rounded bg-gray-100" readOnly />
                                 </div>
                                 <div className="flex justify-end gap-2 mt-4">
-                                    <button type="button" onClick={() => setShowNaturalWeightLossModal(false)} className="px-4 py-2 border rounded">Cancel</button>
-                                    <button type="submit" className="px-4 py-2 bg-purple-600 text-white rounded">Submit</button>
+                                    <button type="button" onClick={() => setShowNaturalWeightLossModal(false)} className="px-4 py-2 border rounded" disabled={isSaving}>Cancel</button>
+                                    <button type="submit" className="px-4 py-2 bg-purple-600 text-white rounded disabled:opacity-50" disabled={isSaving}>
+                                        {isSaving ? 'Submitting...' : 'Submit'}
+                                    </button>
                                 </div>
                             </form>
                         </div>
@@ -2741,8 +2796,8 @@ const ManageStocks = () => {
                                         className="w-full border rounded p-2 bg-gray-100"
                                     />
                                 </div>
-                                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-                                    {isEditMode ? 'Update Purchase' : 'Add Purchase'}
+                                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50" disabled={isSaving}>
+                                    {isSaving ? 'Saving...' : (isEditMode ? 'Update Purchase' : 'Add Purchase')}
                                 </button>
                             </form>
                         </div>
@@ -2816,8 +2871,8 @@ const ManageStocks = () => {
                                         className="w-full border rounded p-2 bg-gray-100"
                                     />
                                 </div>
-                                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">
-                                    {isEditMode ? 'Update Consumption' : 'Add Consumption'}
+                                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50" disabled={isSaving}>
+                                    {isSaving ? 'Saving...' : (isEditMode ? 'Update Consumption' : 'Add Consumption')}
                                 </button>
                             </form>
                         </div>
