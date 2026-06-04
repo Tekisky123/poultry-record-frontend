@@ -1627,11 +1627,11 @@ const SupervisorTripDetails = () => {
               </button>
               {/* Transfer Trip Button - Only show if there are remaining birds */}
               {(() => {
+                // trip.summary.totalBirdsSold already includes: customer sales + stock birds + transferred birds
+                // So we only need: purchased - sold - lost (NOT separately subtracting stocks again)
                 const remainingBirds = (trip.summary?.totalBirdsPurchased || 0) -
                   (trip.summary?.totalBirdsSold || 0) -
-                  (trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0) -
-                  (trip.summary?.totalBirdsLost || 0) -
-                  (trip.summary?.birdsTransferred || 0);
+                  (trip.summary?.totalBirdsLost || 0);
                 return remainingBirds > 0 ? (
                   <button
                     onClick={() => setShowTransferModal(true)}
@@ -3422,6 +3422,12 @@ const SupervisorTripDetails = () => {
               {/* Purchase Birds Info */}
               {(() => {
                 const { totalPurchasedBirds, totalSoldBirds, remainingBirds, totalPurchasedWeight, totalSoldWeight, remainingWeight } = getPurchaseAndSaleStats();
+                // Also get stocked birds (reserved but not yet sold to customers)
+                const totalStockBirds = trip.stocks?.reduce((sum, s) => sum + (s.birds || 0), 0) || 0;
+                const totalStockWeight = trip.stocks?.reduce((sum, s) => sum + (s.weight || 0), 0) || 0;
+                // True available = remaining after customer sales minus stocked birds
+                const trueAvailableBirds = remainingBirds - totalStockBirds;
+                const trueAvailableWeight = remainingWeight - totalStockWeight;
                 return (
                   <div className="bg-gray-50 p-3 rounded-lg mb-3">
                     <div className="text-sm font-medium text-gray-700 mb-2">Purchase & Sale Summary</div>
@@ -3435,13 +3441,13 @@ const SupervisorTripDetails = () => {
                           <div className="font-semibold text-blue-600">{totalPurchasedBirds}</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-gray-500">Already Sold</div>
-                          <div className="font-semibold text-green-600">{totalSoldBirds}</div>
+                          <div className="text-gray-500">Sold + Stocked</div>
+                          <div className="font-semibold text-green-600">{totalSoldBirds + totalStockBirds}</div>
                         </div>
                         <div className="text-center">
                           <div className="text-gray-500">Available</div>
-                          <div className={`font-semibold ${remainingBirds > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                            {remainingBirds}
+                          <div className={`font-semibold ${trueAvailableBirds > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                            {trueAvailableBirds}
                           </div>
                         </div>
                       </div>
@@ -3456,19 +3462,19 @@ const SupervisorTripDetails = () => {
                           <div className="font-semibold text-blue-600">{totalPurchasedWeight.toFixed(2)}</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-gray-500">Already Sold</div>
-                          <div className="font-semibold text-green-600">{totalSoldWeight.toFixed(2)}</div>
+                          <div className="text-gray-500">Sold + Stocked</div>
+                          <div className="font-semibold text-green-600">{(totalSoldWeight + totalStockWeight).toFixed(2)}</div>
                         </div>
                         <div className="text-center">
                           <div className="text-gray-500">Available</div>
-                          <div className={`font-semibold ${remainingWeight > 0 ? 'text-orange-600' : 'text-red-600'}`}>
-                            {remainingWeight.toFixed(2)}
+                          <div className={`font-semibold ${trueAvailableWeight > 0 ? 'text-orange-600' : 'text-red-600'}`}>
+                            {trueAvailableWeight.toFixed(2)}
                           </div>
                         </div>
                       </div>
                     </div>
 
-                    {(remainingBirds <= 0 || remainingWeight <= 0) && (
+                    {(trueAvailableBirds <= 0 || trueAvailableWeight <= 0) && (
                       <div className="mt-2 text-xs text-red-600 font-medium text-center">
                         ⚠️ No birds/weight available for sale
                       </div>
