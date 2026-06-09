@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import AddGroupModal from '../components/AddGroupModal';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -53,6 +54,7 @@ export default function Ledgers() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingLedger, setEditingLedger] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
 
   const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
 
@@ -424,9 +426,18 @@ export default function Ledgers() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Group *
-                </label>
+                <div className="flex justify-between items-center mb-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Group *
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddGroupModalOpen(true)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    + Add Group
+                  </button>
+                </div>
                 <select
                   {...register('group')}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -488,6 +499,15 @@ export default function Ledgers() {
           </div>
         </div>
       )}
+      <AddGroupModal
+        isOpen={isAddGroupModalOpen}
+        onClose={() => setIsAddGroupModalOpen(false)}
+        defaultType="Assets"
+        onGroupCreated={async (newGroup) => {
+          await fetchData();
+          setValue('group', newGroup.id || newGroup._id);
+        }}
+      />
     </div>
   );
 }

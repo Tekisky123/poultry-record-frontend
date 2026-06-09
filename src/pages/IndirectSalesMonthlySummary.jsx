@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Loader2, ArrowLeft, Download, PlusCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -24,6 +24,7 @@ export default function IndirectSalesMonthlySummary() {
         notes: ''
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const isSubmittingRef = useRef(false);
 
     const loadCustomersAndVendors = async () => {
         try {
@@ -67,7 +68,9 @@ export default function IndirectSalesMonthlySummary() {
 
     const handleCreateSubmit = async (event) => {
         event.preventDefault();
+        if (isSubmittingRef.current) return;
         try {
+            isSubmittingRef.current = true;
             setIsSubmitting(true);
             const payload = {
                 date: formData.date,
@@ -89,6 +92,7 @@ export default function IndirectSalesMonthlySummary() {
             console.error(err);
             alert(err.response?.data?.message || 'Failed to create indirect purchase and sale.');
         } finally {
+            isSubmittingRef.current = false;
             setIsSubmitting(false);
         }
     };

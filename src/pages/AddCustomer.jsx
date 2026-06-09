@@ -1,5 +1,6 @@
 // src/pages/AddCustomer.jsx
 import { useState, useEffect } from 'react';
+import AddGroupModal from '../components/AddGroupModal';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -59,12 +60,13 @@ export default function AddCustomer() {
   const [groups, setGroups] = useState([]);
   const [flatGroups, setFlatGroups] = useState([]);
   const [isLoadingGroups, setIsLoadingGroups] = useState(false);
+  const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
 
   // Check if user has admin privileges
   const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
 
   // React Hook Form with Zod validation
-  const { register, handleSubmit, reset, formState: { errors } } = useForm({
+  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm({
     resolver: zodResolver(customerSchema),
     defaultValues: {
       shopName: '',
@@ -163,56 +165,56 @@ export default function AddCustomer() {
     return getAllDescendants(parentGroup);
   };
 
+  const fetchGroups = async () => {
+    try {
+      setIsLoadingGroups(true);
+      const groupsRes = await api.get('/group');
+      const groupsData = groupsRes.data.data || [];
+      setGroups(groupsData);
+
+      // Filter groups to show only "Sundry Debtors" and its descendants using SLUG
+      const sundryDebtorsGroups = getGroupDescendants(groupsData, 'sundry-debtors');
+
+      // Build tree for filtered groups
+      const buildTree = (groups) => {
+        const groupMap = new Map();
+        const rootGroups = [];
+        groups.forEach(g => groupMap.set(g.id, { ...g, children: [] }));
+        groups.forEach(g => {
+          const node = groupMap.get(g.id);
+          if (g.parentGroup && groupMap.has(g.parentGroup.id)) {
+            groupMap.get(g.parentGroup.id).children.push(node);
+          } else {
+            rootGroups.push(node);
+          }
+        });
+        return rootGroups;
+      };
+
+      // Filter to only include Sundry Debtors hierarchy
+      let groupsToDisplay = groupsData;
+      if (sundryDebtorsGroups.length > 0) {
+        groupsToDisplay = groupsData.filter(g => {
+          const allDescendants = sundryDebtorsGroups.map(gr => gr.id);
+          return allDescendants.includes(g.id);
+        });
+      } else {
+        console.warn('Sundry Debtors group not found by slug "sundry-debtors", displaying all groups');
+      }
+
+      const treeGroups = buildTree(groupsToDisplay);
+      setFlatGroups(flattenGroups(treeGroups));
+
+
+    } catch (err) {
+      console.error('Error fetching groups:', err);
+    } finally {
+      setIsLoadingGroups(false);
+    }
+  };
+
   // Fetch groups on component mount
   useEffect(() => {
-    const fetchGroups = async () => {
-      try {
-        setIsLoadingGroups(true);
-        const groupsRes = await api.get('/group');
-        const groupsData = groupsRes.data.data || [];
-        setGroups(groupsData);
-
-        // Filter groups to show only "Sundry Debtors" and its descendants using SLUG
-        const sundryDebtorsGroups = getGroupDescendants(groupsData, 'sundry-debtors');
-
-        // Build tree for filtered groups
-        const buildTree = (groups) => {
-          const groupMap = new Map();
-          const rootGroups = [];
-          groups.forEach(g => groupMap.set(g.id, { ...g, children: [] }));
-          groups.forEach(g => {
-            const node = groupMap.get(g.id);
-            if (g.parentGroup && groupMap.has(g.parentGroup.id)) {
-              groupMap.get(g.parentGroup.id).children.push(node);
-            } else {
-              rootGroups.push(node);
-            }
-          });
-          return rootGroups;
-        };
-
-        // Filter to only include Sundry Debtors hierarchy
-        let groupsToDisplay = groupsData;
-        if (sundryDebtorsGroups.length > 0) {
-          groupsToDisplay = groupsData.filter(g => {
-            const allDescendants = sundryDebtorsGroups.map(gr => gr.id);
-            return allDescendants.includes(g.id);
-          });
-        } else {
-          console.warn('Sundry Debtors group not found by slug "sundry-debtors", displaying all groups');
-        }
-
-        const treeGroups = buildTree(groupsToDisplay);
-        setFlatGroups(flattenGroups(treeGroups));
-
-
-      } catch (err) {
-        console.error('Error fetching groups:', err);
-      } finally {
-        setIsLoadingGroups(false);
-      }
-    };
-
     fetchGroups();
   }, []);
 
@@ -359,9 +361,18 @@ export default function AddCustomer() {
               </p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Group *
-              </label>
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Group *
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsAddGroupModalOpen(true)}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  + Add Group
+                </button>
+              </div>
               <select
                 {...register('group')}
                 disabled={isLoadingGroups}
@@ -469,6 +480,15 @@ export default function AddCustomer() {
           </div>
         </form>
       </div>
+      <AddGroupModal
+        isOpen={isAddGroupModalOpen}
+        onClose={() => setIsAddGroupModalOpen(false)}
+        defaultType="Assets"
+        onGroupCreated={async (newGroup) => {
+          await fetchGroups();
+          setValue('group', newGroup.id || newGroup._id);
+        }}
+      />
     </div>
   );
 }

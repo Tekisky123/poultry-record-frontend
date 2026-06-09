@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Search, Edit2, Trash2, X, Loader2, Eye } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../lib/axios';
+import AddGroupModal from '../components/AddGroupModal';
 
 const initialForm = {
   name: '',
@@ -23,6 +24,7 @@ const DieselStations = () => {
   const [submitting, setSubmitting] = useState(false);
   const [groups, setGroups] = useState([]);
   const [flatGroups, setFlatGroups] = useState([]);
+  const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
 
   // Helper function to flatten groups with hierarchy
   const flattenGroups = (groups, level = 0, prefix = '') => {
@@ -359,9 +361,18 @@ const DieselStations = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Group
-                </label>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Group
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddGroupModalOpen(true)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                  >
+                    + Add Group
+                  </button>
+                </div>
                 <select
                   name="group"
                   value={formData.group}
@@ -440,6 +451,15 @@ const DieselStations = () => {
           </div>
         </div>
       )}
+      <AddGroupModal
+        isOpen={isAddGroupModalOpen}
+        onClose={() => setIsAddGroupModalOpen(false)}
+        defaultType="Liability"
+        onGroupCreated={async (newGroup) => {
+          await fetchStations();
+          setFormData(prev => ({ ...prev, group: newGroup.id || newGroup._id }));
+        }}
+      />
     </div>
   );
 };

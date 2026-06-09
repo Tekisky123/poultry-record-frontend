@@ -1,5 +1,6 @@
 // src/pages/Vendors.jsx
 import { useState, useEffect } from 'react';
+import AddGroupModal from '../components/AddGroupModal';
 import { useNavigate } from 'react-router-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -96,6 +97,7 @@ export default function Vendors() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [groups, setGroups] = useState([]);
   const [flatGroups, setFlatGroups] = useState([]);
+  const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
 
   // Debug user information
   useEffect(() => {
@@ -868,10 +870,19 @@ export default function Vendors() {
                   />
                   {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Group *
-                  </label>
+                 <div>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Group *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddGroupModalOpen(true)}
+                      className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                    >
+                      + Add Group
+                    </button>
+                  </div>
                   <select
                     {...register('group')}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -1016,6 +1027,15 @@ export default function Vendors() {
           </div>
         </div>
       )}
+      <AddGroupModal
+        isOpen={isAddGroupModalOpen}
+        onClose={() => setIsAddGroupModalOpen(false)}
+        defaultType="Liability"
+        onGroupCreated={async (newGroup) => {
+          await fetchVendors();
+          setValue('group', newGroup.id || newGroup._id);
+        }}
+      />
     </div>
   );
 }

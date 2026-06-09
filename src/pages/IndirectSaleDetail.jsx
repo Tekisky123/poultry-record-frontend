@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../lib/axios';
 import dayjs from 'dayjs';
@@ -71,6 +71,8 @@ export default function IndirectSaleDetail() {
   });
   const [customers, setCustomers] = useState([]);
   const [vendors, setVendors] = useState([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const isSavingRef = useRef(false);
 
   const [purchaseModal, setPurchaseModal] = useState({ open: false, mode: 'add', data: { dcNumber: '', birds: '', weight: '', rate: '' } });
   const [mortalityModalOpen, setMortalityModalOpen] = useState(false);
@@ -126,7 +128,10 @@ export default function IndirectSaleDetail() {
 
   const submitDetails = async (event) => {
     event.preventDefault();
+    if (isSavingRef.current) return;
     try {
+      isSavingRef.current = true;
+      setIsSaving(true);
       const payload = {
         date: detailForm.date,
         customer: detailForm.customer,
@@ -142,6 +147,9 @@ export default function IndirectSaleDetail() {
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || 'Failed to update details');
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
     }
   };
 
@@ -174,7 +182,10 @@ export default function IndirectSaleDetail() {
 
   const submitPurchase = async (event) => {
     event.preventDefault();
+    if (isSavingRef.current) return;
     try {
+      isSavingRef.current = true;
+      setIsSaving(true);
       const payload = {
         dcNumber: purchaseModal.data.dcNumber,
         birds: Number(purchaseModal.data.birds),
@@ -193,6 +204,9 @@ export default function IndirectSaleDetail() {
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || 'Failed to save purchase item');
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
     }
   };
 
@@ -209,7 +223,10 @@ export default function IndirectSaleDetail() {
 
   const submitMortality = async (event) => {
     event.preventDefault();
+    if (isSavingRef.current) return;
     try {
+      isSavingRef.current = true;
+      setIsSaving(true);
       const { data } = await api.put(`/indirect-sales/${id}/mortality`, {
         birds: Number(mortalityBirds)
       });
@@ -218,12 +235,18 @@ export default function IndirectSaleDetail() {
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || 'Failed to update mortality');
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
     }
   };
 
   const submitSales = async (event) => {
     event.preventDefault();
+    if (isSavingRef.current) return;
     try {
+      isSavingRef.current = true;
+      setIsSaving(true);
       const { data } = await api.put(`/indirect-sales/${id}/sales`, {
         rate: Number(salesRate)
       });
@@ -232,6 +255,9 @@ export default function IndirectSaleDetail() {
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || 'Failed to update sales');
+    } finally {
+      isSavingRef.current = false;
+      setIsSaving(false);
     }
   };
 
@@ -655,8 +681,10 @@ export default function IndirectSaleDetail() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
+                {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
                 Save Changes
               </button>
             </div>
@@ -739,8 +767,10 @@ export default function IndirectSaleDetail() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
+                {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
                 {purchaseModal.mode === 'add' ? 'Add' : 'Save'}
               </button>
             </div>
@@ -773,8 +803,10 @@ export default function IndirectSaleDetail() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
+                {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
                 Save
               </button>
             </div>
@@ -808,8 +840,10 @@ export default function IndirectSaleDetail() {
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                disabled={isSaving}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
+                {isSaving && <Loader2 className="w-4 h-4 animate-spin" />}
                 Save
               </button>
             </div>

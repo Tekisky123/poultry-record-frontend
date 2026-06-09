@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Filter, PlusCircle, Loader2 } from 'lucide-react';
 import api from '../lib/axios';
@@ -29,6 +29,7 @@ export default function IndirectSales() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [formData, setFormData] = useState(INITIAL_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [pagination, setPagination] = useState({
     currentPage: 1,
     itemsPerPage: 10,
@@ -113,7 +114,9 @@ export default function IndirectSales() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (isSubmittingRef.current) return;
     try {
+      isSubmittingRef.current = true;
       setIsSubmitting(true);
       const payload = {
         date: formData.date,
@@ -136,6 +139,7 @@ export default function IndirectSales() {
       console.error(err);
       alert(err.response?.data?.message || 'Failed to create indirect purchase and sale.');
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
