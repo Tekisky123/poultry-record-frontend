@@ -29,21 +29,21 @@ const TransferTripModal = ({
   // Calculate remaining birds available for transfer
   const calculateRemainingBirds = () => {
     const totalPurchased = trip?.summary?.totalBirdsPurchased || 0;
-    const totalSold = trip?.summary?.totalBirdsSold || 0;
+    const customerSold = trip?.summary?.customerBirdsSold || 0;
     const totalInStock = trip?.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0;
     const totalLost = trip?.summary?.totalBirdsLost || 0;
     const totalTransferred = trip?.summary?.birdsTransferred || 0;
-    return totalPurchased - totalSold - totalInStock - totalLost - totalTransferred;
+    return totalPurchased - customerSold - totalInStock - totalLost - totalTransferred;
   };
 
   // Calculate remaining weight available for transfer
   const calculateRemainingWeight = () => {
     const totalPurchasedWeight = trip?.summary?.totalWeightPurchased || 0;
-    const totalSoldWeight = trip?.summary?.totalWeightSold || 0;
+    const customerSoldWeight = trip?.summary?.customerWeightSold || 0;
     const totalInStockWeight = trip?.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
     const totalLostWeight = trip?.summary?.totalWeightLost || 0;
     const totalTransferredWeight = trip?.summary?.weightTransferred || 0;
-    return totalPurchasedWeight - totalSoldWeight - totalInStockWeight - totalLostWeight - totalTransferredWeight;
+    return totalPurchasedWeight - customerSoldWeight - totalInStockWeight - totalLostWeight - totalTransferredWeight;
   };
 
   const remainingBirds = calculateRemainingBirds();

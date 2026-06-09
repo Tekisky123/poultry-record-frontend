@@ -17,7 +17,6 @@ const UserModal = ({
         email: '',
         mobileNumber: '',
         role: 'supervisor',
-        role: 'supervisor',
         isActive: true,
         canManageStock: false,
     });

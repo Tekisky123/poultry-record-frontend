@@ -120,8 +120,6 @@ export default function Vendors() {
       state: '',
       postalCode: '',
       country: '',
-      postalCode: '',
-      country: '',
       defaultPaymentMode: 'cash',
       openingBalance: 0,
       openingBalanceType: 'credit',

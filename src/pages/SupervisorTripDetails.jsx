@@ -1298,11 +1298,17 @@ const SupervisorTripDetails = () => {
   const getPurchaseAndSaleStats = () => {
     const totalPurchasedBirds = trip.purchases?.reduce((sum, purchase) => sum + (purchase.birds || 0), 0) || 0;
     const totalSoldBirds = trip.sales?.reduce((sum, sale) => sum + (sale.birdsCount || sale.birds || 0), 0) || 0;
-    const remainingBirds = totalPurchasedBirds - totalSoldBirds;
+    const totalStockBirds = trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0;
+    const birdsTransferred = trip.summary?.birdsTransferred || 0;
+    const birdsLost = trip.summary?.totalBirdsLost || 0;
+    const remainingBirds = totalPurchasedBirds - totalSoldBirds - totalStockBirds - birdsTransferred - birdsLost;
 
     const totalPurchasedWeight = trip.purchases?.reduce((sum, purchase) => sum + (purchase.weight || 0), 0) || 0;
     const totalSoldWeight = trip.sales?.reduce((sum, sale) => sum + (sale.weight || 0), 0) || 0;
-    const remainingWeight = totalPurchasedWeight - totalSoldWeight;
+    const totalStockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
+    const weightTransferred = trip.summary?.weightTransferred || 0;
+    const weightLost = trip.summary?.totalWeightLost || 0;
+    const remainingWeight = totalPurchasedWeight - totalSoldWeight - totalStockWeight - weightTransferred - weightLost;
 
     return {
       totalPurchasedBirds,
@@ -1316,12 +1322,25 @@ const SupervisorTripDetails = () => {
 
   // Calculate remaining stock for stock validation
   const getRemainingStockStats = () => {
-    const { remainingBirds, remainingWeight } = getPurchaseAndSaleStats();
+    const totalPurchasedBirds = trip.purchases?.reduce((sum, purchase) => sum + (purchase.birds || 0), 0) || 0;
+    const totalSoldBirds = trip.sales?.reduce((sum, sale) => sum + (sale.birdsCount || sale.birds || 0), 0) || 0;
     const totalStockBirds = trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0;
-    const totalStockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
+    const birdsTransferred = trip.summary?.birdsTransferred || 0;
+    const birdsLost = trip.summary?.totalBirdsLost || 0;
 
-    const availableForStockBirds = remainingBirds - totalStockBirds;
-    const availableForStockWeight = remainingWeight - totalStockWeight;
+    const totalPurchasedWeight = trip.purchases?.reduce((sum, purchase) => sum + (purchase.weight || 0), 0) || 0;
+    const totalSoldWeight = trip.sales?.reduce((sum, sale) => sum + (sale.weight || 0), 0) || 0;
+    const totalStockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
+    const weightTransferred = trip.summary?.weightTransferred || 0;
+    const weightLost = trip.summary?.totalWeightLost || 0;
+
+    // Available for stock: total purchased - customer sold - existing stock - transferred - lost
+    const availableForStockBirds = totalPurchasedBirds - totalSoldBirds - totalStockBirds - birdsTransferred - birdsLost;
+    const availableForStockWeight = totalPurchasedWeight - totalSoldWeight - totalStockWeight - weightTransferred - weightLost;
+
+    // Remaining in vehicle before this stock entry (includes already stocked birds)
+    const remainingBirds = availableForStockBirds + totalStockBirds;
+    const remainingWeight = availableForStockWeight + totalStockWeight;
 
     return {
       remainingBirds,
@@ -3422,12 +3441,15 @@ const SupervisorTripDetails = () => {
               {/* Purchase Birds Info */}
               {(() => {
                 const { totalPurchasedBirds, totalSoldBirds, remainingBirds, totalPurchasedWeight, totalSoldWeight, remainingWeight } = getPurchaseAndSaleStats();
-                // Also get stocked birds (reserved but not yet sold to customers)
                 const totalStockBirds = trip.stocks?.reduce((sum, s) => sum + (s.birds || 0), 0) || 0;
                 const totalStockWeight = trip.stocks?.reduce((sum, s) => sum + (s.weight || 0), 0) || 0;
-                // True available = remaining after customer sales minus stocked birds
-                const trueAvailableBirds = remainingBirds - totalStockBirds;
-                const trueAvailableWeight = remainingWeight - totalStockWeight;
+                const birdsTransferred = trip.summary?.birdsTransferred || 0;
+                const weightTransferred = trip.summary?.weightTransferred || 0;
+                const birdsLost = trip.summary?.totalBirdsLost || 0;
+                const weightLost = trip.summary?.totalWeightLost || 0;
+
+                const trueAvailableBirds = remainingBirds;
+                const trueAvailableWeight = remainingWeight;
                 return (
                   <div className="bg-gray-50 p-3 rounded-lg mb-3">
                     <div className="text-sm font-medium text-gray-700 mb-2">Purchase & Sale Summary</div>
@@ -3441,8 +3463,8 @@ const SupervisorTripDetails = () => {
                           <div className="font-semibold text-blue-600">{totalPurchasedBirds}</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-gray-500">Sold + Stocked</div>
-                          <div className="font-semibold text-green-600">{totalSoldBirds + totalStockBirds}</div>
+                          <div className="text-gray-500">Allocated / Lost</div>
+                          <div className="font-semibold text-green-600">{totalSoldBirds + totalStockBirds + birdsTransferred + birdsLost}</div>
                         </div>
                         <div className="text-center">
                           <div className="text-gray-500">Available</div>
@@ -3462,8 +3484,8 @@ const SupervisorTripDetails = () => {
                           <div className="font-semibold text-blue-600">{totalPurchasedWeight.toFixed(2)}</div>
                         </div>
                         <div className="text-center">
-                          <div className="text-gray-500">Sold + Stocked</div>
-                          <div className="font-semibold text-green-600">{(totalSoldWeight + totalStockWeight).toFixed(2)}</div>
+                          <div className="text-gray-500">Allocated / Lost</div>
+                          <div className="font-semibold text-green-600">{(totalSoldWeight + totalStockWeight + weightTransferred + weightLost).toFixed(2)}</div>
                         </div>
                         <div className="text-center">
                           <div className="text-gray-500">Available</div>

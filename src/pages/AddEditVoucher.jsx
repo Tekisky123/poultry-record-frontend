@@ -277,7 +277,6 @@ const AddEditVoucher = () => {
             party: '',
             partyName: '',
             parties: partiesData,
-            parties: partiesData,
             account: voucher.account?._id || voucher.account?.id || voucher.account || '',
             entries: [],
             narration: voucher.narration || ''
