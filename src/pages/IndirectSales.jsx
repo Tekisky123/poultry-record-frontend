@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Filter, PlusCircle, Loader2 } from 'lucide-react';
 import api from '../lib/axios';
 import dayjs from 'dayjs';
+import SearchableSelect from '../components/SearchableSelect';
 
 const INITIAL_FORM = {
   date: dayjs().format('YYYY-MM-DD'),
@@ -157,6 +158,20 @@ export default function IndirectSales() {
       };
     });
   }, [records]);
+
+  const customerOptions = useMemo(() => {
+    return customers.map(c => ({
+      value: c.id || c._id,
+      label: `${c.shopName} — ${c.ownerName || 'N/A'}`
+    }));
+  }, [customers]);
+
+  const vendorOptions = useMemo(() => {
+    return vendors.map(v => ({
+      value: v.id || v._id,
+      label: `${v.vendorName}${v.companyName ? ` — ${v.companyName}` : ''}`
+    }));
+  }, [vendors]);
 
   return (
     <div className="space-y-6">
@@ -340,38 +355,30 @@ export default function IndirectSales() {
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Customer *
                   </label>
-                  <select
+                  <SearchableSelect
                     value={formData.customer}
-                    onChange={(event) => handleCustomerChange(event.target.value)}
+                    onChange={handleCustomerChange}
+                    options={customerOptions}
+                    placeholder="Select customer"
+                    searchPlaceholder="Search customer name..."
+                    emptyMessage="No customers found"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select customer</option>
-                    {customers.map(customer => (
-                      <option key={customer.id || customer._id} value={customer.id || customer._id}>
-                        {customer.shopName} — {customer.ownerName || 'N/A'}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Vendor *
                   </label>
-                  <select
+                  <SearchableSelect
                     value={formData.vendor}
-                    onChange={(event) => setFormData(prev => ({ ...prev, vendor: event.target.value }))}
+                    onChange={(val) => setFormData(prev => ({ ...prev, vendor: val }))}
+                    options={vendorOptions}
+                    placeholder="Select vendor"
+                    searchPlaceholder="Search vendor name..."
+                    emptyMessage="No vendors found"
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">Select vendor</option>
-                    {vendors.map(vendor => (
-                      <option key={vendor.id || vendor._id} value={vendor.id || vendor._id}>
-                        {vendor.vendorName} {vendor.companyName ? `— ${vendor.companyName}` : ''}
-                      </option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
