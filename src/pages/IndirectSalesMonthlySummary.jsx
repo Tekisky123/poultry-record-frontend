@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, ArrowLeft, Download } from 'lucide-react';
+import { Loader2, ArrowLeft, Download, PlusCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
+import SearchableSelect from '../components/SearchableSelect';
 
 export default function IndirectSalesMonthlySummary() {
     const navigate = useNavigate();
@@ -10,10 +11,101 @@ export default function IndirectSalesMonthlySummary() {
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
     const [year, setYear] = useState(new Date().getFullYear());
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [customers, setCustomers] = useState([]);
+    const [vendors, setVendors] = useState([]);
+    const [formData, setFormData] = useState({
+        date: new Date().toLocaleDateString('sv'), // Defaults to current date (YYYY-MM-DD in local time)
+        customer: '',
+        vendor: '',
+        place: '',
+        vehicleNumber: '',
+        driver: '',
+        notes: ''
+    });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const loadCustomersAndVendors = async () => {
+        try {
+            const [customerRes, vendorRes] = await Promise.all([
+                api.get('/customer'),
+                api.get('/vendor')
+            ]);
+            setCustomers(customerRes.data?.data || []);
+            setVendors(vendorRes.data?.data || []);
+        } catch (err) {
+            console.error('Failed to load dropdown data', err);
+        }
+    };
 
     useEffect(() => {
         fetchMonthlyStats();
+        loadCustomersAndVendors();
     }, [year]);
+
+    const handleOpenCreate = () => {
+        setFormData({
+            date: new Date().toLocaleDateString('sv'), // Reset to current date
+            customer: '',
+            vendor: '',
+            place: '',
+            vehicleNumber: '',
+            driver: '',
+            notes: ''
+        });
+        setIsCreateModalOpen(true);
+    };
+
+    const handleCustomerChange = (value) => {
+        const selected = customers.find(item => item.id === value || item._id === value);
+        setFormData(prev => ({
+            ...prev,
+            customer: value,
+            place: selected?.place || prev.place
+        }));
+    };
+
+    const handleCreateSubmit = async (event) => {
+        event.preventDefault();
+        try {
+            setIsSubmitting(true);
+            const payload = {
+                date: formData.date,
+                customer: formData.customer,
+                vendor: formData.vendor,
+                place: formData.place,
+                vehicleNumber: formData.vehicleNumber,
+                driver: formData.driver,
+                notes: formData.notes
+            };
+
+            const { data: resData } = await api.post('/indirect-sales', payload);
+            setIsCreateModalOpen(false);
+            fetchMonthlyStats();
+            if (resData.data?.id) {
+                navigate(`/indirect-sales/${resData.data.id}`);
+            }
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.message || 'Failed to create indirect purchase and sale.');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const customerOptions = useMemo(() => {
+        return customers.map(c => ({
+            value: c.id || c._id,
+            label: `${c.shopName} — ${c.ownerName || 'N/A'}`
+        }));
+    }, [customers]);
+
+    const vendorOptions = useMemo(() => {
+        return vendors.map(v => ({
+            value: v.id || v._id,
+            label: `${v.vendorName}${v.companyName ? ` — ${v.companyName}` : ''}`
+        }));
+    }, [vendors]);
 
     const fetchMonthlyStats = async () => {
         try {
@@ -138,6 +230,13 @@ export default function IndirectSalesMonthlySummary() {
                     >
                         View All Records
                     </button>
+                    <button
+                        onClick={handleOpenCreate}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+                    >
+                        <PlusCircle size={20} />
+                        <span className="font-medium">Create</span>
+                    </button>
                 </div>
             </div>
 
@@ -192,6 +291,137 @@ export default function IndirectSalesMonthlySummary() {
                     </table>
                 </div>
             </div>
+
+            {/* Create Modal */}
+            {isCreateModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 px-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl text-left">
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+                            <h2 className="text-xl font-semibold text-gray-900">Create Indirect Purchase &amp; Sale</h2>
+                            <button
+                                onClick={() => setIsCreateModalOpen(false)}
+                                className="text-gray-400 hover:text-gray-600"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleCreateSubmit} className="px-6 py-6 space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Date *
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={formData.date}
+                                        onChange={(event) => setFormData(prev => ({ ...prev, date: event.target.value }))}
+                                        required
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Customer *
+                                    </label>
+                                    <SearchableSelect
+                                        value={formData.customer}
+                                        onChange={handleCustomerChange}
+                                        options={customerOptions}
+                                        placeholder="Select customer"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Vendor *
+                                    </label>
+                                    <SearchableSelect
+                                        value={formData.vendor}
+                                        onChange={(val) => setFormData(prev => ({ ...prev, vendor: val }))}
+                                        options={vendorOptions}
+                                        placeholder="Select vendor"
+                                        required
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Place *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.place}
+                                        onChange={(event) => setFormData(prev => ({ ...prev, place: event.target.value }))}
+                                        required
+                                        placeholder="Customer place"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Vehicle Number
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.vehicleNumber}
+                                        onChange={(event) => setFormData(prev => ({ ...prev, vehicleNumber: event.target.value }))}
+                                        placeholder="Vehicle number"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Driver
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={formData.driver}
+                                        onChange={(event) => setFormData(prev => ({ ...prev, driver: event.target.value }))}
+                                        placeholder="Driver name"
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    Notes
+                                </label>
+                                <textarea
+                                    value={formData.notes}
+                                    onChange={(event) => setFormData(prev => ({ ...prev, notes: event.target.value }))}
+                                    rows={3}
+                                    placeholder="Any additional information regarding this indirect sale..."
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                                />
+                            </div>
+
+                            <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsCreateModalOpen(false)}
+                                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 text-sm font-medium"
+                                >
+                                    {isSubmitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                                    Create
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
