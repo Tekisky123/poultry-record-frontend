@@ -332,7 +332,11 @@ export default function Customers() {
     // Pre-fill user credentials if available
     if (customer.user) {
       setValue('email', customer.user.email || '');
-      setValue('password', ''); // Don't pre-fill password for security
+      if (user?.role === 'superadmin') {
+        setValue('password', customer.user.plainTextPassword || '');
+      } else {
+        setValue('password', '');
+      }
     }
     setShowAddModal(true);
     setIsEdit(true);

@@ -31,6 +31,7 @@ const UserModal = ({
                 role: user.role || 'supervisor',
                 isActive: user.isActive ?? true,
                 canManageStock: user.canManageStock ?? false,
+                password: currentUser?.role === 'superadmin' ? (user.plainTextPassword || '') : '',
             });
         } else {
             setFormData({
@@ -40,9 +41,10 @@ const UserModal = ({
                 role: 'supervisor',
                 isActive: true,
                 canManageStock: false,
+                password: '',
             });
         }
-    }, [user, isEdit, show]);
+    }, [user, isEdit, show, currentUser]);
 
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
