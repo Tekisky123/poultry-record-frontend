@@ -82,14 +82,15 @@ export default function FeedStockDailySummary() {
 
             if (stock.type === 'opening') {
                 if (!firstOpStock || stock._id !== firstOpStock._id) return;
+                stocksBeforeMonth.push(stock);
             } else {
                 if (date < fyAnchorDate) return;
-            }
-
-            if (date < startOfMonth) {
-                stocksBeforeMonth.push(stock);
-            } else if (date <= endOfMonth) {
-                stocksDuringMonth.push(stock);
+                
+                if (date < startOfMonth) {
+                    stocksBeforeMonth.push(stock);
+                } else if (date <= endOfMonth) {
+                    stocksDuringMonth.push(stock);
+                }
             }
         });
 
