@@ -380,41 +380,32 @@ export default function IndirectSaleDetail() {
           </div>
         </div>
 
-        <div className="flex justify-center items-center h-full bg-white rounded-xl shadow-sm border border-gray-200 p-6 overflow-x-auto">
-          <table className="w-full max-w-sm border-collapse border border-black bg-white">
-            <thead>
-              <tr>
-                <th colSpan="2" className="border border-black px-3 py-1 text-center text-xl font-bold text-black uppercase">
-                  FINANCIAL SUMMARY
-                </th>
-              </tr>
-            </thead>
-            <tbody className="text-lg text-black font-medium">
-              <tr>
-                <td className="border border-black px-3 py-1 uppercase">SALES AMOUNT</td>
-                <td className="border border-black px-3 py-1">{Number(record.summary?.salesAmount || 0)}</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-3 py-1 uppercase">PURCHASE AMOUNT</td>
-                <td className="border border-black px-3 py-1">{Number(record.summary?.purchaseAmount || 0)}</td>
-              </tr>
-              <tr className="bg-yellow-300">
-                <td className="border border-black px-3 py-1 uppercase">MORTALITY/W L</td>
-                <td className="border border-black px-3 py-1 relative">
-                  <span className="absolute top-0 left-0 w-0 h-0 border-t-[8px] border-t-green-600 border-r-[8px] border-r-transparent"></span>
-                  {Number(record.summary?.mortalityAmount || 0)}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-black px-3 py-1 uppercase">NETT PROFIT</td>
-                <td className="border border-black px-3 py-1">{Number(record.summary?.grossProfit || 0)}</td>
-              </tr>
-              <tr>
-                <td className="border border-black px-3 py-1 uppercase">MARGINE</td>
-                <td className="border border-black px-3 py-1">{Number(record.summary?.margin || 0)}</td>
-              </tr>
-            </tbody>
-          </table>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h4 className="font-semibold text-gray-900 mb-3">FINANCIAL SUMMARY</h4>
+          <div className="space-y-2">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">TOTAL SALES:</span>
+              <span className="font-semibold">₹{(record.summary?.salesAmount || 0).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">TOTAL PURCHASE:</span>
+              <span className="font-semibold">₹{(record.summary?.purchaseAmount || 0).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-600">MORTALITY & WEIGHT LOSS:</span>
+              <span className="font-semibold">₹{(record.summary?.mortalityAmount || 0).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between bg-gray-700 text-white px-3 py-2 rounded">
+              <span className="text-sm font-semibold">NETT PROFIT:</span>
+              <span className="font-semibold">₹{(record.summary?.grossProfit || 0).toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between bg-black text-white px-3 py-2 rounded">
+              <span className="text-sm font-bold">MARGIN:</span>
+              <span className="font-bold">
+                ₹{(record.summary?.margin || 0).toFixed(2)}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
 
