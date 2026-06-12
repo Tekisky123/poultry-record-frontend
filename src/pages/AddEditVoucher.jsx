@@ -133,7 +133,7 @@ const AddEditVoucher = () => {
         // Check by slug (primary) or name (fallback)
         // Slugs: 'cash-in-hand', 'bank-accounts'
         const isCash = groupSlug === 'cash-in-hand' || groupName === 'Cash-in-Hand' || groupName === 'CASH A/C' || groupSlug === 'cash-a-c';
-        const isBank = groupSlug === 'bank-accounts' || groupName === 'Bank Accounts';
+        const isBank = groupSlug === 'bank-accounts' || groupName === 'Bank Accounts' || groupSlug === 'bank-od-a-c' || groupSlug === 'bank-od-accounts' || groupName === 'Bank OD A/c';
 
         return isCash || isBank;
       });
@@ -1192,7 +1192,7 @@ const AddEditVoucher = () => {
                                 const groupName = ledger.group?.name || '';
                                 const isBank = groupSlug === 'bank-accounts' || groupName === 'Bank Accounts';
                                 const isCash = groupSlug === 'cash-in-hand' || groupName === 'Cash-in-Hand' || groupName === 'CASH A/C' || groupSlug === 'cash-a-c';
-                                const isBankOD = groupSlug === 'bank-od-a-c' || groupName === 'Bank OD A/c';
+                                const isBankOD = groupSlug === 'bank-od-a-c' || groupSlug === 'bank-od-accounts' || groupName === 'Bank OD A/c';
                                 return !isBank && !isCash && !isBankOD;
                               })
                               .map((ledger) => ({ value: ledger.name, label: ledger.name }))
@@ -1211,7 +1211,7 @@ const AddEditVoucher = () => {
                             const groupName = ledger.group?.name || '';
                             const isBank = groupSlug === 'bank-accounts' || groupName === 'Bank Accounts';
                             const isCash = groupSlug === 'cash-in-hand' || groupName === 'Cash-in-Hand' || groupName === 'CASH A/C' || groupSlug === 'cash-a-c';
-                            const isBankOD = groupSlug === 'bank-od-a-c' || groupName === 'Bank OD A/c';
+                            const isBankOD = groupSlug === 'bank-od-a-c' || groupSlug === 'bank-od-accounts' || groupName === 'Bank OD A/c';
                             return isBank || isCash || isBankOD;
                           })
                           .map((ledger) => ({ value: ledger.name, label: ledger.name }))

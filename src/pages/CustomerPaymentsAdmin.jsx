@@ -91,7 +91,7 @@ const CustomerPaymentsAdmin = () => {
       const bankGroups = groups.filter(g => {
         const name = g.name?.toLowerCase() || '';
         const slug = g.slug || '';
-        return name === 'bank accounts' || name === 'bank a/c' || slug === 'bank-accounts' || slug === 'bank-od-a-c';
+        return name === 'bank accounts' || name === 'bank a/c' || slug === 'bank-accounts' || slug === 'bank-od-a-c' || slug === 'bank-od-accounts';
       });
 
       // Find cash groups (Cash-in-Hand)
