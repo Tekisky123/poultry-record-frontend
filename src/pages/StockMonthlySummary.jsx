@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Loader2, Download, Package, Calendar } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Loader2, Download, Package, Plus } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 export default function StockMonthlySummary() {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
@@ -15,6 +16,9 @@ export default function StockMonthlySummary() {
         const today = new Date();
         return today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
     });
+    const [supervisors, setSupervisors] = useState([]);
+    const [selectedSupervisor, setSelectedSupervisor] = useState(searchParams.get('supervisorId') || '');
+    const [selectedInventoryType, setSelectedInventoryType] = useState(searchParams.get('inventoryType') || '');
 
     useEffect(() => {
         if (user?.role === 'supervisor' && !user?.canManageStock) {
@@ -23,8 +27,50 @@ export default function StockMonthlySummary() {
     }, [user, navigate]);
 
     useEffect(() => {
+        if (user && user.role !== 'supervisor') {
+            fetchSupervisors();
+        }
+    }, [user]);
+
+    useEffect(() => {
         fetchMonthlySummary();
-    }, [year]);
+    }, [year, selectedSupervisor, selectedInventoryType]);
+
+    const fetchSupervisors = async () => {
+        try {
+            const { data } = await api.get('/user');
+            if (data.success) {
+                const approvedSupervisors = (data.data || []).filter(u => 
+                    u.role === 'supervisor' && 
+                    u.approvalStatus === 'approved' && 
+                    u.isActive === true
+                );
+                setSupervisors(approvedSupervisors);
+            }
+        } catch (error) {
+            console.error('Error fetching supervisors:', error);
+        }
+    };
+
+    const handleSupervisorChange = (val) => {
+        setSelectedSupervisor(val);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (val) next.set('supervisorId', val);
+            else next.delete('supervisorId');
+            return next;
+        });
+    };
+
+    const handleInventoryTypeChange = (val) => {
+        setSelectedInventoryType(val);
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (val) next.set('inventoryType', val);
+            else next.delete('inventoryType');
+            return next;
+        });
+    };
 
     const fetchMonthlySummary = async () => {
         try {
@@ -32,6 +78,8 @@ export default function StockMonthlySummary() {
             setError('');
             const params = {};
             if (year) params.year = year;
+            if (selectedSupervisor) params.supervisorId = selectedSupervisor;
+            if (selectedInventoryType) params.inventoryType = selectedInventoryType;
 
             const response = await api.get('/inventory-stock/stats/monthly', { params });
             if (response.data.success) {
@@ -49,7 +97,10 @@ export default function StockMonthlySummary() {
         const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/daily' : '/stocks/daily';
         // If month is Jan(1), Feb(2), or Mar(3), it belongs to the next calendar year in a Financial Year
         const displayYear = month.month <= 3 ? year + 1 : year;
-        navigate(`${basePath}?year=${displayYear}&month=${month.month}`);
+        let path = `${basePath}?year=${displayYear}&month=${month.month}`;
+        if (selectedSupervisor) path += `&supervisorId=${selectedSupervisor}`;
+        if (selectedInventoryType) path += `&inventoryType=${selectedInventoryType}`;
+        navigate(path);
     };
 
     const getFinancialYearOrder = (monthData) => {
@@ -115,24 +166,42 @@ export default function StockMonthlySummary() {
                         Manage Stocks
                     </button> */}
                 </div>
-                <div className="flex gap-3 mt-4 sm:mt-0 items-center">
+                <div className="flex gap-3 mt-4 sm:mt-0 items-center flex-wrap">
+                    {user?.role !== 'supervisor' && (
+                        <select
+                            value={selectedSupervisor}
+                            onChange={(e) => handleSupervisorChange(e.target.value)}
+                            className="px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-700 bg-white"
+                        >
+                            <option value="">All Supervisors</option>
+                            {supervisors.map(sup => (
+                                <option key={sup._id} value={sup._id}>{sup.name}</option>
+                            ))}
+                        </select>
+                    )}
+                    <select
+                        value={selectedInventoryType}
+                        onChange={(e) => handleInventoryTypeChange(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-700 bg-white"
+                    >
+                        <option value="">All Stock Types</option>
+                        <option value="bird">Birds</option>
+                        <option value="feed">Feed</option>
+                    </select>
                     <button
                         onClick={() => {
-                            const today = new Date();
-                            const y = today.getFullYear();
-                            const m = today.getMonth() + 1;
-                            const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/daily' : '/stocks/daily';
-                            navigate(`${basePath}?year=${y}&month=${m}`);
+                            const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/manage' : '/stocks/manage';
+                            navigate(basePath);
                         }}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors text-sm font-medium"
                     >
-                        <Calendar size={20} />
-                        <span className="font-medium">Current Month</span>
+                        <Plus size={20} />
+                        <span>Create</span>
                     </button>
                     <select
                         value={year}
                         onChange={(e) => setYear(Number(e.target.value))}
-                        className="px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        className="px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-700 bg-white"
                     >
                         {Array.from({ length: 5 }, (_, i) => {
                             const y = new Date().getFullYear() - 3 + i;
@@ -141,10 +210,10 @@ export default function StockMonthlySummary() {
                     </select>
                     <button
                         onClick={handleExportToExcel}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors text-sm font-medium"
                     >
                         <Download size={20} />
-                        <span className="font-medium">Export Excel</span>
+                        <span>Export Excel</span>
                     </button>
                 </div>
             </div>

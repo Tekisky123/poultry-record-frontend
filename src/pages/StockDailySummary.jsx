@@ -10,6 +10,8 @@ export default function StockDailySummary() {
     const [searchParams] = useSearchParams();
     const year = searchParams.get('year') || new Date().getFullYear();
     const month = searchParams.get('month') || new Date().getMonth() + 1;
+    const supervisorId = searchParams.get('supervisorId') || '';
+    const inventoryType = searchParams.get('inventoryType') || '';
 
     const { user } = useAuth();
     const [loading, setLoading] = useState(true);
@@ -24,15 +26,17 @@ export default function StockDailySummary() {
 
     useEffect(() => {
         fetchDailySummary();
-    }, [year, month]);
+    }, [year, month, supervisorId, inventoryType]);
 
     const fetchDailySummary = async () => {
         try {
             setLoading(true);
             setError('');
-            const response = await api.get('/inventory-stock/stats/daily', {
-                params: { year, month }
-            });
+            const params = { year, month };
+            if (supervisorId) params.supervisorId = supervisorId;
+            if (inventoryType) params.inventoryType = inventoryType;
+
+            const response = await api.get('/inventory-stock/stats/daily', { params });
             if (response.data.success) {
                 setData(response.data.data);
             }
@@ -91,7 +95,16 @@ export default function StockDailySummary() {
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-4">
                     <button
-                        onClick={() => navigate(user?.role === 'supervisor' ? '/supervisor/stocks' : '/stocks')}
+                        onClick={() => {
+                            let basePath = user?.role === 'supervisor' ? '/supervisor/stocks' : '/stocks';
+                            const params = [];
+                            if (supervisorId) params.push(`supervisorId=${supervisorId}`);
+                            if (inventoryType) params.push(`inventoryType=${inventoryType}`);
+                            if (params.length > 0) {
+                                basePath += `?${params.join('&')}`;
+                            }
+                            navigate(basePath);
+                        }}
                         className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
                     >
                         <ArrowLeft size={20} />
