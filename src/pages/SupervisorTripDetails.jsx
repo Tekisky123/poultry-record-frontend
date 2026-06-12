@@ -1782,33 +1782,135 @@ const SupervisorTripDetails = () => {
               <div className="space-y-4">
                 {/* Bird Summary */}
                 <div>
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2">Bird Summary</h4>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Purchased:</span>
-                      <span className="font-medium">{trip.summary?.totalBirdsPurchased || 0} birds/{(trip.summary?.totalWeightPurchased || 0).toFixed(2)} kg</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Sold:</span>
-                      <span className="font-medium">{trip.summary?.totalBirdsSold || 0} birds/{(trip.summary?.totalWeightSold || 0).toFixed(2)} kg</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Stock:</span>
-                      <span className="font-medium text-blue-600">{trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0} birds/{(trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0).toFixed(2)} kg</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Death:</span>
-                      <span className="font-medium text-red-600">{trip.summary?.mortality || 0} birds/{(trip.summary?.totalWeightLost || 0).toFixed(2)} kg</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Remaining:</span>
-                      <span className="font-medium text-green-600">{trip.summary?.birdsRemaining || 0} birds</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Natural Weight Loss:</span>
-                      <span className="font-medium text-orange-600">
-                        {Math.abs(trip.summary?.birdWeightLoss || 0).toFixed(2)} kg
-                      </span>
+                  <h4 className="text-lg font-semibold text-gray-900 mb-3">Bird Summary</h4>
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-[#E9ECEF] text-gray-700 font-semibold border-b border-gray-200">
+                          <tr>
+                            <th className="px-4 py-2.5 text-left font-semibold text-gray-800">Category</th>
+                            <th className="px-4 py-2.5 text-right font-semibold text-gray-800">Birds</th>
+                            <th className="px-4 py-2.5 text-right font-semibold text-gray-800">Avg (kg)</th>
+                            <th className="px-4 py-2.5 text-right font-semibold text-gray-800">Weight (kg)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                          {/* Purchased */}
+                          <tr className="bg-white hover:bg-gray-50/50 transition-colors">
+                            <td className="px-4 py-2.5 font-medium text-gray-800">Purchased</td>
+                            <td className="px-4 py-2.5 text-right text-gray-600 font-medium">
+                              {trip.summary?.totalBirdsPurchased || 0}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-gray-600 font-medium">
+                              {(trip.summary?.totalWeightPurchased && trip.summary?.totalBirdsPurchased)
+                                ? (trip.summary.totalWeightPurchased / trip.summary.totalBirdsPurchased).toFixed(2)
+                                : '0.00'}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-gray-600 font-medium">
+                              {(trip.summary?.totalWeightPurchased || 0).toFixed(2)}
+                            </td>
+                          </tr>
+
+                          {/* Sold */}
+                          <tr className="bg-white hover:bg-gray-50/50 transition-colors">
+                            <td className="px-4 py-2.5 font-medium text-gray-800">Sold</td>
+                            <td className="px-4 py-2.5 text-right text-gray-600 font-medium">
+                              {trip.summary?.totalBirdsSold || 0}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-gray-600 font-medium">
+                              {(trip.summary?.totalWeightSold && trip.summary?.totalBirdsSold)
+                                ? (trip.summary.totalWeightSold / trip.summary.totalBirdsSold).toFixed(2)
+                                : '0.00'}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-gray-600 font-medium">
+                              {(trip.summary?.totalWeightSold || 0).toFixed(2)}
+                            </td>
+                          </tr>
+
+                          {/* Stock */}
+                          <tr className="bg-white hover:bg-gray-50/50 transition-colors">
+                            <td className="px-4 py-2.5 font-medium text-blue-900">Stock</td>
+                            <td className="px-4 py-2.5 text-right text-blue-600 font-medium">
+                              {trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-blue-600 font-medium">
+                              {(() => {
+                                const stockBirds = trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0;
+                                const stockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
+                                return stockBirds > 0 ? (stockWeight / stockBirds).toFixed(2) : '0.00';
+                              })()}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-blue-600 font-medium">
+                              {(trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0).toFixed(2)}
+                            </td>
+                          </tr>
+
+                          {/* Death */}
+                          <tr className="bg-white hover:bg-gray-50/50 transition-colors">
+                            <td className="px-4 py-2.5 font-medium text-red-900">Death</td>
+                            <td className="px-4 py-2.5 text-right text-red-600 font-medium">
+                              {trip.summary?.mortality || 0}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-red-600 font-medium">
+                              {(() => {
+                                const deathBirds = trip.summary?.mortality || 0;
+                                const deathWeight = trip.summary?.totalWeightLost || 0;
+                                return deathBirds > 0 ? (deathWeight / deathBirds).toFixed(2) : '0.00';
+                              })()}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-red-600 font-medium">
+                              {(trip.summary?.totalWeightLost || 0).toFixed(2)}
+                            </td>
+                          </tr>
+
+                          {/* Remaining */}
+                          <tr className="bg-white hover:bg-gray-50/50 transition-colors">
+                            <td className="px-4 py-2.5 font-semibold text-green-900">Remaining</td>
+                            <td className="px-4 py-2.5 text-right text-green-600 font-semibold">
+                              {trip.summary?.birdsRemaining || 0}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-green-600 font-semibold">
+                              {(() => {
+                                const remainingBirds = trip.summary?.birdsRemaining || 0;
+                                const purchasedWeight = trip.summary?.totalWeightPurchased || 0;
+                                const soldWeight = trip.summary?.totalWeightSold || 0;
+                                const stockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
+                                const deathWeight = trip.summary?.totalWeightLost || 0;
+                                const naturalWeightLoss = Math.max(0, trip.summary?.birdWeightLoss || 0);
+                                const remainingWeight = Math.max(0, purchasedWeight - soldWeight - stockWeight - deathWeight - naturalWeightLoss);
+                                return remainingBirds > 0 ? (remainingWeight / remainingBirds).toFixed(2) : '0.00';
+                              })()}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-green-600 font-semibold">
+                              {(() => {
+                                const purchasedWeight = trip.summary?.totalWeightPurchased || 0;
+                                const soldWeight = trip.summary?.totalWeightSold || 0;
+                                const stockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
+                                const deathWeight = trip.summary?.totalWeightLost || 0;
+                                const naturalWeightLoss = Math.max(0, trip.summary?.birdWeightLoss || 0);
+                                const remainingWeight = Math.max(0, purchasedWeight - soldWeight - stockWeight - deathWeight - naturalWeightLoss);
+                                return remainingWeight.toFixed(2);
+                              })()}
+                            </td>
+                          </tr>
+
+                          {/* Natural Weight Loss */}
+                          <tr className="bg-white hover:bg-gray-50/50 transition-colors">
+                            <td className="px-4 py-2.5 font-medium text-orange-950">Natural Weight Loss</td>
+                            <td className="px-4 py-2.5 text-right text-orange-600 font-medium">-</td>
+                            <td className="px-4 py-2.5 text-right text-orange-600 font-medium">
+                              {(() => {
+                                const purchasedBirds = trip.summary?.totalBirdsPurchased || 0;
+                                const purchasedWeight = trip.summary?.totalWeightPurchased || 0;
+                                return purchasedBirds > 0 ? (purchasedWeight / purchasedBirds).toFixed(2) : '0.00';
+                              })()}
+                            </td>
+                            <td className="px-4 py-2.5 text-right text-orange-600 font-medium">
+                              {Math.abs(trip.summary?.birdWeightLoss || 0).toFixed(2)}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </div>
