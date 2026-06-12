@@ -36,12 +36,16 @@ const CustomerPaymentsAdmin = () => {
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationData, setVerificationData] = useState({
     status: 'verified',
-    adminNotes: ''
+    adminNotes: '',
+    account: ''
   });
+  const [accountLedgers, setAccountLedgers] = useState([]);
+  const [ledgersLoading, setLedgersLoading] = useState(false);
 
   useEffect(() => {
     fetchPayments();
     fetchStats();
+    fetchAccountLedgers();
   }, [statusFilter]);
 
   const fetchPayments = async () => {
@@ -75,8 +79,69 @@ const CustomerPaymentsAdmin = () => {
     }
   };
 
+  const fetchAccountLedgers = async () => {
+    try {
+      setLedgersLoading(true);
+      const groupsRes = await api.get('/group');
+      if (!groupsRes.data.success) return;
+
+      const groups = groupsRes.data.data || [];
+
+      // Find bank groups (Bank Accounts, Bank OD A/c)
+      const bankGroups = groups.filter(g => {
+        const name = g.name?.toLowerCase() || '';
+        const slug = g.slug || '';
+        return name === 'bank accounts' || name === 'bank a/c' || slug === 'bank-accounts' || slug === 'bank-od-a-c';
+      });
+
+      // Find cash groups (Cash-in-Hand)
+      const cashGroups = groups.filter(g => {
+        const name = g.name?.toLowerCase() || '';
+        const slug = g.slug || '';
+        return name === 'cash-in-hand' || name === 'cash a/c' || slug === 'cash-in-hand' || slug === 'cash-a-c';
+      });
+
+      const bankPromises = bankGroups.map(g => api.get(`/ledger/group/${g.id || g._id}`));
+      const cashPromises = cashGroups.map(g => api.get(`/ledger/group/${g.id || g._id}`));
+
+      const [bankResArray, cashResArray] = await Promise.all([
+        Promise.allSettled(bankPromises),
+        Promise.allSettled(cashPromises)
+      ]);
+
+      const allBankLedgers = bankResArray.reduce((acc, result) => {
+        if (result.status === 'fulfilled' && result.value.data.success) {
+          return [...acc, ...(result.value.data.data || [])];
+        }
+        return acc;
+      }, []);
+
+      const allCashLedgers = cashResArray.reduce((acc, result) => {
+        if (result.status === 'fulfilled' && result.value.data.success) {
+          return [...acc, ...(result.value.data.data || [])];
+        }
+        return acc;
+      }, []);
+
+      const combined = [
+        ...allCashLedgers.map(l => ({ ...l, type: 'Cash' })),
+        ...allBankLedgers.map(l => ({ ...l, type: 'Bank' }))
+      ];
+      setAccountLedgers(combined);
+    } catch (error) {
+      console.error('Error fetching account ledgers:', error);
+    } finally {
+      setLedgersLoading(false);
+    }
+  };
+
   const handleVerifyPayment = async () => {
     if (!selectedPayment) return;
+
+    if (verificationData.status === 'verified' && !verificationData.account) {
+      alert('Please select a Cash/Bank Account ledger.');
+      return;
+    }
 
     try {
       setIsVerifying(true);
@@ -87,7 +152,7 @@ const CustomerPaymentsAdmin = () => {
         setShowModal(false);
         fetchPayments();
         fetchStats();
-        setVerificationData({ status: 'verified', adminNotes: '' });
+        setVerificationData({ status: 'verified', adminNotes: '', account: '' });
       }
     } catch (error) {
       console.error('Error verifying payment:', error);
@@ -100,7 +165,7 @@ const CustomerPaymentsAdmin = () => {
 
   const openPaymentModal = (payment) => {
     setSelectedPayment(payment);
-    setVerificationData({ status: 'verified', adminNotes: '' });
+    setVerificationData({ status: 'verified', adminNotes: '', account: '' });
     setShowModal(true);
   };
 
@@ -543,13 +608,30 @@ const CustomerPaymentsAdmin = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Verification Status</label>
                     <select
                       value={verificationData.status}
-                      onChange={(e) => setVerificationData(prev => ({ ...prev, status: e.target.value }))}
+                      onChange={(e) => setVerificationData(prev => ({ ...prev, status: e.target.value, account: e.target.value === 'rejected' ? '' : prev.account }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       <option value="verified">Verify Payment</option>
                       <option value="rejected">Reject Payment</option>
                     </select>
                   </div>
+                  {verificationData.status === 'verified' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Cash / Bank Account Ledger</label>
+                      <select
+                        value={verificationData.account}
+                        onChange={(e) => setVerificationData(prev => ({ ...prev, account: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">-- Select Cash/Bank Account --</option>
+                        {accountLedgers.map(ledger => (
+                          <option key={ledger.id || ledger._id} value={ledger.id || ledger._id}>
+                            {ledger.name} ({ledger.type})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Admin Notes</label>
                     <textarea
@@ -606,6 +688,12 @@ const CustomerPaymentsAdmin = () => {
                     <span className="text-gray-600">Verified At:</span>
                     <span>{selectedPayment.verifiedAt ? new Date(selectedPayment.verifiedAt).toLocaleString() : 'N/A'}</span>
                   </div>
+                  {selectedPayment.status === 'verified' && selectedPayment.account && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Posted To Ledger:</span>
+                      <span className="font-medium text-blue-700">{selectedPayment.account?.name || selectedPayment.account}</span>
+                    </div>
+                  )}
                   {selectedPayment.adminNotes && (
                     <div>
                       <span className="text-gray-600 block mb-1">Admin Notes:</span>
