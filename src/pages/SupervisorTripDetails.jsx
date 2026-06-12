@@ -1807,7 +1807,7 @@ const SupervisorTripDetails = () => {
                     <div className="flex justify-between">
                       <span className="text-gray-600">Natural Weight Loss:</span>
                       <span className="font-medium text-orange-600">
-                        {trip.status === 'completed' ? Math.abs(trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'} kg
+                        {Math.abs(trip.summary?.birdWeightLoss || 0).toFixed(2)} kg
                       </span>
                     </div>
                   </div>
@@ -2743,10 +2743,7 @@ const SupervisorTripDetails = () => {
                   const deathAvg = deathBirds > 0 ? deathWeight / deathBirds : 0;
                   const deathAmount = deathWeight * purchaseRate;
 
-                  const totalPurchasedWeight = trip.summary?.totalWeightPurchased || 0;
-                  const totalSoldWeight = trip.summary?.totalWeightSold || 0;
-                  const totalStockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
-                  const naturalWeightLoss = Math.max(0, totalPurchasedWeight - totalSoldWeight - totalStockWeight - deathWeight);
+                  const naturalWeightLoss = Math.max(0, trip.summary?.birdWeightLoss || 0);
 
                   const naturalAvg = deathAvg || (trip.summary?.totalWeightPurchased && trip.summary?.totalBirdsPurchased ? trip.summary.totalWeightPurchased / trip.summary.totalBirdsPurchased : 0);
                   const naturalAmount = naturalWeightLoss * purchaseRate;
@@ -2942,8 +2939,8 @@ const SupervisorTripDetails = () => {
                   </div>
                   <div className="flex justify-between border-t pt-2">
                     <span className="font-medium">Total Weight Loss:</span>
-                    <span className={`font-bold ${trip.status === 'completed' && (trip.summary?.birdWeightLoss || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                      {trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'} kg
+                    <span className={`font-bold ${(trip.summary?.birdWeightLoss || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {(trip.summary?.birdWeightLoss || 0).toFixed(2)} kg
                     </span>
                   </div>
                 </div>

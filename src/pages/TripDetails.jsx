@@ -959,11 +959,9 @@ export default function TripDetails() {
   }
 
   const isTripCompleted = trip.status === 'completed';
-  const naturalWeightLossAmount = isTripCompleted
-    ? (trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)
-    : 0;
+  const naturalWeightLossAmount = (trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0);
   const totalWeightLossKg =
-    (trip.summary?.totalWeightLost || 0) + (isTripCompleted ? (trip.summary?.birdWeightLoss || 0) : 0);
+    (trip.summary?.totalWeightLost || 0) + (trip.summary?.birdWeightLoss || 0);
   const mortalityAndWeightLossAmount = (trip.summary?.totalLosses || 0) + naturalWeightLossAmount;
 
   return (
@@ -1351,24 +1349,28 @@ export default function TripDetails() {
                         {(() => {
                           const salesBirds = trip.summary?.customerBirdsSold || 0;
                           const stockBirds = trip.stocks?.reduce((sum, s) => sum + (Number(s.birds) || 0), 0) || 0;
-                          return salesBirds + stockBirds;
+                          const transferBirds = trip.transferHistory?.reduce((sum, t) => sum + (Number(t.transferredStock?.birds) || 0), 0) || 0;
+                          return salesBirds + stockBirds + transferBirds;
                         })()}
                       </td>
                       <td className="px-4 py-3 border-r">
                         {(() => {
                           const salesWeight = trip.summary?.customerWeightSold || 0;
                           const stockWeight = trip.stocks?.reduce((sum, s) => sum + (Number(s.weight) || 0), 0) || 0;
-                          return (salesWeight + stockWeight).toFixed(2);
+                          const transferWeight = trip.transferHistory?.reduce((sum, t) => sum + (Number(t.transferredStock?.weight) || 0), 0) || 0;
+                          return (salesWeight + stockWeight + transferWeight).toFixed(2);
                         })()}
                       </td>
                       <td className="px-4 py-3 border-r">
                         {(() => {
                           const salesBirds = trip.summary?.customerBirdsSold || 0;
                           const stockBirds = trip.stocks?.reduce((sum, s) => sum + (Number(s.birds) || 0), 0) || 0;
+                          const transferBirds = trip.transferHistory?.reduce((sum, t) => sum + (Number(t.transferredStock?.birds) || 0), 0) || 0;
                           const salesWeight = trip.summary?.customerWeightSold || 0;
                           const stockWeight = trip.stocks?.reduce((sum, s) => sum + (Number(s.weight) || 0), 0) || 0;
-                          const totalBirds = salesBirds + stockBirds;
-                          const totalWeight = salesWeight + stockWeight;
+                          const transferWeight = trip.transferHistory?.reduce((sum, t) => sum + (Number(t.transferredStock?.weight) || 0), 0) || 0;
+                          const totalBirds = salesBirds + stockBirds + transferBirds;
+                          const totalWeight = salesWeight + stockWeight + transferWeight;
                           return totalBirds > 0 ? (totalWeight / totalBirds).toFixed(2) : '0.00';
                         })()}
                       </td>
@@ -1376,10 +1378,12 @@ export default function TripDetails() {
                         {(() => {
                           const salesAmount = trip.summary?.customerSalesAmount || 0;
                           const stockAmount = trip.stocks?.reduce((sum, s) => sum + (Number(s.value) || 0), 0) || 0;
+                          const transferAmount = trip.transferHistory?.reduce((sum, t) => sum + (Number(t.transferredStock?.weight || 0) * Number(t.transferredStock?.rate || 0)), 0) || 0;
                           const salesWeight = trip.summary?.customerWeightSold || 0;
                           const stockWeight = trip.stocks?.reduce((sum, s) => sum + (Number(s.weight) || 0), 0) || 0;
-                          const totalAmount = salesAmount + stockAmount;
-                          const totalWeight = salesWeight + stockWeight;
+                          const transferWeight = trip.transferHistory?.reduce((sum, t) => sum + (Number(t.transferredStock?.weight) || 0), 0) || 0;
+                          const totalAmount = salesAmount + stockAmount + transferAmount;
+                          const totalWeight = salesWeight + stockWeight + transferWeight;
                           return totalWeight > 0 ? (totalAmount / totalWeight).toFixed(2) : '0.00';
                         })()}
                       </td>
@@ -1387,7 +1391,8 @@ export default function TripDetails() {
                         ₹{(() => {
                           const salesAmount = trip.summary?.customerSalesAmount || 0;
                           const stockAmount = trip.stocks?.reduce((sum, s) => sum + (Number(s.value) || 0), 0) || 0;
-                          return (salesAmount + stockAmount).toFixed(2);
+                          const transferAmount = trip.transferHistory?.reduce((sum, t) => sum + (Number(t.transferredStock?.weight || 0) * Number(t.transferredStock?.rate || 0)), 0) || 0;
+                          return (salesAmount + stockAmount + transferAmount).toFixed(2);
                         })()}
                       </td>
                       <td className="px-4 py-3 border-r">₹{(trip.summary?.totalCashPaid || 0).toFixed(2)}</td>
@@ -1458,7 +1463,7 @@ export default function TripDetails() {
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">NATURAL WEIGHT LOSS</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">-</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">
-                              {isTripCompleted ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'}
+                              {(trip.summary?.birdWeightLoss || 0).toFixed(2)}
                             </td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">
                               {trip.summary?.totalBirdsPurchased > 0 ? ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00'}
@@ -1467,8 +1472,7 @@ export default function TripDetails() {
                               ₹{trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00'}
                             </td>
                             <td className="px-3 py-2 text-sm font-semibold text-gray-900">
-                              ₹{isTripCompleted ?
-                                ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)).toFixed(2) : '0.00'}
+                              ₹{((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)).toFixed(2)}
                             </td>
                           </tr>
                           <tr className="bg-black text-white font-bold">

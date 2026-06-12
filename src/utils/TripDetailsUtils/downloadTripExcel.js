@@ -537,8 +537,7 @@ export default function downloadTripExcel(trip) {
     worksheet.getCell(`B${currentRow}`).value = '-';
     worksheet.getCell(`B${currentRow}`).style = { alignment: { horizontal: 'right' } };
 
-    worksheet.getCell(`C${currentRow}`).value = trip.status === 'completed' ?
-        (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00';
+    worksheet.getCell(`C${currentRow}`).value = (trip.summary?.birdWeightLoss || 0).toFixed(2);
     worksheet.getCell(`C${currentRow}`).style = { alignment: { horizontal: 'right' } };
 
     worksheet.getCell(`D${currentRow}`).value = trip.summary?.totalBirdsPurchased > 0 ?
@@ -548,8 +547,7 @@ export default function downloadTripExcel(trip) {
     worksheet.getCell(`E${currentRow}`).value = trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00';
     worksheet.getCell(`E${currentRow}`).style = { alignment: { horizontal: 'right' } };
 
-    worksheet.getCell(`F${currentRow}`).value = trip.status === 'completed' ?
-        ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)).toFixed(2) : '0.00';
+    worksheet.getCell(`F${currentRow}`).value = ((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)).toFixed(2);
     worksheet.getCell(`F${currentRow}`).style = { alignment: { horizontal: 'right' } };
 
     currentRow++;
@@ -562,7 +560,7 @@ export default function downloadTripExcel(trip) {
     worksheet.getCell(`B${currentRow}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
 
     worksheet.getCell(`C${currentRow}`).value = ((trip.summary?.totalWeightLost || 0) +
-        (trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0) : 0)).toFixed(2);
+        (trip.summary?.birdWeightLoss || 0)).toFixed(2);
     worksheet.getCell(`C${currentRow}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
 
     worksheet.getCell(`D${currentRow}`).value = '-';
@@ -572,8 +570,8 @@ export default function downloadTripExcel(trip) {
     worksheet.getCell(`E${currentRow}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
 
     worksheet.getCell(`F${currentRow}`).value = ((trip.summary?.totalLosses || 0) +
-        (trip.status === 'completed' ? ((trip.summary?.birdWeightLoss || 0) *
-        (trip.summary?.avgPurchaseRate || 0)) : 0)).toFixed(2);
+        ((trip.summary?.birdWeightLoss || 0) *
+        (trip.summary?.avgPurchaseRate || 0))).toFixed(2);
     worksheet.getCell(`F${currentRow}`).style = { ...totalStyle, alignment: { horizontal: 'right' } };
 
     // Add borders to all cells

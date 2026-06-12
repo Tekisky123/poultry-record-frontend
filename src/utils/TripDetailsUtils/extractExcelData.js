@@ -96,8 +96,8 @@ export default function extractExcelData(trip) {
 
     };
 
-    const naturalWeightLossAmount = data.status === 'completed' ? (trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0) : 0;
-    const totalWeightLossKg = (data.summary?.totalWeightLost || 0) + (data.status === 'completed' ? (data.summary?.birdWeightLoss || 0) : 0);
+    const naturalWeightLossAmount = (trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0);
+    const totalWeightLossKg = (data.summary?.totalWeightLost || 0) + (data.summary?.birdWeightLoss || 0);
     const mortalityAndWeightLossAmount = (data.summary?.totalLosses || 0) + naturalWeightLossAmount;
 
     const death_birds_loss = {
@@ -110,11 +110,10 @@ export default function extractExcelData(trip) {
 
     const natural_weight_loss = {
         'BIRDS': '-',
-        'WEIGHT': data.status === 'completed' ? (data.summary?.birdWeightLoss || 0).toFixed(2) : '0.00',
+        'WEIGHT': (data.summary?.birdWeightLoss || 0).toFixed(2),
         'AVG': data.summary?.totalBirdsPurchased > 0 ? ((data.summary?.totalWeightPurchased / data.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00',
         'RATE': data.summary?.avgPurchaseRate?.toFixed(2) || '0.00',
-        'AMOUNT': data.status === 'completed' ? 
-        ((data.summary?.birdWeightLoss || 0) * (data.summary?.avgPurchaseRate || 0)).toFixed(2) : '0.00',
+        'AMOUNT': ((data.summary?.birdWeightLoss || 0) * (data.summary?.avgPurchaseRate || 0)).toFixed(2),
     };
 
     const total_weight_loss = {

@@ -177,9 +177,7 @@ export const downloadTripPDF = (trip) => {
   addTableRow('Total Expenses:', `₹${trip.summary?.totalExpenses?.toLocaleString() || '0'}`, yPosition);
   yPosition += lineHeight;
   const isTripCompleted = trip.status === 'completed';
-  const naturalWeightLossAmount = isTripCompleted
-    ? (trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)
-    : 0;
+  const naturalWeightLossAmount = (trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0);
   const mortalityAndWeightLossAmount = (trip.summary?.totalLosses || 0) + naturalWeightLossAmount;
 
   addTableRow('Total Diesel Amount:', `₹${trip.summary?.totalDieselAmount?.toLocaleString() || '0'}`, yPosition);
@@ -216,9 +214,9 @@ export const downloadTripPDF = (trip) => {
   
   addTableRow('Death Birds:', `${trip.summary?.totalBirdsLost || 0} birds, ${(trip.summary?.totalWeightLost || 0).toFixed(2)} kg`, yPosition);
   yPosition += lineHeight;
-  addTableRow('Weight Loss:', `${trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0).toFixed(2) : '0.00'} kg`, yPosition);
+  addTableRow('Weight Loss:', `${(trip.summary?.birdWeightLoss || 0).toFixed(2)} kg`, yPosition);
   yPosition += lineHeight;
-  addTableRow('Total Weight Loss:', `${((trip.summary?.totalWeightLost || 0) + (trip.status === 'completed' ? (trip.summary?.birdWeightLoss || 0) : 0)).toFixed(2)} kg`, yPosition);
+  addTableRow('Total Weight Loss:', `${((trip.summary?.totalWeightLost || 0) + (trip.summary?.birdWeightLoss || 0)).toFixed(2)} kg`, yPosition);
   yPosition += lineHeight;
   addTableRow('Total Loss Amount:', `₹${mortalityAndWeightLossAmount.toFixed(2)}`, yPosition, { valueBold: true });
   yPosition += 10;
