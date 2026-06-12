@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 export default function StockDailySummary() {
     const navigate = useNavigate();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const year = searchParams.get('year') || new Date().getFullYear();
     const month = searchParams.get('month') || new Date().getMonth() + 1;
     const supervisorId = searchParams.get('supervisorId') || '';
@@ -17,12 +17,53 @@ export default function StockDailySummary() {
     const [loading, setLoading] = useState(true);
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
+    const [supervisors, setSupervisors] = useState([]);
 
     useEffect(() => {
         if (user?.role === 'supervisor' && !user?.canManageStock) {
             navigate('/');
         }
     }, [user, navigate]);
+
+    useEffect(() => {
+        if (user && user.role !== 'supervisor') {
+            fetchSupervisors();
+        }
+    }, [user]);
+
+    const fetchSupervisors = async () => {
+        try {
+            const { data } = await api.get('/user');
+            if (data.success) {
+                const approvedSupervisors = (data.data || []).filter(u => 
+                    u.role === 'supervisor' && 
+                    u.approvalStatus === 'approved' && 
+                    u.isActive === true
+                );
+                setSupervisors(approvedSupervisors);
+            }
+        } catch (error) {
+            console.error('Error fetching supervisors:', error);
+        }
+    };
+
+    const handleSupervisorChange = (val) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (val) next.set('supervisorId', val);
+            else next.delete('supervisorId');
+            return next;
+        });
+    };
+
+    const handleInventoryTypeChange = (val) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (val) next.set('inventoryType', val);
+            else next.delete('inventoryType');
+            return next;
+        });
+    };
 
     useEffect(() => {
         fetchDailySummary();
@@ -116,24 +157,34 @@ export default function StockDailySummary() {
                         </h1>
                     </div>
                 </div>
-                <div className="flex gap-3 mt-4 sm:mt-0 items-center">
-                    <button
-                        onClick={() => {
-                            const todayStr = new Date().toLocaleDateString('en-CA');
-                            const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/manage' : '/stocks/manage';
-                            navigate(`${basePath}?date=${todayStr}`);
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm transition-colors"
+                <div className="flex gap-3 mt-4 sm:mt-0 items-center flex-wrap">
+                    {user?.role !== 'supervisor' && (
+                        <select
+                            value={supervisorId}
+                            onChange={(e) => handleSupervisorChange(e.target.value)}
+                            className="px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-700 bg-white"
+                        >
+                            <option value="">All Supervisors</option>
+                            {supervisors.map(sup => (
+                                <option key={sup._id} value={sup._id}>{sup.name}</option>
+                            ))}
+                        </select>
+                    )}
+                    <select
+                        value={inventoryType}
+                        onChange={(e) => handleInventoryTypeChange(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-700 bg-white"
                     >
-                        <Calendar size={20} />
-                        <span className="font-medium">Today</span>
-                    </button>
+                        <option value="">All Stock Types</option>
+                        <option value="bird">Birds</option>
+                        <option value="feed">Feed</option>
+                    </select>
                     <button
                         onClick={handleExportToExcel}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors text-sm font-medium"
                     >
                         <Download size={20} />
-                        <span className="font-medium">Export Excel</span>
+                        <span>Export Excel</span>
                     </button>
                 </div>
             </div>
@@ -179,8 +230,8 @@ export default function StockDailySummary() {
                                     }
                                 }
 
-                                // Sort descending (newest first)
-                                fullDays.sort((a, b) => new Date(b.formattedDate) - new Date(a.formattedDate));
+                                // Sort ascending (oldest first)
+                                fullDays.sort((a, b) => new Date(a.formattedDate) - new Date(b.formattedDate));
 
                                 return fullDays.map((day) => (
                                     <tr

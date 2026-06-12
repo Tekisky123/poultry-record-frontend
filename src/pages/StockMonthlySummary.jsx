@@ -17,8 +17,8 @@ export default function StockMonthlySummary() {
         return today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
     });
     const [supervisors, setSupervisors] = useState([]);
-    const [selectedSupervisor, setSelectedSupervisor] = useState(searchParams.get('supervisorId') || '');
-    const [selectedInventoryType, setSelectedInventoryType] = useState(searchParams.get('inventoryType') || '');
+    const selectedSupervisor = searchParams.get('supervisorId') || '';
+    const selectedInventoryType = searchParams.get('inventoryType') || '';
 
     useEffect(() => {
         if (user?.role === 'supervisor' && !user?.canManageStock) {
@@ -53,7 +53,6 @@ export default function StockMonthlySummary() {
     };
 
     const handleSupervisorChange = (val) => {
-        setSelectedSupervisor(val);
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
             if (val) next.set('supervisorId', val);
@@ -63,7 +62,6 @@ export default function StockMonthlySummary() {
     };
 
     const handleInventoryTypeChange = (val) => {
-        setSelectedInventoryType(val);
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
             if (val) next.set('inventoryType', val);
