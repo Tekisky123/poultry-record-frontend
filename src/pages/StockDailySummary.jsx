@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, Download, ArrowLeft, Calendar } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -8,8 +8,8 @@ import { useAuth } from '../contexts/AuthContext';
 export default function StockDailySummary() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
-    const year = searchParams.get('year') || new Date().getFullYear();
-    const month = searchParams.get('month') || new Date().getMonth() + 1;
+    const year = Number(searchParams.get('year')) || new Date().getFullYear();
+    const month = Number(searchParams.get('month')) || new Date().getMonth() + 1;
     const supervisorId = searchParams.get('supervisorId') || '';
     const inventoryType = searchParams.get('inventoryType') || '';
 
@@ -89,6 +89,37 @@ export default function StockDailySummary() {
         }
     };
 
+    const fullDays = useMemo(() => {
+        if (!data) return [];
+        // Generate all days in the month
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const days = [];
+        for (let i = 1; i <= daysInMonth; i++) {
+            const day = i < 10 ? `0${i}` : i;
+            const monthStr = month < 10 ? `0${month}` : month;
+            const dateStr = `${year}-${monthStr}-${day}`;
+
+            const existingDay = data.days.find(d => d.formattedDate === dateStr);
+
+            if (existingDay) {
+                days.push(existingDay);
+            } else {
+                days.push({
+                    date: new Date(year, month - 1, i).toISOString(),
+                    formattedDate: dateStr,
+                    totalPurchaseAmount: 0,
+                    totalSaleAmount: 0,
+                    totalMortalityBirds: 0,
+                    totalFeedConsumeAmount: 0
+                });
+            }
+        }
+
+        // Sort descending (newest first / upside down)
+        days.sort((a, b) => new Date(b.formattedDate) - new Date(a.formattedDate));
+        return days;
+    }, [data, year, month]);
+
     const handleDayClick = (dayData) => {
         // Navigate to Detailed Report for that day (Stock View filtered by date)
         const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/manage' : '/stocks/manage';
@@ -96,9 +127,9 @@ export default function StockDailySummary() {
     };
 
     const handleExportToExcel = () => {
-        if (!data) return;
+        if (!fullDays.length) return;
 
-        const exportData = data.days.map(day => ({
+        const exportData = fullDays.map(day => ({
             Date: day.formattedDate,
             'Purchase Amount': day.totalPurchaseAmount || 0,
             'Sale Amount': day.totalSaleAmount || 0,
@@ -203,60 +234,29 @@ export default function StockDailySummary() {
                             </tr>
                         </thead>
                         <tbody>
-                            {(() => {
-                                // Generate all days in the month
-                                const daysInMonth = new Date(year, month, 0).getDate();
-                                const fullDays = [];
-                                for (let i = 1; i <= daysInMonth; i++) {
-                                    // Create date object in UTC/Local correctly to avoid timezone shifts
-                                    // Using string construction to ensure YYYY-MM-DD format match
-                                    const day = i < 10 ? `0${i}` : i;
-                                    const monthStr = month < 10 ? `0${month}` : month;
-                                    const dateStr = `${year}-${monthStr}-${day}`;
-
-                                    const existingDay = data.days.find(d => d.formattedDate === dateStr);
-
-                                    if (existingDay) {
-                                        fullDays.push(existingDay);
-                                    } else {
-                                        fullDays.push({
-                                            date: new Date(year, month - 1, i).toISOString(),
-                                            formattedDate: dateStr,
-                                            totalPurchaseAmount: 0,
-                                            totalSaleAmount: 0,
-                                            totalMortalityBirds: 0,
-                                            totalFeedConsumeAmount: 0
-                                        });
-                                    }
-                                }
-
-                                // Sort ascending (oldest first)
-                                fullDays.sort((a, b) => new Date(a.formattedDate) - new Date(b.formattedDate));
-
-                                return fullDays.map((day) => (
-                                    <tr
-                                        key={day.formattedDate}
-                                        className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
-                                        onClick={() => handleDayClick(day)}
-                                    >
-                                        <td className="py-3 px-4 text-blue-600 font-medium hover:underline">
-                                            {new Date(day.date).toLocaleDateString()}
-                                        </td>
-                                        <td className="py-3 px-4 text-right text-gray-700">
-                                            {day.totalPurchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                        </td>
-                                        <td className="py-3 px-4 text-right text-gray-700 font-medium">
-                                            {day.totalSaleAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                        </td>
-                                        <td className="py-3 px-4 text-right text-gray-700 font-medium text-red-600">
-                                            {day.totalMortalityBirds}
-                                        </td>
-                                        <td className="py-3 px-4 text-right text-gray-700 font-medium">
-                                            {day.totalFeedConsumeAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                        </td>
-                                    </tr>
-                                ));
-                            })()}
+                            {fullDays.map((day) => (
+                                <tr
+                                    key={day.formattedDate}
+                                    className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                                    onClick={() => handleDayClick(day)}
+                                >
+                                    <td className="py-3 px-4 text-blue-600 font-medium hover:underline">
+                                        {new Date(day.date).toLocaleDateString()}
+                                    </td>
+                                    <td className="py-3 px-4 text-right text-gray-700">
+                                        {day.totalPurchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="py-3 px-4 text-right text-gray-700 font-medium">
+                                        {day.totalSaleAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="py-3 px-4 text-right text-gray-700 font-medium text-red-600">
+                                        {day.totalMortalityBirds}
+                                    </td>
+                                    <td className="py-3 px-4 text-right text-gray-700 font-medium">
+                                        {day.totalFeedConsumeAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </td>
+                                </tr>
+                            ))}
                             <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
                                 <td className="py-3 px-4 text-gray-900">Grand Total</td>
                                 <td className="py-3 px-4 text-right text-gray-900">
