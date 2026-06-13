@@ -228,6 +228,8 @@ export default function GroupSummary() {
   const isExpandedView = (groupSummary.entries.some(e => e.birds > 0 || e.weight > 0) || groupSummary.group.name.toLowerCase().includes('debtor'));
   const isDieselView = groupSummary.entries.some(e => e.type === 'dieselStation');
   const isFeedGroup = groupSummary.group.name.toLowerCase().includes('feed');
+  const groupNameLower = groupSummary.group.name.toLowerCase().trim();
+  const isStockGroup = groupNameLower === 'stock-in-hand' || groupNameLower === 'stock in hand' || groupNameLower === 'birds stock' || groupNameLower === 'feed stock';
 
   const totals = {
     birds: groupSummary.totals.birds || 0,
@@ -367,22 +369,21 @@ export default function GroupSummary() {
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Rate/ltr</th>
                   </>
                 )}
-                {isExpandedView && (
+                {isExpandedView && !isStockGroup && (
                   <>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">{isFeedGroup ? 'Total Bags' : 'Total Birds'}</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">{isFeedGroup ? 'Total Quantity (Kg)' : 'Total Weight'}</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit (Receipts)</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit (Sales)</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
                   </>
                 )}
-                {!isExpandedView && (
+                {!isExpandedView && !isStockGroup && (
                   <>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
                   </>
                 )}
+                <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
               </tr>
             </thead>
             <tbody>
@@ -483,7 +484,7 @@ export default function GroupSummary() {
                           </>
                         )}
 
-                        {isExpandedView ? (
+                        {isExpandedView && !isStockGroup && (
                           <>
                             <td className="py-3 px-4 text-right text-gray-700">
                               {renderCellWithPercentage(entry.birds, totals.birds)}
@@ -503,15 +504,9 @@ export default function GroupSummary() {
                                 return renderCellWithPercentage(val, totals.creditExpanded, 'currency');
                               })()}
                             </td>
-
-                            <td className="py-3 px-4 text-right font-semibold text-gray-900">
-                              {(() => {
-                                const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
-                                return renderCellWithPercentage(closingBal, totals.netBalance, 'currency', true);
-                              })()}
-                            </td>
                           </>
-                        ) : (
+                        )}
+                        {!isExpandedView && !isStockGroup && (
                           <>
                             <td className="py-3 px-4 text-right text-gray-700">
                               {/* Use transaction totals instead of net balance cols */}
@@ -527,20 +522,27 @@ export default function GroupSummary() {
                                 return renderCellWithPercentage(val, totals.creditExpanded, 'currency');
                               })()}
                             </td>
-
-                            <td className="py-3 px-4 text-right font-semibold text-gray-900">
-                              {(() => {
-                                const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
-                                return renderCellWithPercentage(closingBal, totals.netBalance, 'currency', true);
-                              })()}
-                            </td>
                           </>
                         )}
+
+                        <td className="py-3 px-4 text-right font-semibold text-gray-900">
+                          {(() => {
+                            const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
+                            return renderCellWithPercentage(closingBal, totals.netBalance, 'currency', !isStockGroup);
+                          })()}
+                        </td>
                       </tr>
                     );
                   })}
 
-                  {(isExpandedView) ? (
+                  {isStockGroup ? (
+                    <tr className="border-t-2 border-gray-400 bg-gray-50">
+                      <td className="py-3 px-4 font-bold text-gray-900">Grand Total</td>
+                      <td className="py-3 px-4 text-right font-bold text-gray-900">
+                        {renderCellWithPercentage(totals.netBalance, totals.netBalance, 'currency', false)}
+                      </td>
+                    </tr>
+                  ) : isExpandedView ? (
                     <tr className="border-t-2 border-gray-400 bg-gray-50">
                       <td className="py-3 px-4 font-bold text-gray-900">Grand Total</td>
                       {isDieselView && (
@@ -598,7 +600,7 @@ export default function GroupSummary() {
                 </>
               ) : (
                 <tr>
-                  <td colSpan={isExpandedView ? 6 : 4} className="py-8 text-center text-gray-500">
+                  <td colSpan={isStockGroup ? 2 : isExpandedView ? 6 : 4} className="py-8 text-center text-gray-500">
                     No ledgers or sub-groups found in this group
                   </td>
                 </tr>
