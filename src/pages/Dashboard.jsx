@@ -19,7 +19,7 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
 
   const handleGroupClick = useCallback((e) => {
     e.stopPropagation();
-    if (level === 0) return;
+    if (!groupId) return;
 
     // Pass date filter params
     const startDate = searchParams.get('startDate') || '';
@@ -74,13 +74,13 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
     }
 
     navigate(`/group-summary/${groupId}?startDate=${startDate}&endDate=${endDate}`);
-  }, [navigate, groupId, searchParams, level, group.name, parentName]);
+  }, [navigate, groupId, searchParams, group.name, parentName]);
 
   return (
     <div className="select-none">
       {/* Parent Group */}
       <div
-        className={`flex items-stretch rounded px-2 transition-colors ${level > 0 ? 'hover:bg-gray-50 cursor-pointer' : ''}`}
+        className="flex items-stretch rounded px-2 transition-colors hover:bg-gray-50 cursor-pointer"
         onClick={handleGroupClick}
         style={{
           paddingLeft: `${leftPadding}px`
