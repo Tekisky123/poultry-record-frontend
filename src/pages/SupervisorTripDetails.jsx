@@ -18,7 +18,8 @@ import {
   CheckCircle,
   Lock,
   RefreshCw,
-  Edit
+  Edit,
+  Trash2
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -1279,6 +1280,49 @@ const SupervisorTripDetails = () => {
     }
   };
 
+  const handleDeleteSubItem = async (subItemType, index) => {
+    if (!window.confirm(`Are you sure you want to delete this ${subItemType}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      let endpoint = '';
+      switch (subItemType) {
+        case 'purchase':
+          endpoint = `/trip/${id}/purchase/${index}`;
+          break;
+        case 'sale':
+        case 'receipt':
+          endpoint = `/trip/${id}/sale/${index}`;
+          break;
+        case 'diesel':
+          endpoint = `/trip/${id}/diesel/${index}`;
+          break;
+        case 'expense':
+          endpoint = `/trip/${id}/expenses/${index}`;
+          break;
+        case 'transfer':
+          endpoint = `/trip/${id}/transfer/${index}`;
+          break;
+        case 'stock':
+          endpoint = `/trip/${id}/stock/${index}`;
+          break;
+        default:
+          alert('Unknown sub-item type');
+          return;
+      }
+
+      const { data } = await api.delete(endpoint);
+      if (data.success) {
+        await handleRefresh();
+        alert(`${subItemType.charAt(0).toUpperCase() + subItemType.slice(1)} deleted successfully!`);
+      }
+    } catch (error) {
+      console.error(`Error deleting ${subItemType}:`, error);
+      alert(error.response?.data?.message || `Failed to delete ${subItemType}`);
+    }
+  };
+
   // Function to update trip status to 'ongoing' when management activities start
   const updateTripStatusToOngoing = async () => {
     if (trip.status === 'started') {
@@ -1874,10 +1918,9 @@ const SupervisorTripDetails = () => {
                                 const remainingBirds = trip.summary?.birdsRemaining || 0;
                                 const purchasedWeight = trip.summary?.totalWeightPurchased || 0;
                                 const soldWeight = trip.summary?.totalWeightSold || 0;
-                                const stockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
                                 const deathWeight = trip.summary?.totalWeightLost || 0;
-                                const naturalWeightLoss = Math.max(0, trip.summary?.birdWeightLoss || 0);
-                                const remainingWeight = Math.max(0, purchasedWeight - soldWeight - stockWeight - deathWeight - naturalWeightLoss);
+                                const isCompleted = trip.status === 'completed';
+                                const remainingWeight = isCompleted ? 0 : Math.max(0, purchasedWeight - soldWeight - deathWeight);
                                 return remainingBirds > 0 ? (remainingWeight / remainingBirds).toFixed(2) : '0.00';
                               })()}
                             </td>
@@ -1885,10 +1928,9 @@ const SupervisorTripDetails = () => {
                               {(() => {
                                 const purchasedWeight = trip.summary?.totalWeightPurchased || 0;
                                 const soldWeight = trip.summary?.totalWeightSold || 0;
-                                const stockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
                                 const deathWeight = trip.summary?.totalWeightLost || 0;
-                                const naturalWeightLoss = Math.max(0, trip.summary?.birdWeightLoss || 0);
-                                const remainingWeight = Math.max(0, purchasedWeight - soldWeight - stockWeight - deathWeight - naturalWeightLoss);
+                                const isCompleted = trip.status === 'completed';
+                                const remainingWeight = isCompleted ? 0 : Math.max(0, purchasedWeight - soldWeight - deathWeight);
                                 return remainingWeight.toFixed(2);
                               })()}
                             </td>
@@ -1900,13 +1942,21 @@ const SupervisorTripDetails = () => {
                             <td className="px-4 py-2.5 text-right text-orange-600 font-medium">-</td>
                             <td className="px-4 py-2.5 text-right text-orange-600 font-medium">
                               {(() => {
+                                const isCompleted = trip.status === 'completed';
+                                const rawWeightLoss = Math.max(0, trip.summary?.birdWeightLoss || 0);
+                                const naturalWeightLoss = isCompleted ? rawWeightLoss : 0;
                                 const purchasedBirds = trip.summary?.totalBirdsPurchased || 0;
                                 const purchasedWeight = trip.summary?.totalWeightPurchased || 0;
-                                return purchasedBirds > 0 ? (purchasedWeight / purchasedBirds).toFixed(2) : '0.00';
+                                return naturalWeightLoss > 0 && purchasedBirds > 0 ? (purchasedWeight / purchasedBirds).toFixed(2) : '0.00';
                               })()}
                             </td>
                             <td className="px-4 py-2.5 text-right text-orange-600 font-medium">
-                              {Math.abs(trip.summary?.birdWeightLoss || 0).toFixed(2)}
+                              {(() => {
+                                const isCompleted = trip.status === 'completed';
+                                const rawWeightLoss = Math.max(0, trip.summary?.birdWeightLoss || 0);
+                                const naturalWeightLoss = isCompleted ? rawWeightLoss : 0;
+                                return naturalWeightLoss.toFixed(2);
+                              })()}
                             </td>
                           </tr>
                         </tbody>
@@ -1968,45 +2018,54 @@ const SupervisorTripDetails = () => {
                             </div>
                             {/* Only show edit button for non-transferred trips */}
                             {trip.status !== 'completed' && trip.type !== 'transferred' && (
-                              <button
-                                onClick={() => {
-                                  // Handle supplier field - it could be populated (object) or just ID (string)
-                                  let supplierId = '';
-                                  let vendorObj = null;
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    // Handle supplier field - it could be populated (object) or just ID (string)
+                                    let supplierId = '';
+                                    let vendorObj = null;
 
-                                  if (typeof purchase.supplier === 'string') {
-                                    supplierId = purchase.supplier;
-                                    vendorObj = vendors.find(v => v._id === supplierId || v.id === supplierId);
-                                  } else if (purchase.supplier && purchase.supplier._id) {
-                                    supplierId = purchase.supplier._id;
-                                    vendorObj = purchase.supplier;
-                                  }
+                                    if (typeof purchase.supplier === 'string') {
+                                      supplierId = purchase.supplier;
+                                      vendorObj = vendors.find(v => v._id === supplierId || v.id === supplierId);
+                                    } else if (purchase.supplier && purchase.supplier._id) {
+                                      supplierId = purchase.supplier._id;
+                                      vendorObj = purchase.supplier;
+                                    }
 
-                                  if (vendorObj) {
-                                    setSelectedVendor(vendorObj);
-                                    setVendorSearchTerm(vendorObj.vendorName);
-                                  } else {
-                                    setSelectedVendor(null);
-                                    setVendorSearchTerm('');
-                                  }
+                                    if (vendorObj) {
+                                      setSelectedVendor(vendorObj);
+                                      setVendorSearchTerm(vendorObj.vendorName);
+                                    } else {
+                                      setSelectedVendor(null);
+                                      setVendorSearchTerm('');
+                                    }
 
-                                  setPurchaseData({
-                                    supplier: supplierId,
-                                    dcNumber: purchase.dcNumber || '',
-                                    birds: purchase.birds || 0,
-                                    weight: purchase.weight || 0,
-                                    avgWeight: purchase.avgWeight || 0,
-                                    rate: purchase.rate || 0,
-                                    amount: purchase.amount || 0
-                                  });
-                                  setEditingPurchaseIndex(index);
-                                  setShowPurchaseModal(true);
-                                }}
-                                className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
-                              >
-                                <Save size={12} />
-                                Edit
-                              </button>
+                                    setPurchaseData({
+                                      supplier: supplierId,
+                                      dcNumber: purchase.dcNumber || '',
+                                      birds: purchase.birds || 0,
+                                      weight: purchase.weight || 0,
+                                      avgWeight: purchase.avgWeight || 0,
+                                      rate: purchase.rate || 0,
+                                      amount: purchase.amount || 0
+                                    });
+                                    setEditingPurchaseIndex(index);
+                                    setShowPurchaseModal(true);
+                                  }}
+                                  className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                                >
+                                  <Save size={12} />
+                                  Edit
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteSubItem('purchase', index)}
+                                  className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded flex items-center gap-1 transition-colors"
+                                >
+                                  <Trash2 size={12} />
+                                  Delete
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
@@ -2195,6 +2254,15 @@ const SupervisorTripDetails = () => {
                                       >
                                         <Save size={12} />
                                         Edit
+                                      </button>
+                                    )}
+                                    {trip.status !== 'completed' && (
+                                      <button
+                                        onClick={() => handleDeleteSubItem('sale', trip.sales.findIndex(s => s._id === sale._id))}
+                                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded flex items-center gap-1 transition-colors"
+                                      >
+                                        <Trash2 size={12} />
+                                        Delete
                                       </button>
                                     )}
                                     <button
@@ -2453,6 +2521,15 @@ const SupervisorTripDetails = () => {
                                           Edit
                                         </button>
                                       )}
+                                      {trip.status !== 'completed' && (
+                                        <button
+                                          onClick={() => handleDeleteSubItem('receipt', trip.sales.findIndex(s => s._id === receipt._id))}
+                                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded flex items-center gap-1 transition-colors"
+                                        >
+                                          <Trash2 size={12} />
+                                          Delete
+                                        </button>
+                                      )}
                                       <button
                                         onClick={() => handleDownloadInvoice(receipt)}
                                         className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
@@ -2671,21 +2748,30 @@ const SupervisorTripDetails = () => {
                         <div className="flex flex-col items-end space-y-2">
                           <div className="font-medium text-red-600">₹{expense.amount?.toLocaleString()}</div>
                           {trip.status !== 'completed' && (
-                            <button
-                              onClick={() => {
-                                setExpenseData({
-                                  category: expense.category || 'meals',
-                                  description: expense.description || '',
-                                  amount: expense.amount || ''
-                                });
-                                setEditingExpenseIndex(index);
-                                setShowExpenseModal(true);
-                              }}
-                              className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 flex items-center gap-1"
-                            >
-                              <Edit size={12} />
-                              Edit
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setExpenseData({
+                                    category: expense.category || 'meals',
+                                    description: expense.description || '',
+                                    amount: expense.amount || ''
+                                  });
+                                  setEditingExpenseIndex(index);
+                                  setShowExpenseModal(true);
+                                }}
+                                className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 flex items-center gap-1"
+                              >
+                                <Edit size={12} />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSubItem('expense', index)}
+                                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded flex items-center gap-1 transition-colors"
+                              >
+                                <Trash2 size={12} />
+                                Delete
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -2762,27 +2848,36 @@ const SupervisorTripDetails = () => {
                             <div className="font-medium">₹{(station.amount || 0).toFixed(2)}</div>
                           </div>
                           {trip.status !== 'completed' && (
-                            <button
-                              onClick={() => {
-                                setEditingDieselIndex(index);
-                                const selection = getDieselStationSelection(station.stationName || '');
-                                setDieselData({
-                                  stationName: station.stationName || '',
-                                  indentNumber: station.indentNumber || '',
-                                  volume: station.volume || 0,
-                                  rate: station.rate || 0,
-                                  amount: station.amount || 0,
-                                  date: station.date || new Date().toISOString().split('T')[0],
-                                  selectedStationId: selection.selectedStationId,
-                                  useCustomStation: selection.useCustomStation,
-                                  narration: station.narration || ''
-                                });
-                                setShowDieselModal(true);
-                              }}
-                              className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-                            >
-                              Edit
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  setEditingDieselIndex(index);
+                                  const selection = getDieselStationSelection(station.stationName || '');
+                                  setDieselData({
+                                    stationName: station.stationName || '',
+                                    indentNumber: station.indentNumber || '',
+                                    volume: station.volume || 0,
+                                    rate: station.rate || 0,
+                                    amount: station.amount || 0,
+                                    date: station.date || new Date().toISOString().split('T')[0],
+                                    selectedStationId: selection.selectedStationId,
+                                    useCustomStation: selection.useCustomStation,
+                                    narration: station.narration || ''
+                                  });
+                                  setShowDieselModal(true);
+                                }}
+                                className="px-3 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSubItem('diesel', index)}
+                                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded flex items-center gap-1 transition-colors"
+                              >
+                                <Trash2 size={12} />
+                                Delete
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -2845,9 +2940,10 @@ const SupervisorTripDetails = () => {
                   const deathAvg = deathBirds > 0 ? deathWeight / deathBirds : 0;
                   const deathAmount = deathWeight * purchaseRate;
 
-                  const naturalWeightLoss = Math.max(0, trip.summary?.birdWeightLoss || 0);
+                  const isCompleted = trip.status === 'completed';
+                  const naturalWeightLoss = isCompleted ? Math.max(0, trip.summary?.birdWeightLoss || 0) : 0;
 
-                  const naturalAvg = deathAvg || (trip.summary?.totalWeightPurchased && trip.summary?.totalBirdsPurchased ? trip.summary.totalWeightPurchased / trip.summary.totalBirdsPurchased : 0);
+                  const naturalAvg = naturalWeightLoss > 0 ? (deathAvg || (trip.summary?.totalWeightPurchased && trip.summary?.totalBirdsPurchased ? trip.summary.totalWeightPurchased / trip.summary.totalBirdsPurchased : 0)) : 0;
                   const naturalAmount = naturalWeightLoss * purchaseRate;
 
                   const totalWeightLoss = deathWeight + naturalWeightLoss;
@@ -3139,7 +3235,16 @@ const SupervisorTripDetails = () => {
                   <h4 className="font-medium text-orange-900 mb-3">Outgoing Transfers</h4>
                   <div className="space-y-3">
                     {trip.transferHistory.map((transfer, index) => (
-                      <div key={index} className="bg-white p-4 rounded-lg border border-orange-200">
+                      <div key={index} className="bg-white p-4 rounded-lg border border-orange-200 relative">
+                        {trip.status !== 'completed' && (
+                          <button
+                            onClick={() => handleDeleteSubItem('transfer', index)}
+                            className="absolute top-4 right-4 p-1.5 bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center transition-colors"
+                            title="Delete Transfer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <div className="mb-2">

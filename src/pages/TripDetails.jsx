@@ -17,7 +17,8 @@ import {
   FileSpreadsheet,
   FileText,
   Save,
-  Edit
+  Edit,
+  Trash2
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -918,6 +919,52 @@ export default function TripDetails() {
     }
   };
 
+  const handleDeleteSubItem = async (subItemType, index) => {
+    if (!window.confirm(`Are you sure you want to delete this ${subItemType}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      let endpoint = '';
+      switch (subItemType) {
+        case 'purchase':
+          endpoint = `/trip/${id}/purchase/${index}`;
+          break;
+        case 'sale':
+        case 'receipt':
+          endpoint = `/trip/${id}/sale/${index}`;
+          break;
+        case 'diesel':
+          endpoint = `/trip/${id}/diesel/${index}`;
+          break;
+        case 'expense':
+          endpoint = `/trip/${id}/expenses/${index}`;
+          break;
+        case 'loss':
+          endpoint = `/trip/${id}/losses/${index}`;
+          break;
+        case 'transfer':
+          endpoint = `/trip/${id}/transfer/${index}`;
+          break;
+        case 'stock':
+          endpoint = `/trip/${id}/stock/${index}`;
+          break;
+        default:
+          alert('Unknown sub-item type');
+          return;
+      }
+
+      const { data } = await api.delete(endpoint);
+      if (data.success) {
+        setTrip(data.data);
+        alert(`${subItemType.charAt(0).toUpperCase() + subItemType.slice(1)} deleted successfully!`);
+      }
+    } catch (error) {
+      console.error(`Error deleting ${subItemType}:`, error);
+      alert(error.response?.data?.message || `Failed to delete ${subItemType}`);
+    }
+  };
+
   const downloadExcel = () => {
     downloadTripExcel2(trip);
   };
@@ -959,9 +1006,10 @@ export default function TripDetails() {
   }
 
   const isTripCompleted = trip.status === 'completed';
-  const naturalWeightLossAmount = (trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0);
+  const naturalWeightLossKg = isTripCompleted ? Math.max(0, trip.summary?.birdWeightLoss || 0) : 0;
+  const naturalWeightLossAmount = naturalWeightLossKg * (trip.summary?.avgPurchaseRate || 0);
   const totalWeightLossKg =
-    (trip.summary?.totalWeightLost || 0) + (trip.summary?.birdWeightLoss || 0);
+    (trip.summary?.totalWeightLost || 0) + naturalWeightLossKg;
   const mortalityAndWeightLossAmount = (trip.summary?.totalLosses || 0) + naturalWeightLossAmount;
 
   return (
@@ -1463,7 +1511,7 @@ export default function TripDetails() {
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">NATURAL WEIGHT LOSS</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">-</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">
-                              {(trip.summary?.birdWeightLoss || 0).toFixed(2)}
+                              {naturalWeightLossKg.toFixed(2)}
                             </td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">
                               {trip.summary?.totalBirdsPurchased > 0 ? ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00'}
@@ -1472,7 +1520,7 @@ export default function TripDetails() {
                               ₹{trip.summary?.avgPurchaseRate?.toFixed(2) || '0.00'}
                             </td>
                             <td className="px-3 py-2 text-sm font-semibold text-gray-900">
-                              ₹{((trip.summary?.birdWeightLoss || 0) * (trip.summary?.avgPurchaseRate || 0)).toFixed(2)}
+                              ₹{naturalWeightLossAmount.toFixed(2)}
                             </td>
                           </tr>
                           <tr className="bg-black text-white font-bold">
@@ -1771,8 +1819,8 @@ export default function TripDetails() {
                       </div>
                       <div className="flex justify-between items-center border-t pt-3 mt-3">
                         <span className="text-sm font-medium text-gray-900">Net Profit:</span>
-                        <span className="text-lg font-semibold text-green-600 text-right">
-                          ₹{trip.status === 'completed' ? (trip.summary?.netProfit?.toFixed(2) || '0.00') : Math.max(0, trip.summary?.netProfit || 0).toFixed(2)}
+                        <span className={`text-lg font-semibold text-right ${(trip.summary?.netProfit || 0) < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {(trip.summary?.netProfit || 0) < 0 ? `-₹${Math.abs(trip.summary?.netProfit).toFixed(2)}` : `₹${(trip.summary?.netProfit || 0).toFixed(2)}`}
                         </span>
                       </div>
                     </div>
@@ -1840,33 +1888,42 @@ export default function TripDetails() {
                           {/* <p className="text-sm text-gray-500">{purchase.paymentMode}</p> */}
                           {/* Edit button for completed trips - Admin/Superadmin only - Not for transferred trips */}
                           {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && trip.type !== 'transferred' && (
-                            <button
-                              onClick={() => {
-                                // Extract supplier ID properly - handle both populated and non-populated supplier fields
-                                let supplierId = '';
-                                if (typeof purchase.supplier === 'string') {
-                                  supplierId = purchase.supplier;
-                                } else if (purchase.supplier && (purchase.supplier._id || purchase.supplier.id)) {
-                                  supplierId = purchase.supplier._id || purchase.supplier.id;
-                                }
+                            <div className="flex gap-2 justify-end mt-2">
+                              <button
+                                onClick={() => {
+                                  // Extract supplier ID properly - handle both populated and non-populated supplier fields
+                                  let supplierId = '';
+                                  if (typeof purchase.supplier === 'string') {
+                                    supplierId = purchase.supplier;
+                                  } else if (purchase.supplier && (purchase.supplier._id || purchase.supplier.id)) {
+                                    supplierId = purchase.supplier._id || purchase.supplier.id;
+                                  }
 
-                                setPurchaseData({
-                                  supplier: supplierId,
-                                  dcNumber: purchase.dcNumber || '',
-                                  birds: purchase.birds || 0,
-                                  weight: purchase.weight || 0,
-                                  avgWeight: purchase.avgWeight || 0,
-                                  rate: purchase.rate || 0,
-                                  amount: purchase.amount || 0
-                                });
-                                setEditingPurchaseIndex(index);
-                                setShowPurchaseModal(true);
-                              }}
-                              className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
-                            >
-                              <Edit size={12} />
-                              Edit
-                            </button>
+                                  setPurchaseData({
+                                    supplier: supplierId,
+                                    dcNumber: purchase.dcNumber || '',
+                                    birds: purchase.birds || 0,
+                                    weight: purchase.weight || 0,
+                                    avgWeight: purchase.avgWeight || 0,
+                                    rate: purchase.rate || 0,
+                                    amount: purchase.amount || 0
+                                  });
+                                  setEditingPurchaseIndex(index);
+                                  setShowPurchaseModal(true);
+                                }}
+                                className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                              >
+                                <Edit size={12} />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSubItem('purchase', index)}
+                                className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 flex items-center gap-1"
+                              >
+                                <Trash2 size={12} />
+                                Delete
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -1965,58 +2022,67 @@ export default function TripDetails() {
                             {/* Edit button for completed trips - Admin/Superadmin only */}
                             {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
                               <td className="border border-gray-300 px-4 py-2 text-center">
-                                <button
-                                  onClick={() => {
-                                    // Extract client ID properly
-                                    let clientId = '';
-                                    if (typeof sale.client === 'string') {
-                                      clientId = sale.client;
-                                    } else if (sale.client && (sale.client._id || sale.client.id)) {
-                                      clientId = sale.client._id || sale.client.id;
-                                    }
+                                <div className="flex gap-1 justify-center">
+                                  <button
+                                    onClick={() => {
+                                      // Extract client ID properly
+                                      let clientId = '';
+                                      if (typeof sale.client === 'string') {
+                                        clientId = sale.client;
+                                      } else if (sale.client && (sale.client._id || sale.client.id)) {
+                                        clientId = sale.client._id || sale.client.id;
+                                      }
 
-                                    // Try to find full customer object from loaded customers list first
-                                    let clientObj = customers.find(c => c._id === clientId || c.id === clientId);
+                                      // Try to find full customer object from loaded customers list first
+                                      let clientObj = customers.find(c => c._id === clientId || c.id === clientId);
 
-                                    // Fallback to sale.client if not found in list but exists as object
-                                    if (!clientObj && typeof sale.client === 'object' && sale.client) {
-                                      clientObj = sale.client;
-                                    }
+                                      // Fallback to sale.client if not found in list but exists as object
+                                      if (!clientObj && typeof sale.client === 'object' && sale.client) {
+                                        clientObj = sale.client;
+                                      }
 
-                                    if (clientObj) {
-                                      setSelectedCustomer(clientObj);
-                                      setCustomerSearchTerm(`${clientObj.shopName} - ${clientObj.ownerName || 'N/A'}`);
-                                      fetchCustomerBalance(clientObj);
-                                    } else {
-                                      setSelectedCustomer(null);
-                                      setCustomerSearchTerm('');
-                                      setCustomerBalance(null);
-                                    }
+                                      if (clientObj) {
+                                        setSelectedCustomer(clientObj);
+                                        setCustomerSearchTerm(`${clientObj.shopName} - ${clientObj.ownerName || 'N/A'}`);
+                                        fetchCustomerBalance(clientObj);
+                                      } else {
+                                        setSelectedCustomer(null);
+                                        setCustomerSearchTerm('');
+                                        setCustomerBalance(null);
+                                      }
 
-                                    setSaleData({
-                                      client: clientId,
-                                      billNumber: sale.billNumber || '',
-                                      birds: sale.birds || 0,
-                                      weight: sale.weight || 0,
-                                      avgWeight: sale.avgWeight || 0,
-                                      rate: sale.rate || 0,
-                                      amount: sale.amount || 0,
-                                      receivedAmount: sale.receivedAmount || 0,
-                                      discount: sale.discount || 0,
-                                      balance: sale.balance || 0,
-                                      cashPaid: sale.cashPaid || 0,
-                                      onlinePaid: sale.onlinePaid || 0,
-                                      cashLedger: sale.cashLedger?._id || sale.cashLedger || '',
-                                      onlineLedger: sale.onlineLedger?._id || sale.onlineLedger || ''
-                                    });
-                                    setEditingSaleIndex(index);
-                                    setShowSaleModal(true);
-                                  }}
-                                  className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
-                                >
-                                  <Edit size={10} />
-                                  Edit
-                                </button>
+                                      setSaleData({
+                                        client: clientId,
+                                        billNumber: sale.billNumber || '',
+                                        birds: sale.birds || 0,
+                                        weight: sale.weight || 0,
+                                        avgWeight: sale.avgWeight || 0,
+                                        rate: sale.rate || 0,
+                                        amount: sale.amount || 0,
+                                        receivedAmount: sale.receivedAmount || 0,
+                                        discount: sale.discount || 0,
+                                        balance: sale.balance || 0,
+                                        cashPaid: sale.cashPaid || 0,
+                                        onlinePaid: sale.onlinePaid || 0,
+                                        cashLedger: sale.cashLedger?._id || sale.cashLedger || '',
+                                        onlineLedger: sale.onlineLedger?._id || sale.onlineLedger || ''
+                                      });
+                                      setEditingSaleIndex(index);
+                                      setShowSaleModal(true);
+                                    }}
+                                    className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                                  >
+                                    <Edit size={10} />
+                                    Edit
+                                  </button>
+                                  <button
+                                    onClick={() => handleDeleteSubItem('sale', index)}
+                                    className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 flex items-center gap-1"
+                                  >
+                                    <Trash2 size={10} />
+                                    Delete
+                                  </button>
+                                </div>
                               </td>
                             )}
                           </tr>
@@ -2133,59 +2199,68 @@ export default function TripDetails() {
                                 {/* Edit button for completed trips - Admin/Superadmin only */}
                                 {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && originalIndex >= 0 && (
                                   <td className="border border-gray-300 px-4 py-2 text-center">
-                                    <button
-                                      onClick={() => {
-                                        // Extract client ID properly
-                                        let clientId = '';
-                                        if (typeof receipt.client === 'string') {
-                                          clientId = receipt.client;
-                                        } else if (receipt.client && (receipt.client._id || receipt.client.id)) {
-                                          clientId = receipt.client._id || receipt.client.id;
-                                        }
+                                    <div className="flex gap-1 justify-center">
+                                      <button
+                                        onClick={() => {
+                                          // Extract client ID properly
+                                          let clientId = '';
+                                          if (typeof receipt.client === 'string') {
+                                            clientId = receipt.client;
+                                          } else if (receipt.client && (receipt.client._id || receipt.client.id)) {
+                                            clientId = receipt.client._id || receipt.client.id;
+                                          }
 
-                                        // Try to find full customer object
-                                        let clientObj = customers.find(c => c._id === clientId || c.id === clientId);
-                                        if (!clientObj && typeof receipt.client === 'object' && receipt.client) {
-                                          clientObj = receipt.client;
-                                        }
+                                          // Try to find full customer object
+                                          let clientObj = customers.find(c => c._id === clientId || c.id === clientId);
+                                          if (!clientObj && typeof receipt.client === 'object' && receipt.client) {
+                                            clientObj = receipt.client;
+                                          }
 
-                                        const cashAcId = getCashAcLedgerId();
-                                        const defaultCashLedger = (receipt.cashLedger || (receipt.cashPaid > 0 ? cashAcId : '')) || '';
+                                          const cashAcId = getCashAcLedgerId();
+                                          const defaultCashLedger = (receipt.cashLedger || (receipt.cashPaid > 0 ? cashAcId : '')) || '';
 
-                                        setSaleData({
-                                          client: clientId,
-                                          billNumber: receipt.billNumber || '',
-                                          birds: 0,
-                                          weight: 0,
-                                          avgWeight: 0,
-                                          rate: 0,
-                                          amount: 0,
-                                          receivedAmount: receipt.receivedAmount || 0,
-                                          discount: receipt.discount || 0,
-                                          balance: receipt.balance || 0,
-                                          cashPaid: receipt.cashPaid || 0,
-                                          onlinePaid: receipt.onlinePaid || 0,
-                                          cashLedger: defaultCashLedger,
-                                          onlineLedger: receipt.onlineLedger || '',
-                                          narration: receipt.narration || '',
-                                          isReceipt: true,
-                                          sendSms: false
-                                        });
+                                          setSaleData({
+                                            client: clientId,
+                                            billNumber: receipt.billNumber || '',
+                                            birds: 0,
+                                            weight: 0,
+                                            avgWeight: 0,
+                                            rate: 0,
+                                            amount: 0,
+                                            receivedAmount: receipt.receivedAmount || 0,
+                                            discount: receipt.discount || 0,
+                                            balance: receipt.balance || 0,
+                                            cashPaid: receipt.cashPaid || 0,
+                                            onlinePaid: receipt.onlinePaid || 0,
+                                            cashLedger: defaultCashLedger,
+                                            onlineLedger: receipt.onlineLedger || '',
+                                            narration: receipt.narration || '',
+                                            isReceipt: true,
+                                            sendSms: false
+                                          });
 
-                                        if (clientObj) {
-                                          setSelectedCustomer(clientObj);
-                                          setCustomerSearchTerm(`${clientObj.shopName} - ${clientObj.ownerName || 'N/A'}`);
-                                          fetchCustomerBalance(clientObj);
-                                        }
+                                          if (clientObj) {
+                                            setSelectedCustomer(clientObj);
+                                            setCustomerSearchTerm(`${clientObj.shopName} - ${clientObj.ownerName || 'N/A'}`);
+                                            fetchCustomerBalance(clientObj);
+                                          }
 
-                                        setEditingSaleIndex(originalIndex);
-                                        setShowReceiptModal(true);
-                                      }}
-                                      className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
-                                    >
-                                      <Edit size={10} />
-                                      Edit
-                                    </button>
+                                          setEditingSaleIndex(originalIndex);
+                                          setShowReceiptModal(true);
+                                        }}
+                                        className="px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                                      >
+                                        <Edit size={10} />
+                                        Edit
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteSubItem('sale', originalIndex)}
+                                        className="px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 flex items-center gap-1"
+                                      >
+                                        <Trash2 size={10} />
+                                        Delete
+                                      </button>
+                                    </div>
                                   </td>
                                 )}
                               </tr>
@@ -2281,22 +2356,31 @@ export default function TripDetails() {
                           <p className="text-sm text-gray-500">{expense.receipt}</p>
                           {/* Edit button for completed trips - Admin/Superadmin only */}
                           {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
-                            <button
-                              onClick={() => {
-                                setExpenseData({
-                                  category: expense.category || 'meals',
-                                  description: expense.description || '',
-                                  amount: expense.amount || 0,
-                                  date: expense.date || new Date().toISOString().split('T')[0]
-                                });
-                                setEditingExpenseIndex(index);
-                                setShowExpenseModal(true);
-                              }}
-                              className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
-                            >
-                              <Edit size={12} />
-                              Edit
-                            </button>
+                            <div className="flex gap-2 justify-end mt-2">
+                              <button
+                                onClick={() => {
+                                  setExpenseData({
+                                    category: expense.category || 'meals',
+                                    description: expense.description || '',
+                                    amount: expense.amount || 0,
+                                    date: expense.date || new Date().toISOString().split('T')[0]
+                                  });
+                                  setEditingExpenseIndex(index);
+                                  setShowExpenseModal(true);
+                                }}
+                                className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                              >
+                                <Edit size={12} />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSubItem('expense', index)}
+                                className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 flex items-center gap-1"
+                              >
+                                <Trash2 size={12} />
+                                Delete
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -2327,23 +2411,32 @@ export default function TripDetails() {
                           <p className="text-sm text-gray-500">{station.volume}L @ ₹{station.rate}</p>
                           {/* Edit button for completed trips - Admin/Superadmin only */}
                           {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
-                            <button
-                              onClick={() => {
-                                setDieselData({
-                                  stationName: getDieselStationName(station),
-                                  volume: station.volume || 0,
-                                  rate: station.rate || 0,
-                                  amount: station.amount || 0,
-                                  date: station.timestamp ? new Date(station.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-                                });
-                                setEditingDieselIndex(index);
-                                setShowDieselModal(true);
-                              }}
-                              className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
-                            >
-                              <Edit size={12} />
-                              Edit
-                            </button>
+                            <div className="flex gap-2 justify-end mt-2">
+                              <button
+                                onClick={() => {
+                                  setDieselData({
+                                    stationName: getDieselStationName(station),
+                                    volume: station.volume || 0,
+                                    rate: station.rate || 0,
+                                    amount: station.amount || 0,
+                                    date: station.timestamp ? new Date(station.timestamp).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+                                  });
+                                  setEditingDieselIndex(index);
+                                  setShowDieselModal(true);
+                                }}
+                                className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                              >
+                                <Edit size={12} />
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSubItem('diesel', index)}
+                                className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 flex items-center gap-1"
+                              >
+                                <Trash2 size={12} />
+                                Delete
+                              </button>
+                            </div>
                           )}
                         </div>
                       </div>
@@ -2407,24 +2500,33 @@ export default function TripDetails() {
                         </div>
                         {/* Edit button for completed trips - Admin/Superadmin only */}
                         {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
-                          <button
-                            onClick={() => {
-                              setStockData({
-                                birds: stock.birds || 0,
-                                weight: stock.weight || 0,
-                                avgWeight: stock.avgWeight || 0,
-                                rate: stock.rate || 0,
-                                value: stock.value || 0,
-                                notes: stock.notes || ''
-                              });
-                              setEditingStockIndex(index);
-                              setShowStockModal(true);
-                            }}
-                            className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
-                          >
-                            <Edit size={12} />
-                            Edit
-                          </button>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setStockData({
+                                  birds: stock.birds || 0,
+                                  weight: stock.weight || 0,
+                                  avgWeight: stock.avgWeight || 0,
+                                  rate: stock.rate || 0,
+                                  value: stock.value || 0,
+                                  notes: stock.notes || ''
+                                });
+                                setEditingStockIndex(index);
+                                setShowStockModal(true);
+                              }}
+                              className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
+                            >
+                              <Edit size={12} />
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSubItem('stock', index)}
+                              className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 flex items-center gap-1"
+                            >
+                              <Trash2 size={12} />
+                              Delete
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -2514,6 +2616,15 @@ export default function TripDetails() {
                         <div className="text-right">
                           <p className="text-lg font-bold text-red-600">₹{loss.total?.toFixed(2)}</p>
                           <p className="text-sm text-red-500">Loss Amount</p>
+                          {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && loss.reason !== 'Auto-calculated Mortality' && (
+                            <button
+                              onClick={() => handleDeleteSubItem('loss', index)}
+                              className="mt-2 px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 flex items-center gap-1 ml-auto"
+                            >
+                              <Trash2 size={12} />
+                              Delete
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2649,7 +2760,16 @@ export default function TripDetails() {
                   </h4>
                   <div className="space-y-4">
                     {trip.transfers.map((transfer, index) => (
-                      <div key={index} className="bg-white p-4 rounded-lg border border-blue-300">
+                      <div key={index} className="bg-white p-4 rounded-lg border border-blue-300 relative">
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDeleteSubItem('transfer', index)}
+                            className="absolute top-4 right-4 p-1.5 bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center transition-colors"
+                            title="Delete Transfer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                           <div>
                             <label className="text-sm font-medium text-gray-600">Destination Trip ID</label>
@@ -2766,8 +2886,8 @@ export default function TripDetails() {
                   </h4>
                   <div className="space-y-3">
                     {trip.transferHistory.map((transfer, index) => (
-                      <div key={index} className="bg-white p-4 rounded-lg border border-purple-300">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      <div key={index} className="bg-white p-4 rounded-lg border border-purple-300 flex justify-between items-center">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm flex-1">
                           <div>
                             <span className="text-gray-600">To Trip:</span>
                             <span className="ml-2 font-semibold text-gray-900">
@@ -2789,6 +2909,15 @@ export default function TripDetails() {
                             </span>
                           </div>
                         </div>
+                        {(user.role === 'admin' || user.role === 'superadmin') && (
+                          <button
+                            onClick={() => handleDeleteSubItem('transfer', index)}
+                            className="p-1 bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center ml-4 transition-colors"
+                            title="Delete Transfer"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -2868,8 +2997,8 @@ export default function TripDetails() {
                 <h4 className="font-medium text-blue-900 mb-3">Net Profit Analysis</h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
                   <div>
-                    <div className="text-2xl font-bold text-blue-600">
-                      ₹{trip.status === 'completed' ? (trip.summary?.netProfit || 0).toFixed(2) : '0.00'}
+                    <div className={`text-2xl font-bold ${(trip.summary?.netProfit || 0) < 0 ? 'text-red-600' : 'text-blue-600'}`}>
+                      {(trip.summary?.netProfit || 0) < 0 ? `-₹${Math.abs(trip.summary?.netProfit).toFixed(2)}` : `₹${(trip.summary?.netProfit || 0).toFixed(2)}`}
                     </div>
                     <div className="text-blue-700">Net Profit</div>
                   </div>
@@ -2882,10 +3011,10 @@ export default function TripDetails() {
                     <div className="text-blue-700">Profit per Kg</div>
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-blue-600">
+                    <div className={`text-2xl font-bold ${(trip.summary?.netProfit || 0) < 0 ? 'text-red-600' : 'text-blue-600'}`}>
                       {trip.summary?.totalSalesAmount > 0
-                        ? ((trip.summary?.netProfit / trip.summary?.totalSalesAmount) * 100).toFixed(2)
-                        : '0.00'}%
+                        ? `${((trip.summary?.netProfit / trip.summary?.totalSalesAmount) * 100).toFixed(2)}%`
+                        : '0.00%'}
                     </div>
                     <div className="text-blue-700">Net Profit Margin</div>
                   </div>
@@ -2899,7 +3028,7 @@ export default function TripDetails() {
                   {trip.status === 'completed' ? (
                     <p>✅ <strong>Completed Trip:</strong> All financial calculations are final and include complete data.</p>
                   ) : (
-                    <p>⚠️ <strong>Ongoing Trip:</strong> Net profit shows 0.00 as the trip is still in progress. Final calculations will be available upon completion.</p>
+                    <p>⚠️ <strong>Ongoing Trip:</strong> Net profit is real-time and subject to change until the trip is completed.</p>
                   )}
                 </div>
               </div>

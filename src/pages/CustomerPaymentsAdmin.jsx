@@ -15,7 +15,8 @@ import {
   QrCode,
   Filter,
   Search,
-  Download
+  Download,
+  Trash2
 } from 'lucide-react';
 import api from '../lib/axios';
 
@@ -160,6 +161,32 @@ const CustomerPaymentsAdmin = () => {
       alert(errorMessage);
     } finally {
       setIsVerifying(false);
+    }
+  };
+
+  const handleDeletePayment = async (payment) => {
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete this payment of ₹${payment.amount.toLocaleString()}? This will permanently remove the record and reverse any verified balances.`
+    );
+    if (!confirmDelete) return;
+
+    try {
+      setLoading(true);
+      const response = await api.delete(`/payment/${payment.id || payment._id}`);
+      if (response.data.success) {
+        alert('Payment deleted and balances reverted successfully!');
+        setShowModal(false);
+        setSelectedPayment(null);
+        fetchPayments();
+        fetchStats();
+      } else {
+        alert(response.data.message || 'Failed to delete payment.');
+      }
+    } catch (error) {
+      console.error('Error deleting payment:', error);
+      alert(error.response?.data?.message || 'Failed to delete payment.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -428,13 +455,23 @@ const CustomerPaymentsAdmin = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <button
-                        onClick={() => openPaymentModal(payment)}
-                        className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
-                      >
-                        <Eye size={16} />
-                        View Details
-                      </button>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => openPaymentModal(payment)}
+                          className="text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
+                        >
+                          <Eye size={16} />
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => handleDeletePayment(payment)}
+                          className="text-red-600 hover:text-red-800 font-medium flex items-center gap-1"
+                          title="Delete payment"
+                        >
+                          <Trash2 size={16} />
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -642,34 +679,43 @@ const CustomerPaymentsAdmin = () => {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
-                  <div className="flex justify-end space-x-3">
+                  <div className="flex justify-between items-center">
                     <button
-                      onClick={() => setShowModal(false)}
-                      className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      onClick={() => handleDeletePayment(selectedPayment)}
+                      className="text-red-600 hover:text-red-800 font-medium flex items-center gap-1.5"
                     >
-                      Cancel
+                      <Trash2 size={16} />
+                      Delete Submission
                     </button>
-                    <button
-                      onClick={handleVerifyPayment}
-                      disabled={isVerifying}
-                      className={`px-4 py-2 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 ${
-                        verificationData.status === 'verified' 
-                          ? 'bg-green-600 hover:bg-green-700' 
-                          : 'bg-red-600 hover:bg-red-700'
-                      }`}
-                    >
-                      {isVerifying ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          {verificationData.status === 'verified' ? <CheckCircle size={16} /> : <X size={16} />}
-                          {verificationData.status === 'verified' ? 'Verify' : 'Reject'} Payment
-                        </>
-                      )}
-                    </button>
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={() => setShowModal(false)}
+                        className="px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleVerifyPayment}
+                        disabled={isVerifying}
+                        className={`px-4 py-2 text-white rounded-lg transition-colors flex items-center gap-2 disabled:opacity-50 ${
+                          verificationData.status === 'verified' 
+                            ? 'bg-green-600 hover:bg-green-700' 
+                            : 'bg-red-600 hover:bg-red-700'
+                        }`}
+                      >
+                        {isVerifying ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            {verificationData.status === 'verified' ? <CheckCircle size={16} /> : <X size={16} />}
+                            {verificationData.status === 'verified' ? 'Verify' : 'Reject'} Payment
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -701,6 +747,25 @@ const CustomerPaymentsAdmin = () => {
                     </div>
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Bottom Actions for processed payments */}
+            {selectedPayment.status !== 'pending' && (
+              <div className="mt-6 pt-6 border-t border-gray-200 flex justify-between items-center">
+                <button
+                  onClick={() => handleDeletePayment(selectedPayment)}
+                  className="text-red-600 hover:text-red-800 font-medium flex items-center gap-1.5"
+                >
+                  <Trash2 size={16} />
+                  Delete Payment Record
+                </button>
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-lg font-medium transition-colors"
+                >
+                  Close
+                </button>
               </div>
             )}
           </div>

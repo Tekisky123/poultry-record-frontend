@@ -204,7 +204,7 @@ const REPORT_COLUMNS = [
     label: 'Profit',
     locked: true,
     defaultSelected: true,
-    render: (trip) => formatCurrency(trip?.summary?.netProfit)
+    render: (trip) => formatCurrency(trip?.summary?.tripProfit)
   },
   {
     key: 'rentAmount',
@@ -1288,7 +1288,7 @@ export default function Trips() {
         <div className="bg-white p-4 rounded-lg border border-gray-200">
           <div className="text-sm text-gray-500">Total Profit</div>
           <div className="text-2xl font-bold text-blue-600">
-            ₹{filteredTrips.reduce((sum, trip) => sum + (trip.summary?.netProfit || 0), 0).toLocaleString()}
+            ₹{filteredTrips.reduce((sum, trip) => sum + (trip.summary?.tripProfit || 0), 0).toLocaleString()}
           </div>
         </div>
         <div className="bg-white p-4 rounded-lg border border-gray-200">

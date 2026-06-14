@@ -226,9 +226,20 @@ const ManageStocks = () => {
     const [feedOpeningStockCalculated, setFeedOpeningStockCalculated] = useState({ bags: 0, weight: 0, amount: 0 });
     const [birdOpeningStockCalculated, setBirdOpeningStockCalculated] = useState({ birds: 0, weight: 0, amount: 0 });
 
+    // Redirect to today's date if dateParam is missing in search params
+    useEffect(() => {
+        if (user && !dateParam) {
+            const todayStr = new Date().toLocaleDateString('en-CA');
+            const basePath = user.role === 'supervisor' ? '/supervisor/stocks/manage' : '/stocks/manage';
+            navigate(`${basePath}?date=${todayStr}`, { replace: true });
+        }
+    }, [dateParam, navigate, user]);
+
     // Fetch Data
     useEffect(() => {
-        fetchInitialData();
+        if (dateParam) {
+            fetchInitialData();
+        }
     }, [dateParam]);
 
     // Helper: convert a DB date value to local YYYY-MM-DD string.
@@ -300,7 +311,7 @@ const ManageStocks = () => {
             const shouldFetchBirdHistory = dateParam && baseBirdOpsList.length > 0 && prevDateStr >= birdAnchorDate;
 
             const [stocksRes, vendorsRes, customersRes, ledgersRes, prevStocksRes, historicalFeedRes, historicalBirdRes] = await Promise.all([
-                api.get('/inventory-stock', { params: dateParam ? { startDate: dateParam, endDate: dateParam } : {} }),
+                api.get('/inventory-stock', { params: { startDate: dateParam, endDate: dateParam } }),
                 api.get('/vendor?limit=1000'),
                 api.get('/customer'),
                 api.get('/ledger'),
@@ -766,6 +777,22 @@ const ManageStocks = () => {
         } finally {
             setIsSaving(false);
             isSavingRef.current = false;
+        }
+    };
+
+    const handleDeleteStock = async (stockId) => {
+        if (!window.confirm("WARNING: Are you sure you want to delete this stock entry? This will revert any customer/vendor outstanding balances and bank/cash/expense ledgers affected by this transaction. This action cannot be undone.")) {
+            return;
+        }
+        try {
+            setLoading(true);
+            await api.delete(`/inventory-stock/${stockId}`);
+            alert("Stock deleted successfully!");
+            fetchInitialData();
+        } catch (error) {
+            console.error("Failed to delete stock:", error);
+            alert(error.response?.data?.message || "Failed to delete stock");
+            setLoading(false);
         }
     };
 
@@ -1392,39 +1419,47 @@ const ManageStocks = () => {
                                         <td className="border p-2">{new Date(stock.date).toLocaleDateString()}</td>
                                         <td className="border p-2">
                                             {stock.source !== 'trip' && (
-                                                <button
-                                                    onClick={() => {
-                                                        if (stock.source === 'trip') {
-                                                            alert("Cannot edit trip stock here.");
-                                                            return;
-                                                        }
-                                                        setIsEditMode(true);
-                                                        setCurrentStockId(stock._id);
-                                                        setPurchaseData({
-                                                            vendorId: stock.vendorId?._id || stock.vendorId?.id || '',
-                                                            vehicleNumber: stock.vehicleNumber || stock.vehicleId?.vehicleNumber || '',
-                                                            birds: stock.birds,
-                                                            weight: stock.weight,
-                                                            avgWeight: stock.avgWeight || (stock.birds > 0 ? (stock.weight / stock.birds).toFixed(2) : 0),
-                                                            rate: stock.rate,
-                                                            amount: stock.amount,
-                                                            refNo: stock.refNo || '',
-                                                            date: stock.date ? new Date(stock.date).toISOString().split('T')[0] : ''
-                                                        });
-                                                        // Pre-select vendor for display
-                                                        const v = vendors.find(v => v._id || v.id === (stock.vendorId?._id || stock.vendorId?.id));
-                                                        if (v) {
-                                                            setSelectedVendor(v);
-                                                            setVendorSearchTerm('');
-                                                        } else if (stock.vendorId && stock.vendorId.vendorName) {
-                                                            setSelectedVendor(stock.vendorId);
-                                                        }
-                                                        setShowPurchaseModal(true);
-                                                    }}
-                                                    className="text-blue-600 hover:text-blue-800 font-medium"
-                                                >
-                                                    EDIT
-                                                </button>
+                                                <div className="flex items-center gap-2 justify-center">
+                                                    <button
+                                                        onClick={() => {
+                                                            if (stock.source === 'trip') {
+                                                                alert("Cannot edit trip stock here.");
+                                                                return;
+                                                            }
+                                                            setIsEditMode(true);
+                                                            setCurrentStockId(stock._id);
+                                                            setPurchaseData({
+                                                                vendorId: stock.vendorId?._id || stock.vendorId?.id || '',
+                                                                vehicleNumber: stock.vehicleNumber || stock.vehicleId?.vehicleNumber || '',
+                                                                birds: stock.birds,
+                                                                weight: stock.weight,
+                                                                avgWeight: stock.avgWeight || (stock.birds > 0 ? (stock.weight / stock.birds).toFixed(2) : 0),
+                                                                rate: stock.rate,
+                                                                amount: stock.amount,
+                                                                refNo: stock.refNo || '',
+                                                                date: stock.date ? new Date(stock.date).toISOString().split('T')[0] : ''
+                                                            });
+                                                            // Pre-select vendor for display
+                                                            const v = vendors.find(v => v._id || v.id === (stock.vendorId?._id || stock.vendorId?.id));
+                                                            if (v) {
+                                                                setSelectedVendor(v);
+                                                                setVendorSearchTerm('');
+                                                            } else if (stock.vendorId && stock.vendorId.vendorName) {
+                                                                setSelectedVendor(stock.vendorId);
+                                                            }
+                                                            setShowPurchaseModal(true);
+                                                        }}
+                                                        className="text-blue-600 hover:text-blue-800 font-medium"
+                                                    >
+                                                        EDIT
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteStock(stock._id)}
+                                                        className="text-red-600 hover:text-red-800 font-medium"
+                                                    >
+                                                        DELETE
+                                                    </button>
+                                                </div>
                                             )}
                                         </td>
                                     </tr>
@@ -1492,92 +1527,100 @@ const ManageStocks = () => {
                                     <td className="border p-2">{sale.onlinePaid || 0}</td>
                                     <td className="border p-2">{sale.discount || 0}</td>
                                     <td className="border p-2">
-                                        <button
-                                            onClick={() => {
-                                                setIsEditMode(true);
-                                                setCurrentStockId(sale._id);
+                                        <div className="flex items-center gap-2 justify-center">
+                                            <button
+                                                onClick={() => {
+                                                    setIsEditMode(true);
+                                                    setCurrentStockId(sale._id);
 
-                                                // 1. Identify Customer & Current Balance
-                                                const custId = sale.customerId?._id || sale.customerId?.id || sale.customerId;
-                                                const cust = customers.find(c => c._id == custId || c.id == custId);
+                                                    // 1. Identify Customer & Current Balance
+                                                    const custId = sale.customerId?._id || sale.customerId?.id || sale.customerId;
+                                                    const cust = customers.find(c => c._id == custId || c.id == custId);
 
-                                                // Default to current balance if found, else use 0
-                                                let baseBalance = cust ? (cust.outstandingBalance || 0) : 0;
+                                                    // Default to current balance if found, else use 0
+                                                    let baseBalance = cust ? (cust.outstandingBalance || 0) : 0;
 
-                                                // 2. Calculate Effects of Subsequent Sales (including this one)
-                                                // Filter sales for this customer from the available stocks
-                                                const customerSales = stocks.filter(s =>
-                                                    (s.type === 'sale' || s.type === 'receipt') &&
-                                                    (s.customerId?._id == custId || s.customerId?.id == custId || s.customerId == custId)
-                                                );
+                                                    // 2. Calculate Effects of Subsequent Sales (including this one)
+                                                    // Filter sales for this customer from the available stocks
+                                                    const customerSales = stocks.filter(s =>
+                                                        (s.type === 'sale' || s.type === 'receipt') &&
+                                                        (s.customerId?._id == custId || s.customerId?.id == custId || s.customerId == custId)
+                                                    );
 
-                                                // Sort by Date Descending, then ID Descending (for same day/time consistency)
-                                                customerSales.sort((a, b) => {
-                                                    const dateA = new Date(a.date);
-                                                    const dateB = new Date(b.date);
-                                                    if (dateA > dateB) return -1;
-                                                    if (dateA < dateB) return 1;
-                                                    // If dates are equal, fallback to ID sorting (assuming monotonic IDs)
-                                                    if (a._id > b._id) return -1;
-                                                    if (a._id < b._id) return 1;
-                                                    return 0;
-                                                });
+                                                    // Sort by Date Descending, then ID Descending (for same day/time consistency)
+                                                    customerSales.sort((a, b) => {
+                                                        const dateA = new Date(a.date);
+                                                        const dateB = new Date(b.date);
+                                                        if (dateA > dateB) return -1;
+                                                        if (dateA < dateB) return 1;
+                                                        // If dates are equal, fallback to ID sorting (assuming monotonic IDs)
+                                                        if (a._id > b._id) return -1;
+                                                        if (a._id < b._id) return 1;
+                                                        return 0;
+                                                    });
 
-                                                // Subtract effects until we pass the current sale
-                                                let deduction = 0;
-                                                for (const s of customerSales) {
-                                                    // Effect = Amount - Paid - Discount
-                                                    // Note: Receipts have Amount 0, but Paid > 0, so Effect is negative (reduces balance)
-                                                    const effect = (Number(s.amount) || 0) - (Number(s.cashPaid) || 0) - (Number(s.onlinePaid) || 0) - (Number(s.discount) || 0);
-                                                    deduction += effect;
+                                                    // Subtract effects until we pass the current sale
+                                                    let deduction = 0;
+                                                    for (const s of customerSales) {
+                                                        // Effect = Amount - Paid - Discount
+                                                        // Note: Receipts have Amount 0, but Paid > 0, so Effect is negative (reduces balance)
+                                                        const effect = (Number(s.amount) || 0) - (Number(s.cashPaid) || 0) - (Number(s.onlinePaid) || 0) - (Number(s.discount) || 0);
+                                                        deduction += effect;
 
-                                                    if (s._id === sale._id) {
-                                                        break; // We include the current sale's effect in the deduction to reach the 'Opening Balance'
+                                                        if (s._id === sale._id) {
+                                                            break; // We include the current sale's effect in the deduction to reach the 'Opening Balance'
+                                                        }
                                                     }
-                                                }
 
-                                                // Calculate Retrospective Opening Balance
-                                                const retrospectiveBalance = baseBalance - deduction;
+                                                    // Calculate Retrospective Opening Balance
+                                                    const retrospectiveBalance = baseBalance - deduction;
 
-                                                if (cust) {
-                                                    setSelectedCustomer(cust);
-                                                    setCustomerSearchTerm('');
-                                                } else if (sale.customerId && sale.customerId.shopName) {
-                                                    setSelectedCustomer(sale.customerId);
-                                                }
+                                                    if (cust) {
+                                                        setSelectedCustomer(cust);
+                                                        setCustomerSearchTerm('');
+                                                    } else if (sale.customerId && sale.customerId.shopName) {
+                                                        setSelectedCustomer(sale.customerId);
+                                                    }
 
-                                                setSaleData({
-                                                    customerId: custId || '',
-                                                    billNumber: sale.billNumber || '',
-                                                    birds: sale.birds || 0,
-                                                    weight: sale.weight || 0,
-                                                    avgWeight: sale.avgWeight || 0,
-                                                    rate: sale.rate || 0,
-                                                    amount: sale.amount || 0,
-                                                    totalBalance: 0,
-                                                    cashPaid: sale.cashPaid || 0,
-                                                    onlinePaid: sale.onlinePaid || 0,
-                                                    discount: sale.discount || 0,
-                                                    balance: sale.balance || 0,
-                                                    cashLedgerId: (sale.cashLedgerId?._id || sale.cashLedgerId?.id || sale.cashLedgerId) || (cashLedgers?.[0]?._id || cashLedgers?.[0]?.id || ''),
-                                                    onlineLedgerId: (sale.onlineLedgerId?._id || sale.onlineLedgerId?.id || sale.onlineLedgerId) || (bankLedgers?.[0]?._id || bankLedgers?.[0]?.id || ''),
-                                                    // Set the calculated retrospective balance
-                                                    saleOutBalance: retrospectiveBalance,
-                                                    date: sale.date ? new Date(sale.date).toISOString().split('T')[0] : '',
-                                                    narration: sale.narration || '',
-                                                    sendSms: false
-                                                });
+                                                    setSaleData({
+                                                        customerId: custId || '',
+                                                        billNumber: sale.billNumber || '',
+                                                        birds: sale.birds || 0,
+                                                        weight: sale.weight || 0,
+                                                        avgWeight: sale.avgWeight || 0,
+                                                        rate: sale.rate || 0,
+                                                        amount: sale.amount || 0,
+                                                        totalBalance: 0,
+                                                        cashPaid: sale.cashPaid || 0,
+                                                        onlinePaid: sale.onlinePaid || 0,
+                                                        discount: sale.discount || 0,
+                                                        balance: sale.balance || 0,
+                                                        cashLedgerId: (sale.cashLedgerId?._id || sale.cashLedgerId?.id || sale.cashLedgerId) || (cashLedgers?.[0]?._id || cashLedgers?.[0]?.id || ''),
+                                                        onlineLedgerId: (sale.onlineLedgerId?._id || sale.onlineLedgerId?.id || sale.onlineLedgerId) || (bankLedgers?.[0]?._id || bankLedgers?.[0]?.id || ''),
+                                                        // Set the calculated retrospective balance
+                                                        saleOutBalance: retrospectiveBalance,
+                                                        date: sale.date ? new Date(sale.date).toISOString().split('T')[0] : '',
+                                                        narration: sale.narration || '',
+                                                        sendSms: false
+                                                    });
 
-                                                if (sale.type === 'receipt') {
-                                                    setShowReceiptModal(true);
-                                                } else {
-                                                    setShowSaleModal(true);
-                                                }
-                                            }}
-                                            className="text-blue-600 hover:text-blue-800 font-medium"
-                                        >
-                                            EDIT
-                                        </button>
+                                                    if (sale.type === 'receipt') {
+                                                        setShowReceiptModal(true);
+                                                    } else {
+                                                        setShowSaleModal(true);
+                                                    }
+                                                }}
+                                                className="text-blue-600 hover:text-blue-800 font-medium"
+                                            >
+                                                EDIT
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteStock(sale._id)}
+                                                className="text-red-600 hover:text-red-800 font-medium"
+                                            >
+                                                DELETE
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             ))}
@@ -1736,29 +1779,39 @@ const ManageStocks = () => {
                                             <td className="border p-2">{mortRate.toFixed(2)}</td>
                                             <td className="border p-2">{mortTotalComputed.toFixed(2)}</td>
                                             <td className="border p-2">
-                                                <button
-                                                    onClick={() => {
-                                                        setIsEditMode(true);
-                                                        if (mortalityStock) {
-                                                            setCurrentStockId(mortalityStock._id);
-                                                            setMortalityData({
-                                                                birds: mortalityStock.birds,
-                                                                weight: mortalityStock.weight,
-                                                                avgWeight: mortalityStock.avgWeight,
-                                                                rate: mortalityStock.rate,
-                                                                amount: mortalityStock.amount,
-                                                                date: mortalityStock.date ? new Date(mortalityStock.date).toISOString().split('T')[0] : ''
-                                                            });
-                                                        } else {
-                                                            setCurrentStockId(null);
-                                                            setMortalityData({ birds: '', weight: '', avgWeight: 0, rate: 0, amount: 0, date: defaultDate });
-                                                        }
-                                                        setShowMortalityModal(true);
-                                                    }}
-                                                    className="text-blue-600 hover:text-blue-800 font-medium"
-                                                >
-                                                    {mortalityStock ? 'Edit' : 'Add'}
-                                                </button>
+                                                <div className="flex items-center gap-2 justify-center">
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsEditMode(true);
+                                                            if (mortalityStock) {
+                                                                setCurrentStockId(mortalityStock._id);
+                                                                setMortalityData({
+                                                                    birds: mortalityStock.birds,
+                                                                    weight: mortalityStock.weight,
+                                                                    avgWeight: mortalityStock.avgWeight,
+                                                                    rate: mortalityStock.rate,
+                                                                    amount: mortalityStock.amount,
+                                                                    date: mortalityStock.date ? new Date(mortalityStock.date).toISOString().split('T')[0] : ''
+                                                                });
+                                                            } else {
+                                                                setCurrentStockId(null);
+                                                                setMortalityData({ birds: '', weight: '', avgWeight: 0, rate: 0, amount: 0, date: defaultDate });
+                                                            }
+                                                            setShowMortalityModal(true);
+                                                        }}
+                                                        className="text-blue-600 hover:text-blue-800 font-medium"
+                                                    >
+                                                        {mortalityStock ? 'Edit' : 'Add'}
+                                                    </button>
+                                                    {mortalityStock && (
+                                                        <button
+                                                            onClick={() => handleDeleteStock(mortalityStock._id)}
+                                                            className="text-red-600 hover:text-red-800 font-medium"
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
 
@@ -1771,36 +1824,46 @@ const ManageStocks = () => {
                                             <td className="border p-2">{actRate.toFixed(2)}</td>
                                             <td className="border p-2">{actTotalComputed.toFixed(2)}</td>
                                             <td className="border p-2">
-                                                <button
-                                                    onClick={() => {
-                                                        setIsEditMode(true);
-                                                        if (weightLossStock) {
-                                                            setCurrentStockId(weightLossStock._id);
-                                                            setWeightLossData({
-                                                                birds: 0,
-                                                                weight: weightLossStock.weight,
-                                                                avgWeight: 0,
-                                                                rate: weightLossStock.rate,
-                                                                amount: weightLossStock.amount,
-                                                                date: weightLossStock.date ? new Date(weightLossStock.date).toISOString().split('T')[0] : ''
-                                                            });
-                                                        } else {
-                                                            setCurrentStockId(null);
-                                                            setWeightLossData({
-                                                                birds: 0,
-                                                                weight: '',
-                                                                avgWeight: 0,
-                                                                rate: 0,
-                                                                amount: 0,
-                                                                date: defaultDate
-                                                            });
-                                                        }
-                                                        setShowWeightLossModal(true);
-                                                    }}
-                                                    className="text-blue-600 hover:text-blue-800 font-medium"
-                                                >
-                                                    {weightLossStock ? 'Edit' : 'Add'}
-                                                </button>
+                                                <div className="flex items-center gap-2 justify-center">
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsEditMode(true);
+                                                            if (weightLossStock) {
+                                                                setCurrentStockId(weightLossStock._id);
+                                                                setWeightLossData({
+                                                                    birds: 0,
+                                                                    weight: weightLossStock.weight,
+                                                                    avgWeight: 0,
+                                                                    rate: weightLossStock.rate,
+                                                                    amount: weightLossStock.amount,
+                                                                    date: weightLossStock.date ? new Date(weightLossStock.date).toISOString().split('T')[0] : ''
+                                                                });
+                                                            } else {
+                                                                setCurrentStockId(null);
+                                                                setWeightLossData({
+                                                                    birds: 0,
+                                                                    weight: '',
+                                                                    avgWeight: 0,
+                                                                    rate: 0,
+                                                                    amount: 0,
+                                                                    date: defaultDate
+                                                                });
+                                                            }
+                                                            setShowWeightLossModal(true);
+                                                        }}
+                                                        className="text-blue-600 hover:text-blue-800 font-medium"
+                                                    >
+                                                        {weightLossStock ? 'Edit' : 'Add'}
+                                                    </button>
+                                                    {weightLossStock && (
+                                                        <button
+                                                            onClick={() => handleDeleteStock(weightLossStock._id)}
+                                                            className="text-red-600 hover:text-red-800 font-medium"
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </td>
                                         </tr>
 
@@ -1866,36 +1929,44 @@ const ManageStocks = () => {
                                                 {isSupervisor && (
                                                     <td className="border p-2">
                                                         {purchStocks.length > 0 && (
-                                                            <button
-                                                                onClick={() => {
-                                                                    // Only allow edit if dateParam is present or logic permits
-                                                                    // For now, picking the first one as implied by requirements
-                                                                    const stockToEdit = purchStocks[0];
-                                                                    console.log("purchStocks", purchStocks);
-                                                                    console.log("stockToEdit", stockToEdit);
-                                                                    setIsEditMode(true);
-                                                                    setCurrentStockId(stockToEdit._id);
+                                                            <div className="flex items-center gap-2 justify-center">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        // Only allow edit if dateParam is present or logic permits
+                                                                        // For now, picking the first one as implied by requirements
+                                                                        const stockToEdit = purchStocks[0];
+                                                                        console.log("purchStocks", purchStocks);
+                                                                        console.log("stockToEdit", stockToEdit);
+                                                                        setIsEditMode(true);
+                                                                        setCurrentStockId(stockToEdit._id);
 
-                                                                    const vId = stockToEdit.vendorId?._id || stockToEdit.vendorId;
-                                                                    const foundVendor = vendors.find(v => (v._id || v.id) === vId);
-                                                                    if (foundVendor) {
-                                                                        setSelectedVendor(foundVendor);
-                                                                    }
+                                                                        const vId = stockToEdit.vendorId?._id || stockToEdit.vendorId;
+                                                                        const foundVendor = vendors.find(v => (v._id || v.id) === vId);
+                                                                        if (foundVendor) {
+                                                                            setSelectedVendor(foundVendor);
+                                                                        }
 
-                                                                    setFeedPurchaseData({
-                                                                        vendorId: vId || '',
-                                                                        weight: stockToEdit.weight,
-                                                                        rate: stockToEdit.rate,
-                                                                        amount: stockToEdit.amount,
-                                                                        bags: stockToEdit.bags || '',
-                                                                        date: stockToEdit.date ? new Date(stockToEdit.date).toISOString().split('T')[0] : ''
-                                                                    });
-                                                                    setShowFeedPurchaseModal(true);
-                                                                }}
-                                                                className="text-blue-600 hover:text-blue-800 font-medium"
-                                                            >
-                                                                Edit
-                                                            </button>
+                                                                        setFeedPurchaseData({
+                                                                            vendorId: vId || '',
+                                                                            weight: stockToEdit.weight,
+                                                                            rate: stockToEdit.rate,
+                                                                            amount: stockToEdit.amount,
+                                                                            bags: stockToEdit.bags || '',
+                                                                            date: stockToEdit.date ? new Date(stockToEdit.date).toISOString().split('T')[0] : ''
+                                                                        });
+                                                                        setShowFeedPurchaseModal(true);
+                                                                    }}
+                                                                    className="text-blue-600 hover:text-blue-800 font-medium"
+                                                                >
+                                                                    Edit
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteStock(purchStocks[0]._id)}
+                                                                    className="text-red-600 hover:text-red-800 font-medium"
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </div>
                                                         )}
                                                     </td>
                                                 )}
@@ -1910,24 +1981,32 @@ const ManageStocks = () => {
                                                 {isSupervisor && (
                                                     <td className="border p-2">
                                                         {consStocks.length > 0 && (
-                                                            <button
-                                                                onClick={() => {
-                                                                    const stockToEdit = consStocks[0];
-                                                                    setIsEditMode(true);
-                                                                    setCurrentStockId(stockToEdit._id);
-                                                                    setFeedConsumeData({
-                                                                        weight: stockToEdit.weight,
-                                                                        rate: stockToEdit.rate,
-                                                                        amount: stockToEdit.amount,
-                                                                        bags: stockToEdit.bags || '',
-                                                                        date: stockToEdit.date ? new Date(stockToEdit.date).toISOString().split('T')[0] : ''
-                                                                    });
-                                                                    setShowFeedConsumeModal(true);
-                                                                }}
-                                                                className="text-blue-600 hover:text-blue-800 font-medium"
-                                                            >
-                                                                Edit
-                                                            </button>
+                                                            <div className="flex items-center gap-2 justify-center">
+                                                                <button
+                                                                    onClick={() => {
+                                                                        const stockToEdit = consStocks[0];
+                                                                        setIsEditMode(true);
+                                                                        setCurrentStockId(stockToEdit._id);
+                                                                        setFeedConsumeData({
+                                                                            weight: stockToEdit.weight,
+                                                                            rate: stockToEdit.rate,
+                                                                            amount: stockToEdit.amount,
+                                                                            bags: stockToEdit.bags || '',
+                                                                            date: stockToEdit.date ? new Date(stockToEdit.date).toISOString().split('T')[0] : ''
+                                                                        });
+                                                                        setShowFeedConsumeModal(true);
+                                                                    }}
+                                                                    className="text-blue-600 hover:text-blue-800 font-medium"
+                                                                >
+                                                                    Edit
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteStock(consStocks[0]._id)}
+                                                                    className="text-red-600 hover:text-red-800 font-medium"
+                                                                >
+                                                                    Delete
+                                                                </button>
+                                                            </div>
                                                         )}
                                                     </td>
                                                 )}

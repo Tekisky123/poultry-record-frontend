@@ -130,8 +130,8 @@ export default function MonthlySummary() {
                 }
             }
 
-            row[isSundryGroup ? 'Debit (Receipts)' : 'Debit'] = month.debit || 0;
-            row[isSundryGroup ? 'Credit (Sales)' : 'Credit'] = month.credit || 0;
+            row[isSundryGroup ? 'Debit (Sales)' : 'Debit'] = month.debit || 0;
+            row[isSundryGroup ? 'Credit (Receipts)' : 'Credit'] = month.credit || 0;
             row['Closing Balance'] = `${month.closingBalance.toFixed(2)} ${month.closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`;
 
             return row;
@@ -159,8 +159,8 @@ export default function MonthlySummary() {
             }
         }
 
-        totalRow[isSundryGroup ? 'Debit (Receipts)' : 'Debit'] = data.totals.debit || 0;
-        totalRow[isSundryGroup ? 'Credit (Sales)' : 'Credit'] = data.totals.credit || 0;
+        totalRow[isSundryGroup ? 'Debit (Sales)' : 'Debit'] = data.totals.debit || 0;
+        totalRow[isSundryGroup ? 'Credit (Receipts)' : 'Credit'] = data.totals.credit || 0;
         totalRow['Closing Balance'] = `${data.months[data.months.length - 1].closingBalance.toFixed(2)} ${data.months[data.months.length - 1].closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`;
 
         exportData.push(totalRow);
@@ -301,8 +301,8 @@ export default function MonthlySummary() {
                                         <th className="px-6 py-3 text-right font-medium text-gray-700">{isFeedGroup ? 'Total Quantity (Kg)' : 'Total Weight'}</th>
                                     </>
                                 ) : null}
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">{isSundryGroup ? 'Debit (Receipts)' : 'Debit'}</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">{isSundryGroup ? 'Credit (Sales)' : 'Credit'}</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">{isSundryGroup ? 'Debit (Sales)' : 'Debit'}</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">{isSundryGroup ? 'Credit (Receipts)' : 'Credit'}</th>
                                 <th className="px-6 py-3 text-right font-medium text-gray-700">Closing Balance</th>
                             </tr>
                         </thead>

@@ -135,14 +135,12 @@ const SignUp = () => {
       if (userData.age) {
         userData.age = parseInt(userData.age);
       }
-      // For customers, remove age and use dateOfBirth instead
+      // For customers, remove age
       if (userData.role === 'customer') {
         delete userData.age;
-        // dateOfBirth is already a string in YYYY-MM-DD format from date input
-      } else {
-        // For non-customers, remove dateOfBirth
-        delete userData.dateOfBirth;
       }
+      // Always remove dateOfBirth as the field is removed
+      delete userData.dateOfBirth;
       
       // Add +91 prefix to mobile number if not already present
       if (userData.mobileNumber && !userData.mobileNumber.startsWith('+91')) {
@@ -294,27 +292,7 @@ const SignUp = () => {
                 </div>
               )}
 
-              {/* Date of Birth Input - Only for customers */}
-              {formData.role === 'customer' && (
-                <div>
-                  <label htmlFor="dateOfBirth" className="block text-sm font-medium text-gray-700">
-                    Date of Birth (DOB) <span className='text-red-500'>*</span>
-                  </label>
-                  <input
-                    id="dateOfBirth"
-                    name="dateOfBirth"
-                    type="date"
-                    required={formData.role === 'customer'}
-                    value={formData.dateOfBirth}
-                    onChange={handleChange}
-                    max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Required for customer registration. You must be at least 18 years old.
-                  </p>
-                </div>
-              )}
+
 
               {/* Address Input */}
               <div>

@@ -261,6 +261,22 @@ export default function IndirectSaleDetail() {
     }
   };
 
+  const handleDeleteRecord = async () => {
+    if (!window.confirm('WARNING: Are you sure you want to delete this indirect purchase & sales record? This will revert outstanding balances for both the customer and the vendor. This action cannot be undone.')) {
+      return;
+    }
+    try {
+      setLoading(true);
+      await api.delete(`/indirect-sales/${id}`);
+      alert('Record deleted successfully');
+      navigate('/indirect-sales');
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to delete record');
+      setLoading(false);
+    }
+  };
+
   const purchaseTotals = useMemo(() => ({
     birds: record.summary?.totalPurchaseBirds || 0,
     weight: record.summary?.totalPurchaseWeight || 0,
@@ -315,6 +331,13 @@ export default function IndirectSaleDetail() {
           >
             <FileSpreadsheet size={18} />
             Generate Invoice
+          </button>
+          <button
+            onClick={handleDeleteRecord}
+            className="inline-flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+          >
+            <Trash2 size={18} />
+            Delete Record
           </button>
         </div>
       </div>
