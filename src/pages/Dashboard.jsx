@@ -21,9 +21,25 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
     e.stopPropagation();
     if (!groupId) return;
 
+    if (group.slug === 'other-purchases' || group.slug === 'other-sales') {
+      return;
+    }
+
     // Pass date filter params
     const startDate = searchParams.get('startDate') || '';
     const endDate = searchParams.get('endDate') || new Date().toISOString().split('T')[0];
+
+    if (group.slug && group.slug.startsWith('vendor-')) {
+      const vendorId = group.slug.replace('vendor-', '');
+      navigate(`/monthly-summary/vendor/${vendorId}?startDate=${startDate}&endDate=${endDate}&filterType=PURCHASE&groupName=Purchase Accounts`);
+      return;
+    }
+
+    if (group.slug && group.slug.startsWith('customer-')) {
+      const customerId = group.slug.replace('customer-', '');
+      navigate(`/monthly-summary/customer/${customerId}?startDate=${startDate}&endDate=${endDate}&filterType=SALES&groupName=Sales Accounts`);
+      return;
+    }
 
     // Redirect LIVE POULTRY BIRDS group to its special stock pages
     const lowerName = group.name ? group.name.toLowerCase() : "";
@@ -74,13 +90,13 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
     }
 
     navigate(`/group-summary/${groupId}?startDate=${startDate}&endDate=${endDate}`);
-  }, [navigate, groupId, searchParams, group.name, parentName]);
+  }, [navigate, groupId, searchParams, group.name, group.slug, parentName]);
 
   return (
     <div className="select-none">
       {/* Parent Group */}
       <div
-        className="flex items-stretch rounded px-2 transition-colors hover:bg-gray-50 cursor-pointer"
+        className={`flex items-stretch rounded px-2 transition-colors ${(group.slug === 'other-purchases' || group.slug === 'other-sales') ? 'cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}
         onClick={handleGroupClick}
         style={{
           paddingLeft: `${leftPadding}px`
@@ -123,6 +139,7 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
   // Custom comparison to prevent unnecessary re-renders
   return (
     prevProps.group.id === nextProps.group.id &&
+    prevProps.group.slug === nextProps.group.slug &&
     prevProps.group.balance === nextProps.group.balance &&
     prevProps.level === nextProps.level &&
     prevProps.parentName === nextProps.parentName &&

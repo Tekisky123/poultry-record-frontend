@@ -73,31 +73,30 @@ export default function MonthlySummary() {
     };
 
     const handleMonthClick = (month) => {
-        // Navigate to details page with date filter
-        // Format dates as YYYY-MM-DD
-        const startDate = new Date(month.startDate).toISOString().split('T')[0];
-        const endDate = new Date(month.endDate).toISOString().split('T')[0]; // This is actually start of next month in backend logic?
-        // Backend: month.endDate = Start of Next Month.
-        // Frontend date filter expects inclusive end date?
-        // CustomerDetails: filter.endDate -> setHours(23,59,59,999).
-        // So if I pass '2025-05-01' as endDate, it covers up to May 1st 23:59.
-        // If backend returns Apr 1 to May 1.
-        // I should pass End Date as April 30.
-        // Let's adjust endDate.
-        const actualEndDate = new Date(month.endDate);
-        actualEndDate.setDate(actualEndDate.getDate() - 1);
-        const endDateStr = actualEndDate.toISOString().split('T')[0];
+        const d = new Date(month.startDate);
+        const yearVal = d.getFullYear();
+        const monthVal = d.getMonth() + 1;
 
-        const targetPath = type === 'customer' ? `/customers/${id}` :
-            type === 'vendor' ? `/vendors/${id}` :
-                type === 'ledger' ? `/ledgers/${id}` :
-                    type === 'dieselStation' ? `/diesel-stations/${id}` : null;
+        if (type === 'customer') {
+            navigate(`/customers/${id}/daily?year=${yearVal}&month=${monthVal}`);
+            return;
+        } else if (type === 'vendor') {
+            navigate(`/vendors/${id}/daily?year=${yearVal}&month=${monthVal}`);
+            return;
+        } else if (type === 'ledger') {
+            navigate(`/ledgers/${id}/daily?year=${yearVal}&month=${monthVal}`);
+            return;
+        }
 
+        const targetPath = type === 'dieselStation' ? `/diesel-stations/${id}` : null;
         const filterType = new URLSearchParams(window.location.search).get('filterType');
 
         if (targetPath) {
-            // Pass via state or query params. CustomerDetails needs update to read query params.
-            // For now let's use search params
+            const startDate = new Date(month.startDate).toISOString().split('T')[0];
+            const actualEndDate = new Date(month.endDate);
+            actualEndDate.setDate(actualEndDate.getDate() - 1);
+            const endDateStr = actualEndDate.toISOString().split('T')[0];
+
             let navUrl = `${targetPath}?startDate=${startDate}&endDate=${endDateStr}`;
             if (filterType) navUrl += `&filterType=${filterType}`;
             navigate(navUrl);

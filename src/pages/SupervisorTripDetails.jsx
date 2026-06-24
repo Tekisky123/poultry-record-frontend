@@ -19,7 +19,8 @@ import {
   Lock,
   RefreshCw,
   Edit,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -73,6 +74,7 @@ const SupervisorTripDetails = () => {
   const [showDieselModal, setShowDieselModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [editingTransfer, setEditingTransfer] = useState(null); // { transfer, index } | null
   const [showEditTripModal, setShowEditTripModal] = useState(false);
   const [showCompleteTripDetailsModal, setShowCompleteTripDetailsModal] = useState(false);
 
@@ -3237,13 +3239,22 @@ const SupervisorTripDetails = () => {
                     {trip.transferHistory.map((transfer, index) => (
                       <div key={index} className="bg-white p-4 rounded-lg border border-orange-200 relative">
                         {trip.status !== 'completed' && (
-                          <button
-                            onClick={() => handleDeleteSubItem('transfer', index)}
-                            className="absolute top-4 right-4 p-1.5 bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center transition-colors"
-                            title="Delete Transfer"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                          <div className="absolute top-4 right-4 flex items-center gap-2">
+                            <button
+                              onClick={() => setEditingTransfer({ transfer, index })}
+                              className="p-1.5 bg-orange-500 text-white rounded hover:bg-orange-600 flex items-center justify-center transition-colors"
+                              title="Edit Transfer"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSubItem('transfer', index)}
+                              className="p-1.5 bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center transition-colors"
+                              title="Delete Transfer"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
@@ -5011,7 +5022,7 @@ const SupervisorTripDetails = () => {
         )
       }
 
-      {/* Transfer Trip Modal */}
+      {/* Transfer Trip Modal — Create Mode */}
       {
         showTransferModal && (
           <TransferTripModal
@@ -5023,6 +5034,26 @@ const SupervisorTripDetails = () => {
               // Refresh the trip data
               await handleRefresh();
               alert(`Trip transferred successfully to ${data.newTrip?.supervisor?.name || 'selected supervisor'}!`);
+            }}
+          />
+        )
+      }
+
+      {/* Transfer Trip Modal — Edit Mode */}
+      {
+        editingTransfer && (
+          <TransferTripModal
+            isOpen={!!editingTransfer}
+            onClose={() => setEditingTransfer(null)}
+            trip={trip}
+            tripId={id}
+            editMode={true}
+            editTransfer={editingTransfer.transfer}
+            editIndex={editingTransfer.index}
+            onEditSuccess={async () => {
+              await handleRefresh();
+              setEditingTransfer(null);
+              alert('Transfer updated successfully!');
             }}
           />
         )

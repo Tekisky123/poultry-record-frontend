@@ -17,11 +17,6 @@ export const AuthProvider = ({ children }) => {
   const [showFailureModal, setShowFailureModal] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    // Rely on cookies for auth; individual pages will 401 if not authenticated
-    setLoading(false);
-  }, []);
-
   // Check session on initial load
   useEffect(() => {
     const checkSession = async () => {

@@ -307,11 +307,17 @@ export default function TripDetails() {
   const getPurchaseAndSaleStats = () => {
     const totalPurchasedBirds = trip.purchases?.reduce((sum, purchase) => sum + (purchase.birds || 0), 0) || 0;
     const totalSoldBirds = trip.sales?.reduce((sum, sale) => sum + (sale.birdsCount || sale.birds || 0), 0) || 0;
-    const remainingBirds = totalPurchasedBirds - totalSoldBirds;
+    const totalStockBirds = trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0;
+    const birdsTransferred = trip.summary?.birdsTransferred || 0;
+    const birdsLost = trip.summary?.totalBirdsLost || 0;
+    const remainingBirds = totalPurchasedBirds - totalSoldBirds - totalStockBirds - birdsTransferred - birdsLost;
 
     const totalPurchasedWeight = trip.purchases?.reduce((sum, purchase) => sum + (purchase.weight || 0), 0) || 0;
     const totalSoldWeight = trip.sales?.reduce((sum, sale) => sum + (sale.weight || 0), 0) || 0;
-    const remainingWeight = totalPurchasedWeight - totalSoldWeight;
+    const totalStockWeight = trip.stocks?.reduce((sum, stock) => sum + (stock.weight || 0), 0) || 0;
+    const weightTransferred = trip.summary?.weightTransferred || 0;
+    const weightLost = trip.summary?.totalWeightLost || 0;
+    const remainingWeight = totalPurchasedWeight - totalSoldWeight - totalStockWeight - weightTransferred - weightLost;
 
     return {
       totalPurchasedBirds,

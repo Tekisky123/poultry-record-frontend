@@ -90,14 +90,15 @@ export default function BirdsStockMonthlySummary() {
 
             if (stock.type === 'opening') {
                 if (!firstOpStock || stock._id !== firstOpStock._id) return;
+                stocksBeforeFY.push(stock);
             } else {
                 if (date < fyAnchorDate) return;
-            }
 
-            if (date < fyStart) {
-                stocksBeforeFY.push(stock);
-            } else if (date <= fyEnd) {
-                stocksDuringFY.push(stock);
+                if (date < fyStart) {
+                    stocksBeforeFY.push(stock);
+                } else if (date <= fyEnd) {
+                    stocksDuringFY.push(stock);
+                }
             }
         });
 

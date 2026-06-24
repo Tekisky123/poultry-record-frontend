@@ -77,11 +77,12 @@ export default function LiveBirdsOpeningStockMonthlySummary() {
             const date = new Date(stock.date);
             if (stock.type === 'opening') {
                 if (!firstOpStock || stock._id !== firstOpStock._id) return;
+                stocksBeforeFY.push(stock);
             } else {
                 if (date < anchorDate) return;
+                if (date < fyStart) stocksBeforeFY.push(stock);
+                else if (date <= fyEnd) stocksDuringFY.push(stock);
             }
-            if (date < fyStart) stocksBeforeFY.push(stock);
-            else if (date <= fyEnd) stocksDuringFY.push(stock);
         });
 
         const processStock = (s) => {
