@@ -154,19 +154,21 @@ export default function IndirectSalesMonthlySummary() {
         const sortedMonths = getFinancialYearOrder(data.months);
 
         const exportData = sortedMonths.map(m => ({
-            Month: `${m.name} ${new Date(m.startDate).getFullYear()}`,
-            'Count': m.count,
-            'Total Sales': m.salesAmount || 0,
-            'Total Purchase': m.purchaseAmount || 0,
-            'Net Profit': m.netProfit || 0
+            DATE: `${m.name} ${new Date(m.startDate).getFullYear()}`,
+            RECORDS: m.count,
+            PURCHASE: m.purchaseAmount || 0,
+            SALES: m.salesAmount || 0,
+            PROFIT: m.netProfit || 0,
+            MARGINE: m.margin || 0
         }));
 
         exportData.push({
-            Month: 'Grand Total',
-            'Count': data.totals.count,
-            'Total Sales': data.totals.salesAmount,
-            'Total Purchase': data.totals.purchaseAmount,
-            'Net Profit': data.totals.netProfit
+            DATE: 'Grand Total',
+            RECORDS: data.totals.count,
+            PURCHASE: data.totals.purchaseAmount,
+            SALES: data.totals.salesAmount,
+            PROFIT: data.totals.netProfit,
+            MARGINE: data.totals.margin
         });
 
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -249,11 +251,12 @@ export default function IndirectSalesMonthlySummary() {
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <th className="px-6 py-3 text-left font-medium text-gray-700">Month</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">Records</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">Total Purchase</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">Total Sales</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">Net Profit</th>
+                                <th className="px-6 py-3 text-left font-medium text-gray-700">DATE</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">RECORDS</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">PURCHASE</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">SALES</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">PROFIT</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">MARGINE</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -276,6 +279,9 @@ export default function IndirectSalesMonthlySummary() {
                                     <td className="px-6 py-4 text-right font-medium text-gray-900">
                                         {month.netProfit !== 0 ? `₹${month.netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
                                     </td>
+                                    <td className="px-6 py-4 text-right text-gray-900 font-medium">
+                                        {month.margin !== 0 ? `₹${month.margin.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/Kg` : '-'}
+                                    </td>
                                 </tr>
                             ))}
                             <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
@@ -289,6 +295,9 @@ export default function IndirectSalesMonthlySummary() {
                                 </td>
                                 <td className="px-6 py-4 text-right text-blue-700">
                                     ₹{data?.totals.netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className="px-6 py-4 text-right text-gray-900 font-bold">
+                                    {data?.totals.margin !== 0 ? `₹${data?.totals.margin.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/Kg` : '-'}
                                 </td>
                             </tr>
                         </tbody>

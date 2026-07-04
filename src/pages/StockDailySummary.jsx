@@ -107,21 +107,29 @@ export default function StockDailySummary() {
                 days.push({
                     date: new Date(year, month - 1, i).toISOString(),
                     formattedDate: dateStr,
+                    totalPurchaseWeight: 0,
                     totalPurchaseAmount: 0,
+                    totalSaleWeight: 0,
                     totalSaleAmount: 0,
                     totalMortalityBirds: 0,
+                    totalMortalityWeight: 0,
+                    totalMortalityAmount: 0,
+                    totalWeightLossWeight: 0,
+                    totalWeightLossAmount: 0,
+                    totalNaturalWeightLossWeight: 0,
+                    totalNaturalWeightLossAmount: 0,
+                    totalFeedConsumeQty: 0,
                     totalFeedConsumeAmount: 0
                 });
             }
         }
 
-        // Sort descending (newest first / upside down)
+        // Sort descending (newest first)
         days.sort((a, b) => new Date(b.formattedDate) - new Date(a.formattedDate));
         return days;
     }, [data, year, month]);
 
     const handleDayClick = (dayData) => {
-        // Navigate to Detailed Report for that day (Stock View filtered by date)
         const basePath = user?.role === 'supervisor' ? '/supervisor/stocks/manage' : '/stocks/manage';
         navigate(`${basePath}?date=${dayData.formattedDate}`);
     };
@@ -130,20 +138,22 @@ export default function StockDailySummary() {
         if (!fullDays.length) return;
 
         const exportData = fullDays.map(day => ({
-            Date: day.formattedDate,
-            'Purchase Amount': day.totalPurchaseAmount || 0,
-            'Sale Amount': day.totalSaleAmount || 0,
-            'Mortality (Birds)': day.totalMortalityBirds || 0,
-            'Feed Consume Amount': day.totalFeedConsumeAmount || 0
+            DATE: day.formattedDate,
+            'PURCHASE WEIGHT': day.totalPurchaseWeight || 0,
+            'PUR AMOUNT': day.totalPurchaseAmount || 0,
+            'SALES WEIGHT': day.totalSaleWeight || 0,
+            'SALES AMOUNT': day.totalSaleAmount || 0,
+            PROFIT: (day.totalSaleAmount || 0) - (day.totalPurchaseAmount || 0)
         }));
 
         // Add Totals Row
         exportData.push({
-            Date: 'Grand Total',
-            'Purchase Amount': data.totals.totalPurchaseAmount,
-            'Sale Amount': data.totals.totalSaleAmount,
-            'Mortality (Birds)': data.totals.totalMortalityBirds,
-            'Feed Consume Amount': data.totals.totalFeedConsumeAmount
+            DATE: 'Grand Total',
+            'PURCHASE WEIGHT': data.totals.totalPurchaseWeight,
+            'PUR AMOUNT': data.totals.totalPurchaseAmount,
+            'SALES WEIGHT': data.totals.totalSaleWeight,
+            'SALES AMOUNT': data.totals.totalSaleAmount,
+            PROFIT: data.totals.totalSaleAmount - data.totals.totalPurchaseAmount
         });
 
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -220,60 +230,148 @@ export default function StockDailySummary() {
                 </div>
             </div>
 
-            {/* Summary Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <div className="overflow-x-auto">
+            {/* Split Layout: Table on left, Filters/Summary Sidebar on right */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left Side: Summary Table */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:col-span-9 overflow-x-auto">
                     <table className="w-full border-collapse">
                         <thead>
                             <tr className="border-b-2 border-gray-300 bg-gray-50">
-                                <th className="text-left py-3 px-4 font-semibold text-gray-900">Date</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Purchase Amt</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Sale Amt</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Mortality (Birds)</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">Feed Consume Amt</th>
+                                <th className="text-left py-3 px-4 font-semibold text-gray-900">DATE</th>
+                                <th className="text-right py-3 px-4 font-semibold text-gray-900">PURCHASE WEIGHT</th>
+                                <th className="text-right py-3 px-4 font-semibold text-gray-900">PUR AMOUNT</th>
+                                <th className="text-right py-3 px-4 font-semibold text-gray-900">SALES WEIGHT</th>
+                                <th className="text-right py-3 px-4 font-semibold text-gray-900">SALES AMOUNT</th>
+                                <th className="text-right py-3 px-4 font-semibold text-gray-900">PROFIT</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {fullDays.map((day) => (
-                                <tr
-                                    key={day.formattedDate}
-                                    className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
-                                    onClick={() => handleDayClick(day)}
-                                >
-                                    <td className="py-3 px-4 text-blue-600 font-medium hover:underline">
-                                        {new Date(day.date).toLocaleDateString()}
-                                    </td>
-                                    <td className="py-3 px-4 text-right text-gray-700">
-                                        {day.totalPurchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </td>
-                                    <td className="py-3 px-4 text-right text-gray-700 font-medium">
-                                        {day.totalSaleAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </td>
-                                    <td className="py-3 px-4 text-right text-gray-700 font-medium text-red-600">
-                                        {day.totalMortalityBirds}
-                                    </td>
-                                    <td className="py-3 px-4 text-right text-gray-700 font-medium">
-                                        {day.totalFeedConsumeAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </td>
-                                </tr>
-                            ))}
+                            {fullDays.map((day) => {
+                                const profit = day.totalSaleAmount - day.totalPurchaseAmount;
+                                return (
+                                    <tr
+                                        key={day.formattedDate}
+                                        className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                                        onClick={() => handleDayClick(day)}
+                                    >
+                                        <td className="py-3 px-4 text-blue-600 font-medium hover:underline">
+                                            {new Date(day.date).toLocaleDateString('en-GB')}
+                                        </td>
+                                        <td className="py-3 px-4 text-right text-gray-700">
+                                            {day.totalPurchaseWeight > 0 ? `${day.totalPurchaseWeight.toLocaleString()} Kg` : '-'}
+                                        </td>
+                                        <td className="py-3 px-4 text-right text-gray-700">
+                                            {day.totalPurchaseAmount > 0 ? `₹${day.totalPurchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
+                                        </td>
+                                        <td className="py-3 px-4 text-right text-gray-700">
+                                            {day.totalSaleWeight > 0 ? `${day.totalSaleWeight.toLocaleString()} Kg` : '-'}
+                                        </td>
+                                        <td className="py-3 px-4 text-right text-gray-700 font-medium">
+                                            {day.totalSaleAmount > 0 ? `₹${day.totalSaleAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
+                                        </td>
+                                        <td className={`py-3 px-4 text-right font-semibold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                            {profit !== 0 ? `₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
                             <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
                                 <td className="py-3 px-4 text-gray-900">Grand Total</td>
                                 <td className="py-3 px-4 text-right text-gray-900">
-                                    {(data.totals.totalPurchaseAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    {(data.totals.totalPurchaseWeight || 0).toLocaleString()} Kg
                                 </td>
                                 <td className="py-3 px-4 text-right text-gray-900">
-                                    {(data.totals.totalSaleAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </td>
-                                <td className="py-3 px-4 text-right text-gray-900 text-red-600">
-                                    {data.totals.totalMortalityBirds || 0}
+                                    ₹{(data.totals.totalPurchaseAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </td>
                                 <td className="py-3 px-4 text-right text-gray-900">
-                                    {(data.totals.totalFeedConsumeAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    {(data.totals.totalSaleWeight || 0).toLocaleString()} Kg
+                                </td>
+                                <td className="py-3 px-4 text-right text-gray-900">
+                                    ₹{(data.totals.totalSaleAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </td>
+                                <td className={`py-3 px-4 text-right font-bold ${data.totals.totalSaleAmount - data.totals.totalPurchaseAmount >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                                    ₹{(data.totals.totalSaleAmount - data.totals.totalPurchaseAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                {/* Right Side: Filters/Summary Panel */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:col-span-3 h-fit space-y-6">
+                    <div>
+                        <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wider border-b pb-2">FILTERS / METRICS</h2>
+                        <p className="text-xs text-gray-500 mt-1">Aggregated statistics for the month</p>
+                    </div>
+
+                    <div className="space-y-4">
+                        {/* Birds Mortality */}
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-gray-500 uppercase">Birds Mortality Qty</label>
+                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-gray-900">
+                                {(data.totals.totalMortalityBirds || 0).toLocaleString()} Birds
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-gray-500 uppercase">Birds Mortality Weight</label>
+                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-gray-900">
+                                {(data.totals.totalMortalityWeight || 0).toLocaleString()} Kg
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-gray-500 uppercase">Birds Mortality Amount</label>
+                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-red-600">
+                                ₹{(data.totals.totalMortalityAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </div>
+                        </div>
+
+                        {/* Actual Weightloss */}
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-gray-500 uppercase">Actual Weightloss Weight</label>
+                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-gray-900">
+                                {(data.totals.totalWeightLossWeight || 0).toLocaleString()} Kg
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-gray-500 uppercase">Actual Weightloss Amount</label>
+                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-red-600">
+                                ₹{(data.totals.totalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </div>
+                        </div>
+
+                        {/* Natural Weightloss */}
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-gray-500 uppercase">Natural Weightloss Weight</label>
+                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-gray-900">
+                                {(data.totals.totalNaturalWeightLossWeight || 0).toLocaleString()} Kg
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-gray-500 uppercase">Natural Weightloss Amount</label>
+                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-red-600">
+                                ₹{(data.totals.totalNaturalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </div>
+                        </div>
+
+                        {/* Feed Consume */}
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-gray-500 uppercase">Feed Consume Qty</label>
+                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-gray-900">
+                                {(data.totals.totalFeedConsumeQty || 0).toLocaleString()} bags
+                            </div>
+                        </div>
+
+                        <div className="space-y-1">
+                            <label className="block text-xs font-semibold text-gray-500 uppercase">Feed Consume Amount</label>
+                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-blue-600">
+                                ₹{(data.totals.totalFeedConsumeAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

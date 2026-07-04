@@ -24,6 +24,20 @@ export default function IndirectSales() {
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState(searchParams.get('startDate') || '');
   const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
+  const [vehicleFilter, setVehicleFilter] = useState('');
+  const [driverFilter, setDriverFilter] = useState('');
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const [totals, setTotals] = useState({
+    totalPurchaseBirds: 0,
+    totalPurchaseWeight: 0,
+    totalPurchaseAmount: 0,
+    totalSalesBirds: 0,
+    totalSalesWeight: 0,
+    totalSalesAmount: 0,
+    mortalityBirds: 0,
+    mortalityWeight: 0,
+    mortalityAmount: 0
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -59,11 +73,24 @@ export default function IndirectSales() {
           limit: pagination.itemsPerPage,
           search: query || undefined,
           startDate: startDate || undefined,
-          endDate: endDate || undefined
+          endDate: endDate || undefined,
+          vehicleNumber: vehicleFilter || undefined,
+          driver: driverFilter || undefined
         }
       });
 
       setRecords(data.data?.records || []);
+      setTotals(data.data?.totals || {
+        totalPurchaseBirds: 0,
+        totalPurchaseWeight: 0,
+        totalPurchaseAmount: 0,
+        totalSalesBirds: 0,
+        totalSalesWeight: 0,
+        totalSalesAmount: 0,
+        mortalityBirds: 0,
+        mortalityWeight: 0,
+        mortalityAmount: 0
+      });
       if (data.data?.pagination) {
         setPagination(data.data.pagination);
       } else {
@@ -85,7 +112,7 @@ export default function IndirectSales() {
     fetchRecords(1);
     loadCustomersAndVendors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate]);
+  }, [startDate, endDate, vehicleFilter, driverFilter]);
 
   const handleSearch = (event) => {
     event.preventDefault();
@@ -209,29 +236,121 @@ export default function IndirectSales() {
           </div>
           <button
             type="submit"
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
           >
             Search
           </button>
           <button
             type="button"
-            className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-2 text-gray-700"
+            onClick={() => setShowFiltersPanel(!showFiltersPanel)}
+            className={`px-4 py-2 border rounded-lg transition-colors flex items-center gap-2 text-sm font-medium ${
+              showFiltersPanel
+                ? 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
+                : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
           >
+            <Filter size={16} />
             Filters
           </button>
           <input
             type="date"
             value={startDate}
             onChange={(e) => setStartDate(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
           />
           <input
             type="date"
             value={endDate}
             onChange={(e) => setEndDate(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
           />
         </form>
+      </div>
+
+      {/* Filters Collapsible Panel */}
+      {showFiltersPanel && (
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1 duration-200">
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Customers Vehicle No</label>
+            <input
+              type="text"
+              value={vehicleFilter}
+              onChange={(e) => setVehicleFilter(e.target.value)}
+              placeholder="Search by customer vehicle number..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Driver Name</label>
+            <input
+              type="text"
+              value={driverFilter}
+              onChange={(e) => setDriverFilter(e.target.value)}
+              placeholder="Search by driver name..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm bg-white"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Aggregate Totals Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Purchase Stats Card */}
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100">
+          <h3 className="text-sm font-semibold text-blue-800 uppercase tracking-wider mb-3">Total Purchase Summary</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Total Birds Purchase:</span>
+              <span className="font-bold text-gray-900">{totals.totalPurchaseBirds.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Total Weight Purchase:</span>
+              <span className="font-bold text-gray-900">{totals.totalPurchaseWeight.toLocaleString()} Kg</span>
+            </div>
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Total Amount Purchase:</span>
+              <span className="font-bold text-blue-600">₹{totals.totalPurchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Sales Stats Card */}
+        <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-xl border border-green-100">
+          <h3 className="text-sm font-semibold text-green-800 uppercase tracking-wider mb-3">Total Sales Summary</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Total Birds Sales:</span>
+              <span className="font-bold text-gray-900">{totals.totalSalesBirds.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Total Weight Sales:</span>
+              <span className="font-bold text-gray-900">{totals.totalSalesWeight.toLocaleString()} Kg</span>
+            </div>
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Total Amount Sales:</span>
+              <span className="font-bold text-green-600">₹{totals.totalSalesAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Mortality Stats Card */}
+        <div className="bg-gradient-to-r from-red-50 to-rose-50 p-6 rounded-xl border border-red-100">
+          <h3 className="text-sm font-semibold text-red-800 uppercase tracking-wider mb-3">Total Mortality Summary</h3>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Mortality Birds:</span>
+              <span className="font-bold text-gray-900">{totals.mortalityBirds.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Mortality Weight:</span>
+              <span className="font-bold text-gray-900">{totals.mortalityWeight.toLocaleString()} Kg</span>
+            </div>
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Mortality Amount:</span>
+              <span className="font-bold text-red-600">₹{totals.mortalityAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
