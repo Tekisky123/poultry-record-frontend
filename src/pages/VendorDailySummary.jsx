@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, useSearchParams, Link } from 'react-router-dom';
-import { Loader2, ArrowLeft, Download, Truck } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { Loader2, ArrowLeft, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 
@@ -9,7 +9,7 @@ export default function VendorDailySummary() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const [loading, setLoading] = useState(true);
-    const [ledgerData, setLedgerData] = useState(null);
+    const [data, setData] = useState(null);
     const [error, setError] = useState('');
 
     const queryYear = searchParams.get('year');
@@ -19,117 +19,52 @@ export default function VendorDailySummary() {
     const [month, setMonth] = useState(queryMonth ? parseInt(queryMonth) : new Date().getMonth() + 1);
 
     useEffect(() => {
-        fetchLedgerTransactions();
+        fetchDailySummary();
     }, [id, year, month]);
 
-    const fetchLedgerTransactions = async () => {
+    const fetchDailySummary = async () => {
         try {
             setLoading(true);
             setError('');
-            const startStr = `${year}-${String(month).padStart(2, '0')}-01`;
-            const lastDay = new Date(year, month, 0).getDate();
-            const endStr = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-
-            const params = {
-                startDate: startStr,
-                endDate: endStr,
-                limit: 10000 // Get all transactions of this month
-            };
-
-            const response = await api.get(`/vendor/${id}/ledger`, { params });
+            const params = { year, month, type: 'vendor' };
+            const response = await api.get(`/ledger/${id}/daily-summary`, { params });
             if (response.data.success) {
-                setLedgerData(response.data.data);
+                setData(response.data.data);
             }
         } catch (err) {
-            console.error('Error fetching vendor ledger:', err);
+            console.error('Error fetching daily summary:', err);
             setError(err.response?.data?.message || 'Failed to fetch daily summary');
         } finally {
             setLoading(false);
         }
     };
 
-    const getPurchaseType = (type) => {
-        switch (type) {
-            case 'PURCHASE':
-                return 'Direct pur';
-            case 'INDIRECT':
-                return 'Indirect pur';
-            case 'STOCK_PURCHASE':
-                return 'Stock pur';
-            default:
-                return type || 'Payment';
-        }
+    const handleDayClick = (day) => {
+        // day.date is YYYY-MM-DD
+        navigate(`/vendors/${id}?startDate=${day.date}&endDate=${day.date}`);
     };
-
-    const getPurchaseTypeColor = (type) => {
-        switch (type) {
-            case 'Direct pur':
-                return 'bg-blue-100 text-blue-800';
-            case 'Indirect pur':
-                return 'bg-purple-100 text-purple-800';
-            case 'Stock pur':
-                return 'bg-orange-100 text-orange-800';
-            default:
-                return 'bg-gray-100 text-gray-800';
-        }
-    };
-
-    const formatDate = (dateString) => {
-        try {
-            const date = new Date(dateString);
-            const day = date.getDate().toString().padStart(2, '0');
-            const monthName = date.toLocaleDateString('en-US', { month: 'short' });
-            const yearVal = date.getFullYear();
-            return `${day}/${monthName} ${yearVal}`;
-        } catch (error) {
-            return dateString;
-        }
-    };
-
-    const transactions = useMemo(() => {
-        if (!ledgerData?.ledger) return [];
-        // Filter out opening balance row if it is just OP
-        return ledgerData.ledger.filter(entry => entry.type !== 'OPENING');
-    }, [ledgerData]);
-
-    const totals = useMemo(() => {
-        return transactions.reduce((acc, t) => {
-            acc.birds += Number(t.birds) || 0;
-            acc.weight += Number(t.weight) || Number(t.quantity) || 0;
-            acc.amount += Number(t.amount) || 0;
-            return acc;
-        }, { birds: 0, weight: 0, amount: 0 });
-    }, [transactions]);
 
     const handleExportToExcel = () => {
-        if (!ledgerData) return;
+        if (!data) return;
 
-        const exportData = transactions.map(t => ({
-            Date: formatDate(t.liftingDate || t.date),
-            Particulars: ['PURCHASE', 'INDIRECT', 'STOCK_PURCHASE'].includes(t.type) ? ledgerData.vendor.vendorName : (t.particulars || 'Payment'),
-            'Purchase Type': getPurchaseType(t.type),
-            Birds: t.birds || '-',
-            'Weight (Kg)': t.weight || t.quantity || '-',
-            Rate: t.rate || '-',
-            Amount: t.amount || 0,
-            'Trip ID': t.tripId || '-'
+        const exportData = data.days.map(d => ({
+            Date: d.displayDate,
+            'Transactions': d.voucherCount,
+            'Total Debit (Paid)': d.debit,
+            'Total Credit (Purchased)': d.credit
         }));
 
         exportData.push({
             Date: 'Grand Total',
-            Particulars: '',
-            'Purchase Type': '',
-            Birds: totals.birds,
-            'Weight (Kg)': totals.weight.toFixed(2),
-            Rate: '',
-            Amount: totals.amount,
-            'Trip ID': ''
+            'Transactions': data.totals.voucherCount,
+            'Total Debit (Paid)': data.totals.debit,
+            'Total Credit (Purchased)': data.totals.credit
         });
 
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Daily Summary");
-        XLSX.writeFile(wb, `${ledgerData.vendor.vendorName}_Daily_Summary_${month}_${year}.xlsx`);
+        XLSX.writeFile(wb, `${data.subject.name}_Daily_Summary_${month}_${year}.xlsx`);
     };
 
     const monthOptions = [
@@ -153,7 +88,7 @@ export default function VendorDailySummary() {
         yearOptions.push(y);
     }
 
-    if (loading && !ledgerData) {
+    if (loading && !data) {
         return <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-blue-600" /></div>;
     }
 
@@ -177,7 +112,7 @@ export default function VendorDailySummary() {
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">{ledgerData?.vendor?.vendorName} - Daily Breakdown</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">{data?.subject?.name} - Daily Breakdown</h1>
                         <p className="text-gray-600">
                             {monthOptions.find(m => m.value === month)?.label} {year}
                         </p>
@@ -221,78 +156,37 @@ export default function VendorDailySummary() {
                         <thead className="bg-gray-50 border-b border-gray-200">
                             <tr>
                                 <th className="px-6 py-3 text-left font-medium text-gray-700">Date</th>
-                                <th className="px-6 py-3 text-left font-medium text-gray-700">Particulars</th>
-                                <th className="px-6 py-3 text-left font-medium text-gray-700">Purchase type</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">Birds</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">Weight</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">Rate</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">Amount</th>
-                                <th className="px-6 py-3 text-left font-medium text-gray-700">Trip ID</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">Records</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">Debit (Paid)</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">Credit (Purchased)</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
-                            {transactions.length > 0 ? (
-                                transactions.map((t, idx) => {
-                                    const pType = getPurchaseType(t.type);
-                                    const isPur = ['Direct pur', 'Indirect pur', 'Stock pur'].includes(pType);
-                                    return (
-                                        <tr key={t.uniqueId || idx} className="hover:bg-gray-50 transition-colors">
-                                            <td className="px-6 py-4 text-gray-900 whitespace-nowrap">
-                                                {formatDate(t.liftingDate || t.date)}
-                                            </td>
-                                            <td className="px-6 py-4 text-gray-900">
-                                                {isPur ? ledgerData.vendor.vendorName : (t.particulars || 'Payment')}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${getPurchaseTypeColor(pType)}`}>
-                                                    {pType}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right text-gray-900">
-                                                {isPur && t.birds ? t.birds.toLocaleString() : '-'}
-                                            </td>
-                                            <td className="px-6 py-4 text-right text-gray-900 font-mono">
-                                                {isPur && (t.weight || t.quantity) ? (Number(t.weight || t.quantity)).toFixed(2) : '-'}
-                                            </td>
-                                            <td className="px-6 py-4 text-right text-gray-900 font-mono">
-                                                {isPur && t.rate ? `₹${Number(t.rate).toFixed(2)}` : '-'}
-                                            </td>
-                                            <td className="px-6 py-4 text-right text-gray-900 font-mono font-medium">
-                                                ₹{Number(t.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                            </td>
-                                            <td className="px-6 py-4 text-blue-600 font-medium">
-                                                {t.tripId ? (
-                                                    <Link to={`/trips/${t._id}`} className="hover:underline flex items-center gap-1">
-                                                        <Truck size={14} />
-                                                        {t.tripId}
-                                                    </Link>
-                                                ) : (
-                                                    '-'
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            ) : (
-                                <tr>
-                                    <td colSpan="8" className="px-6 py-12 text-center text-gray-500">
-                                        No purchase transactions found for this month.
+                            {data?.days.map((day) => (
+                                <tr
+                                    key={day.day}
+                                    onClick={() => handleDayClick(day)}
+                                    className={`hover:bg-gray-50 cursor-pointer transition-colors ${day.voucherCount === 0 && day.debit === 0 && day.credit === 0 ? 'opacity-60' : ''}`}
+                                >
+                                    <td className="px-6 py-4 font-medium text-blue-600 hover:underline">{day.displayDate}</td>
+                                    <td className="px-6 py-4 text-right text-gray-900">{day.voucherCount}</td>
+                                    <td className="px-6 py-4 text-right text-gray-900">
+                                        {day.debit > 0 ? `₹${day.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
+                                    </td>
+                                    <td className="px-6 py-4 text-right text-gray-900">
+                                        {day.credit > 0 ? `₹${day.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
                                     </td>
                                 </tr>
-                            )}
+                            ))}
                             <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
-                                <td className="px-6 py-4 text-gray-900" colSpan="3">Total</td>
-                                <td className="px-6 py-4 text-right text-gray-900">
-                                    {totals.birds > 0 ? totals.birds.toLocaleString() : '-'}
+                                <td className="px-6 py-4 text-gray-900">Total</td>
+                                <td className="px-6 py-4 text-right text-gray-900">{data?.totals.voucherCount}</td>
+                                <td className="px-6 py-4 text-right text-green-700">
+                                    ₹{data?.totals.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </td>
-                                <td className="px-6 py-4 text-right text-gray-900 font-mono">
-                                    {totals.weight > 0 ? totals.weight.toFixed(2) : '-'}
+                                <td className="px-6 py-4 text-right text-red-700">
+                                    ₹{data?.totals.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </td>
-                                <td className="px-6 py-4 text-right"></td>
-                                <td className="px-6 py-4 text-right text-gray-900 font-mono">
-                                    ₹{totals.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </td>
-                                <td className="px-6 py-4"></td>
                             </tr>
                         </tbody>
                     </table>
