@@ -428,7 +428,7 @@ export default function StockMonthlySummary() {
                                     : 'text-gray-600 hover:text-gray-900'
                             }`}
                         >
-                            Stock
+                            Report{/*  swap label from stock to report*/}
                         </button>
                         <button
                             onClick={() => setActiveTab('report')}
@@ -438,7 +438,7 @@ export default function StockMonthlySummary() {
                                     : 'text-gray-600 hover:text-gray-900'
                             }`}
                         >
-                            Report
+                            Stock {/*  swap label from report to stock */}
                         </button>
                     </div>
                 </div>

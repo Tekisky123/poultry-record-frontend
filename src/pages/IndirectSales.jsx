@@ -1,9 +1,63 @@
 import { useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, Filter, PlusCircle, Loader2 } from 'lucide-react';
+import { Search, Filter, PlusCircle, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import api from '../lib/axios';
 import dayjs from 'dayjs';
 import SearchableSelect from '../components/SearchableSelect';
+
+// Define report columns - fixed columns cannot be deselected
+const REPORT_COLUMNS = [
+  {
+    key: 'date',
+    label: 'Date',
+    locked: true,
+    defaultSelected: true,
+    render: (row) => dayjs(row.date).format('DD MMM YYYY')
+  },
+  {
+    key: 'invoiceNumber',
+    label: 'Invoice No',
+    locked: true,
+    defaultSelected: true,
+    render: (row) => row.invoiceNumber
+  },
+  {
+    key: 'customer',
+    label: 'Client',
+    locked: true,
+    defaultSelected: true,
+    render: (row) => row.customer
+  },
+  {
+    key: 'vendor',
+    label: 'Vendor',
+    locked: true,
+    defaultSelected: true,
+    render: (row) => row.vendor
+  },
+  {
+    key: 'place',
+    label: 'Place',
+    locked: true,
+    defaultSelected: true,
+    render: (row) => row.place
+  },
+  {
+    key: 'profit',
+    label: 'Net Profit (₹)',
+    defaultSelected: true,
+    render: (row) => `₹${row.profit.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  },
+  {
+    key: 'margin',
+    label: 'Margin (₹/Kg)',
+    defaultSelected: true,
+    render: (row) => `₹${row.margin.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+];
+
+const DEFAULT_SELECTED_COLUMNS = REPORT_COLUMNS.filter((col) => col.defaultSelected).map((col) => col.key);
+const LOCKED_COLUMN_KEYS = new Set(REPORT_COLUMNS.filter((col) => col.locked).map((col) => col.key));
 
 const INITIAL_FORM = {
   date: dayjs().format('YYYY-MM-DD'),
@@ -50,6 +104,9 @@ export default function IndirectSales() {
     totalPages: 1,
     totalItems: 0
   });
+  const [selectedColumns, setSelectedColumns] = useState(DEFAULT_SELECTED_COLUMNS);
+  const [isReportFilterOpen, setIsReportFilterOpen] = useState(false);
+  const reportFilterRef = useRef(null);
 
   const loadCustomersAndVendors = async () => {
     try {
@@ -171,6 +228,35 @@ export default function IndirectSales() {
     }
   };
 
+  const toggleColumnSelection = (key) => {
+    if (LOCKED_COLUMN_KEYS.has(key)) {
+      return;
+    }
+    setSelectedColumns((prev) =>
+      prev.includes(key) ? prev.filter((colKey) => colKey !== key) : [...prev, key]
+    );
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (reportFilterRef.current && !reportFilterRef.current.contains(event.target)) {
+        setIsReportFilterOpen(false);
+      }
+    };
+
+    if (isReportFilterOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isReportFilterOpen]);
+
+  const activeColumns = useMemo(() => {
+    return REPORT_COLUMNS.filter((column) => selectedColumns.includes(column.key));
+  }, [selectedColumns]);
+
   const hasRecords = records.length > 0;
 
   const tableRows = useMemo(() => {
@@ -264,6 +350,81 @@ export default function IndirectSales() {
             onChange={(e) => setEndDate(e.target.value)}
             className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
           />
+          <div className="relative" ref={reportFilterRef}>
+            <button
+              type="button"
+              onClick={() => setIsReportFilterOpen((prev) => !prev)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 border ${isReportFilterOpen
+                ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                }`}
+            >
+              <Filter size={16} />
+              <span>Reports Filter</span>
+              {isReportFilterOpen ? (
+                <ChevronUp size={16} />
+              ) : (
+                <ChevronDown size={16} />
+              )}
+            </button>
+            {isReportFilterOpen && (
+              <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
+                  <h3 className="text-sm font-semibold">Choose Columns to Display</h3>
+                  <p className="text-xs text-blue-100 mt-1">
+                    Yellow highlighted items are default and cannot be deselected
+                  </p>
+                </div>
+                <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                  {REPORT_COLUMNS.map((option) => {
+                    const isChecked = selectedColumns.includes(option.key);
+                    return (
+                      <label
+                        key={option.key}
+                        className={`flex items-center justify-between gap-3 px-4 py-3 text-sm cursor-pointer transition-colors ${option.locked
+                          ? 'bg-yellow-50 hover:bg-yellow-100 border-l-4 border-yellow-400'
+                          : 'hover:bg-gray-50 border-l-4 border-transparent'
+                          }`}
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            disabled={option.locked}
+                            onChange={() => toggleColumnSelection(option.key)}
+                            className={`h-4 w-4 rounded border-gray-300 focus:ring-2 focus:ring-blue-500 ${option.locked
+                              ? 'text-yellow-600 cursor-not-allowed'
+                              : 'text-blue-600 cursor-pointer'
+                              }`}
+                          />
+                          <span className={`flex-1 ${option.locked ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
+                            {option.label}
+                          </span>
+                        </div>
+                        {option.locked && (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-yellow-200 text-yellow-800 rounded-full">
+                            Default
+                          </span>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+                <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                  <span className="text-xs text-gray-600">
+                    {selectedColumns.length} of {REPORT_COLUMNS.length} columns selected
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setIsReportFilterOpen(false)}
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </form>
       </div>
 
@@ -358,19 +519,24 @@ export default function IndirectSales() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Invoice No</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Client</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Vendor</th>
-                <th className="px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Place</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Net Profit (₹)</th>
-                <th className="px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Margin (₹/Kg)</th>
+                {activeColumns.map((column) => (
+                  <th
+                    key={column.key}
+                    className={`px-6 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider ${
+                      ['profit', 'margin'].includes(column.key)
+                      ? 'text-right'
+                      : 'text-left'
+                    }`}
+                  >
+                    {column.label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={activeColumns.length} className="px-6 py-12 text-center text-gray-500">
                     <div className="flex items-center justify-center gap-2">
                       <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
                       Loading records...
@@ -381,7 +547,7 @@ export default function IndirectSales() {
 
               {!loading && !hasRecords && (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={activeColumns.length} className="px-6 py-12 text-center text-gray-500">
                     No indirect purchase and sales records found. Create one to get started.
                   </td>
                 </tr>
@@ -393,27 +559,22 @@ export default function IndirectSales() {
                   className="hover:bg-blue-50 cursor-pointer transition-colors"
                   onClick={() => navigate(`/indirect-sales/${row.id}`)}
                 >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {dayjs(row.date).format('DD MMM YYYY')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {row.invoiceNumber}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {row.customer}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {row.vendor}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {row.place}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    ₹{row.profit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
-                    ₹{row.margin.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </td>
+                  {activeColumns.map((column) => (
+                    <td
+                      key={column.key}
+                      className={`px-6 py-4 whitespace-nowrap text-sm ${
+                        column.key === 'date' ? 'font-medium text-blue-600 hover:underline text-left' : ''
+                      } ${
+                        ['profit', 'margin'].includes(column.key)
+                        ? 'text-right text-gray-900'
+                        : 'text-left text-gray-900'
+                      } ${
+                        column.key === 'profit' ? (row.profit >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold') : ''
+                      }`}
+                    >
+                      {column.render(row)}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>

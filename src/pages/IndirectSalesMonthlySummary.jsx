@@ -1,9 +1,130 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, ArrowLeft, Download, PlusCircle } from 'lucide-react';
+import { Loader2, ArrowLeft, Download, PlusCircle, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 import SearchableSelect from '../components/SearchableSelect';
+
+// Define report columns - fixed columns cannot be deselected
+const REPORT_COLUMNS = [
+  {
+    key: 'date',
+    label: 'Date',
+    locked: true,
+    defaultSelected: true,
+    render: (row) => `${row.name} ${new Date(row.startDate).getFullYear()}`
+  },
+  {
+    key: 'records',
+    label: 'Records',
+    locked: true,
+    defaultSelected: true,
+    render: (row) => Number(row.count || 0).toLocaleString('en-IN')
+  },
+  {
+    key: 'purchaseAmount',
+    label: 'Purchase',
+    locked: true,
+    defaultSelected: true,
+    render: (row) => {
+      const amount = Number(row.purchaseAmount || 0);
+      return amount > 0 ? `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-';
+    }
+  },
+  {
+    key: 'salesAmount',
+    label: 'Sales',
+    locked: true,
+    defaultSelected: true,
+    render: (row) => {
+      const amount = Number(row.salesAmount || 0);
+      return amount > 0 ? `₹${amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-';
+    }
+  },
+  {
+    key: 'netProfit',
+    label: 'Profit',
+    locked: true,
+    defaultSelected: true,
+    render: (row) => {
+      const profit = Number(row.netProfit || 0);
+      return profit !== 0 ? `₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-';
+    }
+  },
+  {
+    key: 'margin',
+    label: 'Margine',
+    locked: true,
+    defaultSelected: true,
+    render: (row) => {
+      const margin = Number(row.margin || 0);
+      return margin !== 0 ? `₹${margin.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/Kg` : '-';
+    }
+  },
+  {
+    key: 'customers',
+    label: 'Customers',
+    render: (row) => row.customers || '-'
+  },
+  {
+    key: 'vehicles',
+    label: 'Vehicle No',
+    render: (row) => row.vehicles || '-'
+  },
+  {
+    key: 'drivers',
+    label: 'Driver Name',
+    render: (row) => row.drivers || '-'
+  },
+  {
+    key: 'totalPurchaseBirds',
+    label: 'Total No Of Birds Pur',
+    render: (row) => `${Number(row.totalPurchaseBirds || 0).toLocaleString('en-IN')}`
+  },
+  {
+    key: 'totalPurchaseWeight',
+    label: 'Total Weight Of B Pur',
+    render: (row) => `${Number(row.totalPurchaseWeight || 0).toLocaleString('en-IN')} Kg`
+  },
+  {
+    key: 'totalPurchaseAmount',
+    label: 'Total Amount Of B Pur',
+    render: (row) => `₹${Number(row.purchaseAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+  },
+  {
+    key: 'totalSalesBirds',
+    label: 'Total No Of Birds Sales',
+    render: (row) => `${Number(row.totalSalesBirds || 0).toLocaleString('en-IN')}`
+  },
+  {
+    key: 'totalSalesWeight',
+    label: 'Total Weight Of Sales',
+    render: (row) => `${Number(row.salesWeight || 0).toLocaleString('en-IN')} Kg`
+  },
+  {
+    key: 'totalSalesAmount',
+    label: 'Total Amount Of Sales',
+    render: (row) => `₹${Number(row.salesAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+  },
+  {
+    key: 'totalMortalityBirds',
+    label: 'Mortality Birds',
+    render: (row) => `${Number(row.totalMortalityBirds || 0).toLocaleString('en-IN')}`
+  },
+  {
+    key: 'totalMortalityWeight',
+    label: 'Mortality Weight',
+    render: (row) => `${Number(row.totalMortalityWeight || 0).toLocaleString('en-IN')} Kg`
+  },
+  {
+    key: 'totalMortalityAmount',
+    label: 'Mortality Amount',
+    render: (row) => `₹${Number(row.totalMortalityAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+  }
+];
+
+const DEFAULT_SELECTED_COLUMNS = REPORT_COLUMNS.filter((col) => col.defaultSelected).map((col) => col.key);
+const LOCKED_COLUMN_KEYS = new Set(REPORT_COLUMNS.filter((col) => col.locked).map((col) => col.key));
 
 export default function IndirectSalesMonthlySummary() {
     const navigate = useNavigate();
@@ -25,6 +146,9 @@ export default function IndirectSalesMonthlySummary() {
     });
     const [isSubmitting, setIsSubmitting] = useState(false);
     const isSubmittingRef = useRef(false);
+    const [selectedColumns, setSelectedColumns] = useState(DEFAULT_SELECTED_COLUMNS);
+    const [isReportFilterOpen, setIsReportFilterOpen] = useState(false);
+    const reportFilterRef = useRef(null);
 
     const loadCustomersAndVendors = async () => {
         try {
@@ -43,6 +167,35 @@ export default function IndirectSalesMonthlySummary() {
         fetchMonthlyStats();
         loadCustomersAndVendors();
     }, [year]);
+
+    const toggleColumnSelection = (key) => {
+        if (LOCKED_COLUMN_KEYS.has(key)) {
+            return;
+        }
+        setSelectedColumns((prev) =>
+            prev.includes(key) ? prev.filter((colKey) => colKey !== key) : [...prev, key]
+        );
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (reportFilterRef.current && !reportFilterRef.current.contains(event.target)) {
+                setIsReportFilterOpen(false);
+            }
+        };
+
+        if (isReportFilterOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isReportFilterOpen]);
+
+    const activeColumns = useMemo(() => {
+        return REPORT_COLUMNS.filter((column) => selectedColumns.includes(column.key));
+    }, [selectedColumns]);
 
     const handleOpenCreate = () => {
         setFormData({
@@ -153,23 +306,52 @@ export default function IndirectSalesMonthlySummary() {
 
         const sortedMonths = getFinancialYearOrder(data.months);
 
-        const exportData = sortedMonths.map(m => ({
-            DATE: `${m.name} ${new Date(m.startDate).getFullYear()}`,
-            RECORDS: m.count,
-            PURCHASE: m.purchaseAmount || 0,
-            SALES: m.salesAmount || 0,
-            PROFIT: m.netProfit || 0,
-            MARGINE: m.margin || 0
-        }));
-
-        exportData.push({
-            DATE: 'Grand Total',
-            RECORDS: data.totals.count,
-            PURCHASE: data.totals.purchaseAmount,
-            SALES: data.totals.salesAmount,
-            PROFIT: data.totals.netProfit,
-            MARGINE: data.totals.margin
+        const exportData = sortedMonths.map(m => {
+            const row = {};
+            activeColumns.forEach(column => {
+                const displayValue = column.render(m);
+                row[column.label] = displayValue;
+            });
+            return row;
         });
+
+        const totalsRow = {};
+        activeColumns.forEach(column => {
+            if (column.key === 'date') {
+                totalsRow[column.label] = 'Total';
+            } else if (column.key === 'records') {
+                totalsRow[column.label] = `${Number(data?.totals.count || 0).toLocaleString('en-IN')}`;
+            } else if (column.key === 'purchaseAmount') {
+                totalsRow[column.label] = `₹${Number(data?.totals.purchaseAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+            } else if (column.key === 'salesAmount') {
+                totalsRow[column.label] = `₹${Number(data?.totals.salesAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+            } else if (column.key === 'netProfit') {
+                totalsRow[column.label] = `₹${Number(data?.totals.netProfit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+            } else if (column.key === 'margin') {
+                totalsRow[column.label] = `₹${Number(data?.totals.margin || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}/Kg`;
+            } else if (column.key === 'totalPurchaseBirds') {
+                totalsRow[column.label] = `${Number(data?.totals.totalPurchaseBirds || 0).toLocaleString('en-IN')}`;
+            } else if (column.key === 'totalPurchaseWeight') {
+                totalsRow[column.label] = `${Number(data?.totals.totalPurchaseWeight || 0).toLocaleString('en-IN')} Kg`;
+            } else if (column.key === 'totalPurchaseAmount') {
+                totalsRow[column.label] = `₹${Number(data?.totals.purchaseAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+            } else if (column.key === 'totalSalesBirds') {
+                totalsRow[column.label] = `${Number(data?.totals.totalSalesBirds || 0).toLocaleString('en-IN')}`;
+            } else if (column.key === 'totalSalesWeight') {
+                totalsRow[column.label] = `${Number(data?.totals.salesWeight || 0).toLocaleString('en-IN')} Kg`;
+            } else if (column.key === 'totalSalesAmount') {
+                totalsRow[column.label] = `₹${Number(data?.totals.salesAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+            } else if (column.key === 'totalMortalityBirds') {
+                totalsRow[column.label] = `${Number(data?.totals.totalMortalityBirds || 0).toLocaleString('en-IN')}`;
+            } else if (column.key === 'totalMortalityWeight') {
+                totalsRow[column.label] = `${Number(data?.totals.totalMortalityWeight || 0).toLocaleString('en-IN')} Kg`;
+            } else if (column.key === 'totalMortalityAmount') {
+                totalsRow[column.label] = `₹${Number(data?.totals.totalMortalityAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`;
+            } else {
+                totalsRow[column.label] = '-';
+            }
+        });
+        exportData.push(totalsRow);
 
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
@@ -223,6 +405,85 @@ export default function IndirectSalesMonthlySummary() {
                         ))}
                     </select>
 
+                    <div className="relative" ref={reportFilterRef}>
+                        <button
+                            type="button"
+                            onClick={() => setIsReportFilterOpen((prev) => !prev)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 border ${
+                                isReportFilterOpen
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                            }`}
+                        >
+                            <Filter size={16} />
+                            <span>Reports Filter</span>
+                            {isReportFilterOpen ? (
+                                <ChevronUp size={16} />
+                            ) : (
+                                <ChevronDown size={16} />
+                            )}
+                        </button>
+                        {isReportFilterOpen && (
+                            <div className="absolute right-0 mt-2 w-80 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 overflow-hidden">
+                                <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
+                                    <h3 className="text-sm font-semibold">Choose Columns to Display</h3>
+                                    <p className="text-xs text-blue-100 mt-1">
+                                        Yellow highlighted items are default and cannot be deselected
+                                    </p>
+                                </div>
+                                <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                                    {REPORT_COLUMNS.map((option) => {
+                                        const isChecked = selectedColumns.includes(option.key);
+                                        return (
+                                            <label
+                                                key={option.key}
+                                                className={`flex items-center justify-between gap-3 px-4 py-3 text-sm cursor-pointer transition-colors ${
+                                                    option.locked
+                                                    ? 'bg-yellow-50 hover:bg-yellow-100 border-l-4 border-yellow-400'
+                                                    : 'hover:bg-gray-50 border-l-4 border-transparent'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        disabled={option.locked}
+                                                        onChange={() => toggleColumnSelection(option.key)}
+                                                        className={`h-4 w-4 rounded border-gray-300 focus:ring-2 focus:ring-blue-500 ${
+                                                            option.locked
+                                                            ? 'text-yellow-600 cursor-not-allowed'
+                                                            : 'text-blue-600 cursor-pointer'
+                                                        }`}
+                                                    />
+                                                    <span className={`flex-1 ${option.locked ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
+                                                        {option.label}
+                                                    </span>
+                                                </div>
+                                                {option.locked && (
+                                                    <span className="px-2 py-0.5 text-xs font-medium bg-yellow-200 text-yellow-800 rounded-full">
+                                                        Default
+                                                    </span>
+                                                )}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                                <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                                    <span className="text-xs text-gray-600">
+                                        {selectedColumns.length} of {REPORT_COLUMNS.length} columns selected
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsReportFilterOpen(false)}
+                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     <button
                         onClick={handleExportToExcel}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors"
@@ -251,12 +512,18 @@ export default function IndirectSalesMonthlySummary() {
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <th className="px-6 py-3 text-left font-medium text-gray-700">DATE</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">RECORDS</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">PURCHASE</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">SALES</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">PROFIT</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">MARGINE</th>
+                                {activeColumns.map((column) => (
+                                    <th
+                                        key={column.key}
+                                        className={`px-6 py-3 font-medium text-gray-700 ${
+                                            ['records', 'purchaseAmount', 'salesAmount', 'netProfit', 'margin'].includes(column.key)
+                                            ? 'text-right'
+                                            : 'text-left'
+                                        }`}
+                                    >
+                                        {column.label}
+                                    </th>
+                                ))}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
@@ -266,39 +533,44 @@ export default function IndirectSalesMonthlySummary() {
                                     onClick={() => handleMonthClick(month)}
                                     className={`hover:bg-gray-50 cursor-pointer transition-colors ${month.count === 0 ? 'opacity-60' : ''}`}
                                 >
-                                    <td className="px-6 py-4 font-medium text-blue-600 hover:underline">
-                                        {month.name} {new Date(month.startDate).getFullYear()}
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-gray-900">{month.count}</td>
-                                    <td className="px-6 py-4 text-right text-gray-900">
-                                        {month.purchaseAmount > 0 ? `₹${month.purchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-gray-900">
-                                        {month.salesAmount > 0 ? `₹${month.salesAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
-                                    </td>
-                                    <td className="px-6 py-4 text-right font-medium text-gray-900">
-                                        {month.netProfit !== 0 ? `₹${month.netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
-                                    </td>
-                                    <td className="px-6 py-4 text-right text-gray-900 font-medium">
-                                        {month.margin !== 0 ? `₹${month.margin.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/Kg` : '-'}
-                                    </td>
+                                    {activeColumns.map((column) => (
+                                        <td
+                                            key={column.key}
+                                            className={`px-6 py-4 ${
+                                                column.key === 'date' ? 'font-medium text-blue-600 hover:underline text-left' : ''
+                                            } ${
+                                                ['records', 'purchaseAmount', 'salesAmount', 'netProfit', 'margin'].includes(column.key)
+                                                ? 'text-right text-gray-900'
+                                                : 'text-left text-gray-900'
+                                            } ${
+                                                column.key === 'netProfit' ? (month.netProfit >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold') : ''
+                                            }`}
+                                        >
+                                            {column.render(month)}
+                                        </td>
+                                    ))}
                                 </tr>
                             ))}
                             <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
-                                <td className="px-6 py-4 text-gray-900">Total</td>
-                                <td className="px-6 py-4 text-right text-gray-900">{data?.totals.count}</td>
-                                <td className="px-6 py-4 text-right text-red-700">
-                                    ₹{data?.totals.purchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </td>
-                                <td className="px-6 py-4 text-right text-green-700">
-                                    ₹{data?.totals.salesAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </td>
-                                <td className="px-6 py-4 text-right text-blue-700">
-                                    ₹{data?.totals.netProfit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </td>
-                                <td className="px-6 py-4 text-right text-gray-900 font-bold">
-                                    {data?.totals.margin !== 0 ? `₹${data?.totals.margin.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/Kg` : '-'}
-                                </td>
+                                {activeColumns.map((column) => (
+                                    <td
+                                        key={column.key}
+                                        className={`px-6 py-4 text-gray-900 ${
+                                            ['records', 'purchaseAmount', 'salesAmount', 'netProfit', 'margin'].includes(column.key)
+                                            ? 'text-right'
+                                            : 'text-left'
+                                        }`}
+                                    >
+                                        {column.key === 'date' ? 'Total' : (
+                                            column.key === 'records' ? `${Number(data?.totals.count || 0).toLocaleString('en-IN')}` :
+                                            column.key === 'purchaseAmount' ? `₹${Number(data?.totals.purchaseAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                            column.key === 'salesAmount' ? `₹${Number(data?.totals.salesAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                            column.key === 'netProfit' ? `₹${Number(data?.totals.netProfit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                            column.key === 'margin' ? `₹${Number(data?.totals.margin || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}/Kg` :
+                                            '-'
+                                        )}
+                                    </td>
+                                ))}
                             </tr>
                         </tbody>
                     </table>

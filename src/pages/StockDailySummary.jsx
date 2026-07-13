@@ -1,9 +1,106 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Loader2, Download, ArrowLeft, Calendar } from 'lucide-react';
+import { Loader2, Download, ArrowLeft, Calendar, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
+
+// Define report columns - fixed columns cannot be deselected
+const REPORT_COLUMNS = [
+  {
+    key: 'date',
+    label: 'Date',
+    locked: true,
+    defaultSelected: true,
+    render: (day) => new Date(day.date).toLocaleDateString('en-GB')
+  },
+  {
+    key: 'purchaseWeight',
+    label: 'Purchase Weight',
+    locked: true,
+    defaultSelected: true,
+    render: (day) => day.totalPurchaseWeight > 0 ? `${day.totalPurchaseWeight.toLocaleString()} Kg` : '-'
+  },
+  {
+    key: 'purchaseAmount',
+    label: 'Pur Amount',
+    locked: true,
+    defaultSelected: true,
+    render: (day) => day.totalPurchaseAmount > 0 ? `₹${day.totalPurchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'
+  },
+  {
+    key: 'salesWeight',
+    label: 'Sales Weight',
+    locked: true,
+    defaultSelected: true,
+    render: (day) => day.totalSaleWeight > 0 ? `${day.totalSaleWeight.toLocaleString()} Kg` : '-'
+  },
+  {
+    key: 'salesAmount',
+    label: 'Sales Amount',
+    locked: true,
+    defaultSelected: true,
+    render: (day) => day.totalSaleAmount > 0 ? `₹${day.totalSaleAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'
+  },
+  {
+    key: 'profit',
+    label: 'Profit',
+    locked: true,
+    defaultSelected: true,
+    render: (day) => {
+      const profit = day.totalSaleAmount - day.totalPurchaseAmount;
+      return profit !== 0 ? `₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-';
+    }
+  },
+  {
+    key: 'mortalityBirds',
+    label: 'Birds Mortality Qty',
+    render: (day) => `${Number(day.totalMortalityBirds || 0).toLocaleString('en-IN')} Birds`
+  },
+  {
+    key: 'mortalityWeight',
+    label: 'Birds Mortality Weight',
+    render: (day) => `${Number(day.totalMortalityWeight || 0).toLocaleString('en-IN')} Kg`
+  },
+  {
+    key: 'mortalityAmount',
+    label: 'Birds Mortality Amount',
+    render: (day) => `₹${Number(day.totalMortalityAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+  },
+  {
+    key: 'actualWeightlossWeight',
+    label: 'Actual Weightloss Weight',
+    render: (day) => `${Number(day.totalWeightLossWeight || 0).toLocaleString('en-IN')} Kg`
+  },
+  {
+    key: 'actualWeightlossAmount',
+    label: 'Actual Weightloss Amount',
+    render: (day) => `₹${Number(day.totalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+  },
+  {
+    key: 'naturalWeightlossWeight',
+    label: 'Natural Weightloss Weight',
+    render: (day) => `${Number(day.totalNaturalWeightLossWeight || 0).toLocaleString('en-IN')} Kg`
+  },
+  {
+    key: 'naturalWeightlossAmount',
+    label: 'Natural Weightloss Amount',
+    render: (day) => `₹${Number(day.totalNaturalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+  },
+  {
+    key: 'feedConsumeQty',
+    label: 'Feed Consume Qty',
+    render: (day) => `${Number(day.totalFeedConsumeQty || 0).toLocaleString('en-IN')} bags`
+  },
+  {
+    key: 'feedConsumeAmount',
+    label: 'Feed Consume Amount',
+    render: (day) => `₹${Number(day.totalFeedConsumeAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+  }
+];
+
+const DEFAULT_SELECTED_COLUMNS = REPORT_COLUMNS.filter((col) => col.defaultSelected).map((col) => col.key);
+const LOCKED_COLUMN_KEYS = new Set(REPORT_COLUMNS.filter((col) => col.locked).map((col) => col.key));
 
 export default function StockDailySummary() {
     const navigate = useNavigate();
@@ -18,6 +115,9 @@ export default function StockDailySummary() {
     const [data, setData] = useState(null);
     const [error, setError] = useState('');
     const [supervisors, setSupervisors] = useState([]);
+    const [selectedColumns, setSelectedColumns] = useState(DEFAULT_SELECTED_COLUMNS);
+    const [isReportFilterOpen, setIsReportFilterOpen] = useState(false);
+    const reportFilterRef = useRef(null);
 
     useEffect(() => {
         if (user?.role === 'supervisor' && !user?.canManageStock) {
@@ -65,6 +165,31 @@ export default function StockDailySummary() {
         });
     };
 
+    const toggleColumnSelection = (key) => {
+        if (LOCKED_COLUMN_KEYS.has(key)) {
+            return;
+        }
+        setSelectedColumns((prev) =>
+            prev.includes(key) ? prev.filter((colKey) => colKey !== key) : [...prev, key]
+        );
+    };
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (reportFilterRef.current && !reportFilterRef.current.contains(event.target)) {
+                setIsReportFilterOpen(false);
+            }
+        };
+
+        if (isReportFilterOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+        }
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [isReportFilterOpen]);
+
     useEffect(() => {
         fetchDailySummary();
     }, [year, month, supervisorId, inventoryType]);
@@ -102,7 +227,23 @@ export default function StockDailySummary() {
             const existingDay = data.days.find(d => d.formattedDate === dateStr);
 
             if (existingDay) {
-                days.push(existingDay);
+                // Ensure all fields exist with proper numeric values
+                days.push({
+                    ...existingDay,
+                    totalPurchaseWeight: Number(existingDay.totalPurchaseWeight || 0),
+                    totalPurchaseAmount: Number(existingDay.totalPurchaseAmount || 0),
+                    totalSaleWeight: Number(existingDay.totalSaleWeight || 0),
+                    totalSaleAmount: Number(existingDay.totalSaleAmount || 0),
+                    totalMortalityBirds: Number(existingDay.totalMortalityBirds || 0),
+                    totalMortalityWeight: Number(existingDay.totalMortalityWeight || 0),
+                    totalMortalityAmount: Number(existingDay.totalMortalityAmount || 0),
+                    totalWeightLossWeight: Number(existingDay.totalWeightLossWeight || 0),
+                    totalWeightLossAmount: Number(existingDay.totalWeightLossAmount || 0),
+                    totalNaturalWeightLossWeight: Number(existingDay.totalNaturalWeightLossWeight || 0),
+                    totalNaturalWeightLossAmount: Number(existingDay.totalNaturalWeightLossAmount || 0),
+                    totalFeedConsumeQty: Number(existingDay.totalFeedConsumeQty || 0),
+                    totalFeedConsumeAmount: Number(existingDay.totalFeedConsumeAmount || 0)
+                });
             } else {
                 days.push({
                     date: new Date(year, month - 1, i).toISOString(),
@@ -163,6 +304,7 @@ export default function StockDailySummary() {
     };
 
     const monthName = new Date(year, month - 1).toLocaleString('default', { month: 'long' });
+    const activeColumns = REPORT_COLUMNS.filter((column) => selectedColumns.includes(column.key));
 
     if (loading && !data) return <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-blue-600" /></div>;
     if (error) return <div className="p-4 text-center">
@@ -220,6 +362,81 @@ export default function StockDailySummary() {
                         <option value="bird">Birds</option>
                         <option value="feed">Feed</option>
                     </select>
+                    <div className="relative" ref={reportFilterRef}>
+                        <button
+                            type="button"
+                            onClick={() => setIsReportFilterOpen((prev) => !prev)}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 border ${isReportFilterOpen
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                                }`}
+                        >
+                            <Filter size={16} />
+                            <span>Reports Filter</span>
+                            {isReportFilterOpen ? (
+                                <ChevronUp size={16} />
+                            ) : (
+                                <ChevronDown size={16} />
+                            )}
+                        </button>
+                        {isReportFilterOpen && (
+                            <div className="absolute right-0 mt-2 w-96 bg-white border border-gray-200 rounded-lg shadow-2xl z-50 overflow-hidden">
+                                <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4 text-white">
+                                    <h3 className="text-sm font-semibold">Choose Columns to Display</h3>
+                                    <p className="text-xs text-blue-100 mt-1">
+                                        Yellow highlighted items are default and cannot be deselected
+                                    </p>
+                                </div>
+                                <div className="max-h-96 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                                    {REPORT_COLUMNS.map((option) => {
+                                        const isChecked = selectedColumns.includes(option.key);
+                                        return (
+                                            <label
+                                                key={option.key}
+                                                className={`flex items-center justify-between gap-3 px-4 py-3 text-sm cursor-pointer transition-colors ${option.locked
+                                                    ? 'bg-yellow-50 hover:bg-yellow-100 border-l-4 border-yellow-400'
+                                                    : 'hover:bg-gray-50 border-l-4 border-transparent'
+                                                    }`}
+                                            >
+                                                <div className="flex items-center gap-3 flex-1">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        disabled={option.locked}
+                                                        onChange={() => toggleColumnSelection(option.key)}
+                                                        className={`h-4 w-4 rounded border-gray-300 focus:ring-2 focus:ring-blue-500 ${option.locked
+                                                            ? 'text-yellow-600 cursor-not-allowed'
+                                                            : 'text-blue-600 cursor-pointer'
+                                                            }`}
+                                                    />
+                                                    <span className={`flex-1 ${option.locked ? 'font-medium text-gray-900' : 'text-gray-700'}`}>
+                                                        {option.label}
+                                                    </span>
+                                                </div>
+                                                {option.locked && (
+                                                    <span className="px-2 py-0.5 text-xs font-medium bg-yellow-200 text-yellow-800 rounded-full">
+                                                        Default
+                                                    </span>
+                                                )}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                                <div className="p-3 bg-gray-50 border-t border-gray-200 flex items-center justify-between">
+                                    <span className="text-xs text-gray-600">
+                                        {selectedColumns.length} of {REPORT_COLUMNS.length} columns selected
+                                    </span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsReportFilterOpen(false)}
+                                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                                    >
+                                        Close
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                     <button
                         onClick={handleExportToExcel}
                         className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors text-sm font-medium"
@@ -231,148 +448,91 @@ export default function StockDailySummary() {
             </div>
 
             {/* Split Layout: Table on left, Filters/Summary Sidebar on right */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Left Side: Summary Table */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:col-span-9 overflow-x-auto">
-                    <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="border-b-2 border-gray-300 bg-gray-50">
-                                <th className="text-left py-3 px-4 font-semibold text-gray-900">DATE</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">PURCHASE WEIGHT</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">PUR AMOUNT</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">SALES WEIGHT</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">SALES AMOUNT</th>
-                                <th className="text-right py-3 px-4 font-semibold text-gray-900">PROFIT</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {fullDays.map((day) => {
-                                const profit = day.totalSaleAmount - day.totalPurchaseAmount;
-                                return (
-                                    <tr
-                                        key={day.formattedDate}
-                                        className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
-                                        onClick={() => handleDayClick(day)}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 overflow-x-auto">
+                <table className="w-full border-collapse">
+                    <thead>
+                        <tr className="border-b-2 border-gray-300 bg-gray-50">
+                            {activeColumns.map((column) => (
+                                <th
+                                    key={column.key}
+                                    className={`py-3 px-4 font-semibold text-gray-900 ${
+                                        ['salesAmount', 'salesWeight', 'purchaseAmount', 'purchaseWeight', 'profit', 
+                                         'mortalityWeight', 'mortalityAmount', 'actualWeightlossWeight', 'actualWeightlossAmount',
+                                         'naturalWeightlossWeight', 'naturalWeightlossAmount', 'feedConsumeQty', 'feedConsumeAmount'].includes(column.key)
+                                        ? 'text-right'
+                                        : 'text-left'
+                                    }`}
+                                >
+                                    {column.label}
+                                </th>
+                            ))}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {fullDays.map((day) => (
+                            <tr
+                                key={day.formattedDate}
+                                className="border-b border-gray-200 hover:bg-gray-50 cursor-pointer transition-colors"
+                                onClick={() => handleDayClick(day)}
+                            >
+                                {activeColumns.map((column) => (
+                                    <td
+                                        key={column.key}
+                                        className={`py-3 px-4 text-gray-700 ${
+                                            column.key === 'date' ? 'text-blue-600 font-medium hover:underline' : ''
+                                        } ${
+                                            ['salesAmount', 'salesWeight', 'purchaseAmount', 'purchaseWeight', 'profit',
+                                             'mortalityWeight', 'mortalityAmount', 'actualWeightlossWeight', 'actualWeightlossAmount',
+                                             'naturalWeightlossWeight', 'naturalWeightlossAmount', 'feedConsumeQty', 'feedConsumeAmount'].includes(column.key)
+                                            ? 'text-right'
+                                            : 'text-left'
+                                        } ${
+                                            column.key === 'profit' ? (day.totalSaleAmount - day.totalPurchaseAmount >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold') : ''
+                                        } ${
+                                            ['mortalityAmount', 'actualWeightlossAmount', 'naturalWeightlossAmount'].includes(column.key) ? 'text-red-600 font-medium' : ''
+                                        } ${
+                                            column.key === 'feedConsumeAmount' ? 'text-blue-600 font-medium' : ''
+                                        }`}
                                     >
-                                        <td className="py-3 px-4 text-blue-600 font-medium hover:underline">
-                                            {new Date(day.date).toLocaleDateString('en-GB')}
-                                        </td>
-                                        <td className="py-3 px-4 text-right text-gray-700">
-                                            {day.totalPurchaseWeight > 0 ? `${day.totalPurchaseWeight.toLocaleString()} Kg` : '-'}
-                                        </td>
-                                        <td className="py-3 px-4 text-right text-gray-700">
-                                            {day.totalPurchaseAmount > 0 ? `₹${day.totalPurchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
-                                        </td>
-                                        <td className="py-3 px-4 text-right text-gray-700">
-                                            {day.totalSaleWeight > 0 ? `${day.totalSaleWeight.toLocaleString()} Kg` : '-'}
-                                        </td>
-                                        <td className="py-3 px-4 text-right text-gray-700 font-medium">
-                                            {day.totalSaleAmount > 0 ? `₹${day.totalSaleAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
-                                        </td>
-                                        <td className={`py-3 px-4 text-right font-semibold ${profit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                                            {profit !== 0 ? `₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
-                                        </td>
-                                    </tr>
-                                );
-                            })}
-                            <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
-                                <td className="py-3 px-4 text-gray-900">Grand Total</td>
-                                <td className="py-3 px-4 text-right text-gray-900">
-                                    {(data.totals.totalPurchaseWeight || 0).toLocaleString()} Kg
-                                </td>
-                                <td className="py-3 px-4 text-right text-gray-900">
-                                    ₹{(data.totals.totalPurchaseAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </td>
-                                <td className="py-3 px-4 text-right text-gray-900">
-                                    {(data.totals.totalSaleWeight || 0).toLocaleString()} Kg
-                                </td>
-                                <td className="py-3 px-4 text-right text-gray-900">
-                                    ₹{(data.totals.totalSaleAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </td>
-                                <td className={`py-3 px-4 text-right font-bold ${data.totals.totalSaleAmount - data.totals.totalPurchaseAmount >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                                    ₹{(data.totals.totalSaleAmount - data.totals.totalPurchaseAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </td>
+                                        {column.render(day)}
+                                    </td>
+                                ))}
                             </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                {/* Right Side: Filters/Summary Panel */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 lg:col-span-3 h-fit space-y-6">
-                    <div>
-                        <h2 className="text-lg font-bold text-gray-900 uppercase tracking-wider border-b pb-2">FILTERS / METRICS</h2>
-                        <p className="text-xs text-gray-500 mt-1">Aggregated statistics for the month</p>
-                    </div>
-
-                    <div className="space-y-4">
-                        {/* Birds Mortality */}
-                        <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-gray-500 uppercase">Birds Mortality Qty</label>
-                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-gray-900">
-                                {(data.totals.totalMortalityBirds || 0).toLocaleString()} Birds
-                            </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-gray-500 uppercase">Birds Mortality Weight</label>
-                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-gray-900">
-                                {(data.totals.totalMortalityWeight || 0).toLocaleString()} Kg
-                            </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-gray-500 uppercase">Birds Mortality Amount</label>
-                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-red-600">
-                                ₹{(data.totals.totalMortalityAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                            </div>
-                        </div>
-
-                        {/* Actual Weightloss */}
-                        <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-gray-500 uppercase">Actual Weightloss Weight</label>
-                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-gray-900">
-                                {(data.totals.totalWeightLossWeight || 0).toLocaleString()} Kg
-                            </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-gray-500 uppercase">Actual Weightloss Amount</label>
-                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-red-600">
-                                ₹{(data.totals.totalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                            </div>
-                        </div>
-
-                        {/* Natural Weightloss */}
-                        <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-gray-500 uppercase">Natural Weightloss Weight</label>
-                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-gray-900">
-                                {(data.totals.totalNaturalWeightLossWeight || 0).toLocaleString()} Kg
-                            </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-gray-500 uppercase">Natural Weightloss Amount</label>
-                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-red-600">
-                                ₹{(data.totals.totalNaturalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                            </div>
-                        </div>
-
-                        {/* Feed Consume */}
-                        <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-gray-500 uppercase">Feed Consume Qty</label>
-                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-gray-900">
-                                {(data.totals.totalFeedConsumeQty || 0).toLocaleString()} bags
-                            </div>
-                        </div>
-
-                        <div className="space-y-1">
-                            <label className="block text-xs font-semibold text-gray-500 uppercase">Feed Consume Amount</label>
-                            <div className="bg-gray-50 px-3 py-2 rounded-lg text-sm font-semibold text-blue-600">
-                                ₹{(data.totals.totalFeedConsumeAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                        ))}
+                        <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
+                            {activeColumns.map((column) => (
+                                <td
+                                    key={column.key}
+                                    className={`py-3 px-4 text-gray-900 ${
+                                        ['salesAmount', 'salesWeight', 'purchaseAmount', 'purchaseWeight', 'profit',
+                                         'mortalityWeight', 'mortalityAmount', 'actualWeightlossWeight', 'actualWeightlossAmount',
+                                         'naturalWeightlossWeight', 'naturalWeightlossAmount', 'feedConsumeQty', 'feedConsumeAmount'].includes(column.key)
+                                        ? 'text-right'
+                                        : 'text-left'
+                                    }`}
+                                >
+                                    {column.key === 'date' ? 'Grand Total' : (
+                                        column.key === 'purchaseWeight' ? `${Number(data.totals.totalPurchaseWeight || 0).toLocaleString('en-IN')} Kg` :
+                                        column.key === 'purchaseAmount' ? `₹${Number(data.totals.totalPurchaseAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        column.key === 'salesWeight' ? `${Number(data.totals.totalSaleWeight || 0).toLocaleString('en-IN')} Kg` :
+                                        column.key === 'salesAmount' ? `₹${Number(data.totals.totalSaleAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        column.key === 'profit' ? `₹${Number(Number(data.totals.totalSaleAmount || 0) - Number(data.totals.totalPurchaseAmount || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        column.key === 'mortalityBirds' ? `${Number(data.totals.totalMortalityBirds || 0).toLocaleString('en-IN')} Birds` :
+                                        column.key === 'mortalityWeight' ? `${Number(data.totals.totalMortalityWeight || 0).toLocaleString('en-IN')} Kg` :
+                                        column.key === 'mortalityAmount' ? `₹${Number(data.totals.totalMortalityAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        column.key === 'actualWeightlossWeight' ? `${Number(data.totals.totalWeightLossWeight || 0).toLocaleString('en-IN')} Kg` :
+                                        column.key === 'actualWeightlossAmount' ? `₹${Number(data.totals.totalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        column.key === 'naturalWeightlossWeight' ? `${Number(data.totals.totalNaturalWeightLossWeight || 0).toLocaleString('en-IN')} Kg` :
+                                        column.key === 'naturalWeightlossAmount' ? `₹${Number(data.totals.totalNaturalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        column.key === 'feedConsumeQty' ? `${Number(data.totals.totalFeedConsumeQty || 0).toLocaleString('en-IN')} bags` :
+                                        column.key === 'feedConsumeAmount' ? `₹${Number(data.totals.totalFeedConsumeAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        ''
+                                    )}
+                                </td>
+                            ))}
+                        </tr>
+                    </tbody>
+                </table>
             </div>
         </div>
     );
