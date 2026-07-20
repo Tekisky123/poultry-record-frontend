@@ -87,6 +87,7 @@ import BirdsWeightLossDailySummary from './pages/BirdsWeightLossDailySummary';
 import FeedStockMonthlySummary from './pages/FeedStockMonthlySummary';
 import FeedStockDailySummary from './pages/FeedStockDailySummary';
 import FeedStockRecord from './pages/FeedStockRecord';
+import PurchaseAccountsMonthlySummary from './pages/PurchaseAccountsMonthlySummary';
 
 import BottomNavigation from './components/BottomNavigation';
 
@@ -281,6 +282,8 @@ const AppContent = () => {
 
               <Route path="/birds-weight-loss/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BirdsWeightLossMonthlySummary /></ProtectedRoute>} />
               <Route path="/birds-weight-loss/daily-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><BirdsWeightLossDailySummary /></ProtectedRoute>} />
+
+              <Route path="/purchase-accounts/monthly-summary" element={<ProtectedRoute allowedRoles={["admin", "superadmin"]}><PurchaseAccountsMonthlySummary /></ProtectedRoute>} />
 
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>

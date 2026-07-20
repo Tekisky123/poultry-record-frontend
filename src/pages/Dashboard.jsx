@@ -45,6 +45,11 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
     const lowerName = group.name ? group.name.toLowerCase() : "";
     const lowerParentName = parentName ? parentName.toLowerCase() : "";
 
+    if (lowerName === "purchase accounts" || group.slug === "purchase-accounts") {
+      navigate(`/purchase-accounts/monthly-summary?groupId=${groupId}&startDate=${startDate}&endDate=${endDate}`);
+      return;
+    }
+
     if (lowerName.includes("live poultry birds") && lowerName.includes("purchase")) {
       navigate(`/live-poultry-purchase/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
@@ -121,7 +126,7 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
       </div>
 
       {/* Direct Children (render recursively) */}
-      {hasChildren && (
+      {hasChildren && (group.name || '').toLowerCase() !== 'purchase accounts' && (
         <div className="ml-1">
           {group.children.map((child) => (
             <GroupNode
@@ -302,7 +307,7 @@ export default function ProfitAndLoss() {
         result.push({ name, balance, level });
 
         // Include one level of children
-        if (level === 0 && group.children && group.children.length > 0) {
+        if (level === 0 && group.children && group.children.length > 0 && (group.name || '').toLowerCase() !== 'purchase accounts') {
           group.children.forEach(child => {
             const childBalance = Math.abs(child.balance || 0);
             result.push({
@@ -445,7 +450,7 @@ export default function ProfitAndLoss() {
 
   // ── Sort order (includes both direct and indirect names) ──
   const expensesOrder = ['Opening Stock', 'Purchase Accounts', 'Direct Expenses', 'Indirect Expenses'];
-  const incomeOrder  = ['Sales Accounts', 'Closing Stock', 'Direct Income', 'Direct Incomes', 'Indirect Income', 'Indirect Incomes'];
+  const incomeOrder = ['Sales Accounts', 'Closing Stock', 'Direct Income', 'Direct Incomes', 'Indirect Income', 'Indirect Incomes'];
 
   const sortGroups = (groups, orderArray) =>
     [...groups].sort((a, b) => {
@@ -457,27 +462,27 @@ export default function ProfitAndLoss() {
     });
 
   const sortedExpenses = sortGroups(profitAndLoss.expenses.groups, expensesOrder);
-  const sortedIncome  = sortGroups(profitAndLoss.income.groups,  incomeOrder);
+  const sortedIncome = sortGroups(profitAndLoss.income.groups, incomeOrder);
 
   // ── Split: direct (gross section) vs indirect (net section) ──
-  const directExpenseGroups   = sortedExpenses.filter(g => !g.name.toLowerCase().includes('indirect'));
-  const indirectExpenseGroups = sortedExpenses.filter(g =>  g.name.toLowerCase().includes('indirect'));
-  const directIncomeGroups    = sortedIncome.filter(g =>  !g.name.toLowerCase().includes('indirect'));
-  const indirectIncomeGroups  = sortedIncome.filter(g =>   g.name.toLowerCase().includes('indirect'));
+  const directExpenseGroups = sortedExpenses.filter(g => !g.name.toLowerCase().includes('indirect'));
+  const indirectExpenseGroups = sortedExpenses.filter(g => g.name.toLowerCase().includes('indirect'));
+  const directIncomeGroups = sortedIncome.filter(g => !g.name.toLowerCase().includes('indirect'));
+  const indirectIncomeGroups = sortedIncome.filter(g => g.name.toLowerCase().includes('indirect'));
 
   // ── Gross P&L ──
-  const topLeftTotal  = directExpenseGroups.reduce((s, g)  => s + Math.abs(g.balance || 0), 0);
-  const topRightTotal = directIncomeGroups.reduce((s, g)   => s + Math.abs(g.balance || 0), 0);
-  const grossDiff   = topRightTotal - topLeftTotal;
+  const topLeftTotal = directExpenseGroups.reduce((s, g) => s + Math.abs(g.balance || 0), 0);
+  const topRightTotal = directIncomeGroups.reduce((s, g) => s + Math.abs(g.balance || 0), 0);
+  const grossDiff = topRightTotal - topLeftTotal;
   const grossProfit = grossDiff > 0 ? grossDiff : 0;
-  const grossLoss   = grossDiff < 0 ? Math.abs(grossDiff) : 0;
+  const grossLoss = grossDiff < 0 ? Math.abs(grossDiff) : 0;
 
   // ── Net P&L ──
-  const bottomLeftTotal  = indirectExpenseGroups.reduce((s, g) => s + Math.abs(g.balance || 0), 0);
-  const bottomRightTotal = indirectIncomeGroups.reduce((s, g)  => s + Math.abs(g.balance || 0), 0);
-  const netDiff   = (bottomRightTotal - bottomLeftTotal) + grossProfit - grossLoss;
+  const bottomLeftTotal = indirectExpenseGroups.reduce((s, g) => s + Math.abs(g.balance || 0), 0);
+  const bottomRightTotal = indirectIncomeGroups.reduce((s, g) => s + Math.abs(g.balance || 0), 0);
+  const netDiff = (bottomRightTotal - bottomLeftTotal) + grossProfit - grossLoss;
   const netProfit = netDiff > 0 ? netDiff : 0;
-  const netLoss   = netDiff < 0 ? Math.abs(netDiff) : 0;
+  const netLoss = netDiff < 0 ? Math.abs(netDiff) : 0;
 
   const fmt = (n) => (n || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -589,8 +594,8 @@ export default function ProfitAndLoss() {
               <div className="space-y-1 min-h-[100px]">
                 {indirectExpenseGroups.length > 0
                   ? indirectExpenseGroups.map((group) => (
-                      <GroupNode key={group.id || group._id} group={group} level={0} />
-                    ))
+                    <GroupNode key={group.id || group._id} group={group} level={0} />
+                  ))
                   : <p className="text-sm text-gray-400 italic py-2">No indirect expenses</p>
                 }
               </div>
@@ -600,8 +605,8 @@ export default function ProfitAndLoss() {
               <div className="space-y-1 min-h-[100px]">
                 {indirectIncomeGroups.length > 0
                   ? indirectIncomeGroups.map((group) => (
-                      <GroupNode key={group.id || group._id} group={group} level={0} />
-                    ))
+                    <GroupNode key={group.id || group._id} group={group} level={0} />
+                  ))
                   : <p className="text-sm text-gray-400 italic py-2">No indirect income</p>
                 }
               </div>
