@@ -16,6 +16,14 @@ const formatDate = (dateString) => {
 
 export const downloadVendorLedgerExcel = (ledgerData, vendorName, isFeedCreditor = false) => {
     try {
+        const getParticularLabel = (entry) => {
+            if ((entry.type === 'PAYMENT' || entry.type === 'RECEIPT') && entry.paymentMode) {
+                return entry.paymentMode;
+            }
+
+            return entry.particulars || '';
+        };
+
         // Prepare data for Excel export
         const excelData = ledgerData.map((entry) => {
             // Handle Opening Balance row specifically if needed, or just map it
@@ -26,7 +34,7 @@ export const downloadVendorLedgerExcel = (ledgerData, vendorName, isFeedCreditor
             if (isFeedCreditor) {
                 return {
                     'Date': formatDate(entry.liftingDate || entry.date),
-                    'Particular': entry.particulars || '',
+                    'Particular': getParticularLabel(entry),
                     'No. Of Bags': entry.bags || '-',
                     'Quantity (Kg)': isOpening ? '-' : (Number(entry.weight) || 0),
                     'Rate (per Kg)': isOpening ? '-' : (Number(entry.rate) || 0),
@@ -42,7 +50,7 @@ export const downloadVendorLedgerExcel = (ledgerData, vendorName, isFeedCreditor
                     'Vehicle No': entry.vehicleNo || '-',
                     'Driver Name': entry.driverName || '-',
                     'Supervisor': entry.supervisor || '-',
-                    'Particulars': entry.particulars || '',
+                    'Particulars': getParticularLabel(entry),
                     'DC NO': entry.dcNumber || '-',
                     'Birds': isOpening ? '-' : (entry.birds || 0),
                     'Weight': isOpening ? '-' : (Number(entry.weight) || 0),

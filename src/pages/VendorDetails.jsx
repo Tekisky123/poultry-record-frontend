@@ -240,6 +240,13 @@ const VendorDetails = () => {
     const isDateFilterActive = Boolean(dateFilter.startDate || dateFilter.endDate);
 
     const isFeedCreditor = vendor?.group?.slug === 'feed-creditors' || vendor?.group?.name === 'Feed Creditors';
+    const getParticularLabel = (entry) => {
+        if ((entry.type === 'PAYMENT' || entry.type === 'RECEIPT') && entry.paymentMode) {
+            return entry.paymentMode;
+        }
+
+        return entry.particulars;
+    };
 
     if (loading) {
         return (
@@ -454,7 +461,7 @@ const VendorDetails = () => {
                                             entry.type === 'PAYMENT' ? 'bg-green-100 text-green-800' :
                                                 entry.type === 'OPENING' ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'
                                             }`}>
-                                            {entry.particulars}
+                                            {getParticularLabel(entry)}
                                         </span>
                                         {showNarration && entry.narration && (
                                             <div className="text-xs text-gray-500 mt-1 italic whitespace-normal max-w-[200px]">
