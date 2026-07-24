@@ -265,8 +265,8 @@ export default function StockDailySummary() {
             }
         }
 
-        // Sort descending (newest first)
-        days.sort((a, b) => new Date(b.formattedDate) - new Date(a.formattedDate));
+        // Sort ascending (oldest first)
+        days.sort((a, b) => new Date(a.formattedDate) - new Date(b.formattedDate));
         return days;
     }, [data, year, month]);
 
