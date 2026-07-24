@@ -48,7 +48,18 @@ const ManageStocks = () => {
     const [isSaving, setIsSaving] = useState(false);
     const isSavingRef = useRef(false);
 
-    const defaultDate = dateParam || new Date().toISOString().split('T')[0];
+    // Helper: convert a DB date value to local YYYY-MM-DD string.
+    // Using .toISOString() shifts IST dates to the previous UTC day, causing wrong comparisons.
+    const toLocalDateStr = (dateVal) => {
+        if (!dateVal) return '';
+        const d = new Date(dateVal);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const defaultDate = dateParam || toLocalDateStr(new Date());
 
     const [purchaseData, setPurchaseData] = useState({
         vendorId: '',
@@ -147,6 +158,8 @@ const ManageStocks = () => {
     const [showFeedPurchaseModal, setShowFeedPurchaseModal] = useState(false);
     const [feedPurchaseData, setFeedPurchaseData] = useState({
         vendorId: '',
+        ledgerId: '',
+        ledgerName: '',
         bags: '',
         weight: '',
         rate: '',
@@ -156,14 +169,15 @@ const ManageStocks = () => {
 
     // Auto-calculate Feed Purchase Amount
     useEffect(() => {
+        const bags = Number(feedPurchaseData.bags) || 0;
         const weight = Number(feedPurchaseData.weight) || 0;
         const rate = Number(feedPurchaseData.rate) || 0;
 
         setFeedPurchaseData(prev => ({
             ...prev,
-            amount: Number((weight * rate).toFixed(2))
+            amount: Number((bags * weight * rate).toFixed(2))
         }));
-    }, [feedPurchaseData.weight, feedPurchaseData.rate]);
+    }, [feedPurchaseData.bags, feedPurchaseData.weight, feedPurchaseData.rate]);
 
     const [showFeedConsumeModal, setShowFeedConsumeModal] = useState(false);
     const [feedConsumeData, setFeedConsumeData] = useState({
@@ -242,23 +256,11 @@ const ManageStocks = () => {
         }
     }, [dateParam]);
 
-    // Helper: convert a DB date value to local YYYY-MM-DD string.
-    // Using .toISOString() shifts IST dates to the previous UTC day, causing wrong comparisons.
-    // This function uses the browser's local timezone instead.
-    const toLocalDateStr = (dateVal) => {
-        if (!dateVal) return '';
-        const d = new Date(dateVal);
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, '0');
-        const day = String(d.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-    };
-
     const fetchInitialData = async () => {
 
         setLoading(true);
         try {
-            const targetDate = dateParam || new Date().toISOString().split('T')[0];
+            const targetDate = dateParam || toLocalDateStr(new Date());
             const prevDateObj = new Date(targetDate);
             prevDateObj.setDate(prevDateObj.getDate() - 1);
             const prevDateStr = prevDateObj.toISOString().split('T')[0];
@@ -706,16 +708,20 @@ const ManageStocks = () => {
         isSavingRef.current = true;
         setIsSaving(true);
         try {
+            const { vendorId, ledgerName, ...feedPurchasePayload } = feedPurchaseData;
+            const selectedLedgerId = feedPurchaseData.ledgerId || feedPurchaseData.vendorId;
             if (isEditMode && currentStockId) {
                 await api.put(`/inventory-stock/${currentStockId}`, {
-                    ...feedPurchaseData,
+                    ...feedPurchasePayload,
+                    ledgerId: selectedLedgerId,
                     inventoryType: 'feed',
                     birds: 0
                 });
                 alert("Feed Purchase updated successfully!");
             } else {
                 await api.post('/inventory-stock/purchase', {
-                    ...feedPurchaseData,
+                    ...feedPurchasePayload,
+                    ledgerId: selectedLedgerId,
                     inventoryType: 'feed',
                     birds: 0
                 });
@@ -724,10 +730,13 @@ const ManageStocks = () => {
             setShowFeedPurchaseModal(false);
             setFeedPurchaseData({
                 vendorId: '',
+                ledgerId: '',
+                ledgerName: '',
+                bags: '',
                 weight: '',
                 rate: '',
                 amount: 0,
-                date: new Date().toISOString().split('T')[0]
+                date: toLocalDateStr(new Date())
             });
             setIsEditMode(false);
             setCurrentStockId(null);
@@ -767,7 +776,7 @@ const ManageStocks = () => {
                 weight: '',
                 rate: '',
                 amount: 0,
-                date: new Date().toISOString().split('T')[0]
+                date: toLocalDateStr(new Date())
             });
             setIsEditMode(false);
             setCurrentStockId(null);
@@ -806,6 +815,37 @@ const ManageStocks = () => {
     // Helper to get bank ledgers
     const bankLedgers = ledgers.filter(l => l.group?.name?.toLowerCase().includes('bank'));
     const cashLedgers = ledgers.filter(l => l.group?.name?.toLowerCase().includes('cash'));
+    const feedCreditorLedgers = ledgers.filter(ledger => {
+        const groupName = ledger.group?.name?.toLowerCase() || '';
+        const groupSlug = ledger.group?.slug?.toLowerCase() || '';
+        return ledger.isActive !== false && (groupSlug === 'feed-creditors' || groupName === 'feed creditors' || groupName.includes('feed creditor'));
+    });
+
+    const getRecordId = (record) => {
+        const id = record?._id || record?.id || record;
+        return id?.toString?.() || id || '';
+    };
+    const feedCreditorOptions = [...feedCreditorLedgers];
+    const savedFeedLedger = ledgers.find(
+        (ledger) => getRecordId(ledger) === getRecordId(feedPurchaseData.ledgerId)
+    );
+    if (feedPurchaseData.ledgerId && !feedCreditorOptions.some(
+        (ledger) => getRecordId(ledger) === getRecordId(feedPurchaseData.ledgerId)
+    )) {
+        feedCreditorOptions.push({
+            _id: feedPurchaseData.ledgerId,
+            name: feedPurchaseData.ledgerName || savedFeedLedger?.name || 'Saved feed creditor'
+        });
+    }
+    const handleFeedCreditorLedgerSelect = (ledgerId) => {
+        const selectedLedger = feedCreditorOptions.find(ledger => getRecordId(ledger) === ledgerId);
+        setFeedPurchaseData(prev => ({
+            ...prev,
+            ledgerId,
+            vendorId: ledgerId,
+            ledgerName: selectedLedger?.name || ''
+        }));
+    };
 
     // Vendor Search Logic
     const filteredVendors = vendors.filter(vendor => {
@@ -1214,11 +1254,14 @@ const ManageStocks = () => {
                         <button
                             onClick={() => {
                                 setFeedPurchaseData({
-                                    vendorId: '',
-                                    weight: '',
+                vendorId: '',
+                ledgerId: '',
+                ledgerName: '',
+                bags: '',
+                weight: '',
                                     rate: '',
                                     amount: 0,
-                                    date: new Date().toISOString().split('T')[0]
+                                    date: defaultDate
                                 });
                                 setShowFeedPurchaseModal(true);
                             }}
@@ -1268,65 +1311,24 @@ const ManageStocks = () => {
                                 />
                             </div>
 
-                            {/* Vendor Search Dropdown for Feed Creditors */}
-                            <div className="relative">
-                                <label className="block text-sm font-medium mb-1">Vendor (Feed Creditors)</label>
-                                <div className="relative">
-                                    <div className="flex items-center border rounded p-2 bg-white">
-                                        <Search className="text-gray-400 mr-2" size={20} />
-                                        <input
-                                            type="text"
-                                            placeholder="Search Feed Vendor..."
-                                            value={selectedVendor && feedPurchaseData.vendorId === (selectedVendor._id || selectedVendor.id) ? selectedVendor.vendorName : vendorSearchTerm}
-                                            onChange={(e) => {
-                                                setVendorSearchTerm(e.target.value);
-                                                setSelectedVendor(null);
-                                                setFeedPurchaseData(prev => ({ ...prev, vendorId: '' }));
-                                                setShowVendorDropdown(true);
-                                            }}
-                                            onFocus={() => setShowVendorDropdown(true)}
-                                            className="w-full outline-none"
-                                        />
-                                        {selectedVendor && feedPurchaseData.vendorId === (selectedVendor._id || selectedVendor.id) && (
-                                            <button type="button" onClick={() => {
-                                                setSelectedVendor(null);
-                                                setFeedPurchaseData(prev => ({ ...prev, vendorId: '' }));
-                                                setVendorSearchTerm('');
-                                            }}>
-                                                <X size={16} className="text-gray-500" />
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    {showVendorDropdown && (
-                                        <div className="absolute z-10 w-full bg-white border rounded shadow-lg max-h-60 overflow-y-auto mt-1">
-                                            {vendors
-                                                .filter(v => v.group?.slug === 'feed-creditors' || v.group?.name?.toLowerCase().includes('feed'))
-                                                .filter(v =>
-                                                    (v.vendorName || '').toLowerCase().includes(vendorSearchTerm.toLowerCase()) ||
-                                                    (v.contactNumber || '').includes(vendorSearchTerm)
-                                                )
-                                                .map((vendor, index) => (
-                                                    <div
-                                                        key={vendor._id || vendor.id}
-                                                        onClick={() => {
-                                                            setSelectedVendor(vendor);
-                                                            setFeedPurchaseData(prev => ({ ...prev, vendorId: vendor._id || vendor.id }));
-                                                            setShowVendorDropdown(false);
-                                                            setVendorSearchTerm('');
-                                                        }}
-                                                        className="p-2 hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
-                                                    >
-                                                        <div className="font-medium">{vendor.vendorName}</div>
-                                                        <div className="text-xs text-gray-500">{vendor.place || vendor.city} - {vendor.contactNumber}</div>
-                                                    </div>
-                                                ))}
-                                            {vendors.filter(v => v.group?.slug === 'feed-creditors' || v.group?.name?.toLowerCase().includes('feed')).length === 0 && (
-                                                <div className="p-2 text-gray-500 text-center">No Feed Vendors found</div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
+                            <div>
+                                <label className="block text-sm font-medium mb-1">Vendor <span className="text-red-500">*</span></label>
+                                <select
+                                    value={feedPurchaseData.ledgerId || feedPurchaseData.vendorId}
+                                    onChange={(e) => handleFeedCreditorLedgerSelect(e.target.value)}
+                                    className="w-full border rounded p-2 bg-white"
+                                    required
+                                >
+                                    <option value="">Select feed creditor...</option>
+                                    {feedCreditorOptions.map((ledger) => (
+                                        <option key={getRecordId(ledger)} value={getRecordId(ledger)}>
+                                            {ledger.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                {feedCreditorLedgers.length === 0 && (
+                                    <p className="mt-1 text-xs text-gray-500">No Feed Creditors ledgers found.</p>
+                                )}
                             </div>
 
                             <div>
@@ -1364,8 +1366,8 @@ const ManageStocks = () => {
                             </div>
                             <button
                                 type="submit"
-                                disabled={!feedPurchaseData.vendorId}
-                                className={`w-full text-white py-2 rounded ${!feedPurchaseData.vendorId ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+                                disabled={!(feedPurchaseData.ledgerId || feedPurchaseData.vendorId)}
+                                className={`w-full text-white py-2 rounded ${!(feedPurchaseData.ledgerId || feedPurchaseData.vendorId) ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
                             >
                                 Save Feed Purchase
                             </button>
@@ -1963,14 +1965,22 @@ const ManageStocks = () => {
                                                                         setIsEditMode(true);
                                                                         setCurrentStockId(stockToEdit._id);
 
-                                                                        const vId = stockToEdit.vendorId?._id || stockToEdit.vendorId;
-                                                                        const foundVendor = vendors.find(v => (v._id || v.id) === vId);
-                                                                        if (foundVendor) {
-                                                                            setSelectedVendor(foundVendor);
-                                                                        }
+                                                                        const savedLedger = stockToEdit.ledgerId || stockToEdit.vendorId;
+                                                                        const ledgerId = getRecordId(savedLedger);
+                                                                        // Older feed purchases may not have a ledger saved. If there is
+                                                                        // exactly one feed creditor, preselect it for correction on update.
+                                                                        const fallbackLedger = !ledgerId && feedCreditorLedgers.length === 1
+                                                                            ? feedCreditorLedgers[0]
+                                                                            : null;
+                                                                        const selectedLedgerId = ledgerId || getRecordId(fallbackLedger);
+                                                                        const ledgerName = savedLedger?.name || savedLedger?.ledgerName || savedLedger?.vendorName ||
+                                                                            ledgers.find((ledger) => getRecordId(ledger) === selectedLedgerId)?.name ||
+                                                                            fallbackLedger?.name || '';
 
                                                                         setFeedPurchaseData({
-                                                                            vendorId: vId || '',
+                                                                            vendorId: selectedLedgerId,
+                                                                            ledgerId: selectedLedgerId,
+                                                                            ledgerName,
                                                                             weight: stockToEdit.weight,
                                                                             rate: stockToEdit.rate,
                                                                             amount: stockToEdit.amount,
@@ -2810,38 +2820,22 @@ const ManageStocks = () => {
                             <form onSubmit={handleFeedPurchaseSubmit} className="space-y-4">
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Vendor <span className="text-red-500">*</span></label>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            value={selectedVendor ? `${selectedVendor.vendorName}` : vendorSearchTerm}
-                                            onChange={(e) => {
-                                                setVendorSearchTerm(e.target.value);
-                                                setSelectedVendor(null);
-                                                setFeedPurchaseData(prev => ({ ...prev, vendorId: '' }));
-                                            }}
-                                            onFocus={() => setShowVendorDropdown(true)}
-                                            onBlur={() => setTimeout(() => setShowVendorDropdown(false), 200)}
-                                            placeholder="Search vendor..."
-                                            className="w-full border p-2 rounded"
-                                        />
-                                        {showVendorDropdown && filteredVendors.length > 0 && (
-                                            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-40 overflow-y-auto">
-                                                {filteredVendors.map((vendor) => (
-                                                    <div
-                                                        key={vendor._id || vendor.id}
-                                                        onMouseDown={() => {
-                                                            setSelectedVendor(vendor);
-                                                            setFeedPurchaseData(prev => ({ ...prev, vendorId: vendor._id || vendor.id }));
-                                                            setShowVendorDropdown(false);
-                                                        }}
-                                                        className="px-3 py-2 cursor-pointer hover:bg-gray-100"
-                                                    >
-                                                        {vendor.vendorName}
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
+                                    <select
+                                        value={feedPurchaseData.ledgerId || feedPurchaseData.vendorId}
+                                        onChange={(e) => handleFeedCreditorLedgerSelect(e.target.value)}
+                                        className="w-full border p-2 rounded bg-white"
+                                        required
+                                    >
+                                        <option value="">Select feed creditor...</option>
+                                        {feedCreditorOptions.map((ledger) => (
+                                            <option key={getRecordId(ledger)} value={getRecordId(ledger)}>
+                                                {ledger.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    {feedCreditorLedgers.length === 0 && (
+                                        <p className="mt-1 text-xs text-gray-500">No Feed Creditors ledgers found.</p>
+                                    )}
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Date</label>
@@ -2898,7 +2892,7 @@ const ManageStocks = () => {
                                         className="w-full border rounded p-2 bg-gray-100"
                                     />
                                 </div>
-                                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50" disabled={isSaving}>
+                                <button type="submit" className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50" disabled={isSaving || !(feedPurchaseData.ledgerId || feedPurchaseData.vendorId)}>
                                     {isSaving ? 'Saving...' : (isEditMode ? 'Update Purchase' : 'Add Purchase')}
                                 </button>
                             </form>
