@@ -5,10 +5,14 @@ import * as XLSX from 'xlsx';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function PurchaseAccountsMonthlySummary() {
+export default function PurchaseAccountsMonthlySummary({ accountType = 'purchase' }) {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const { user } = useAuth();
+    const isPurchase = accountType === 'purchase';
+    const accountLabel = isPurchase ? 'Purchase Accounts' : 'Sales Accounts';
+    const accountTitle = isPurchase ? 'Purchase Accounts Monthly Summary' : 'Sales Accounts Monthly Summary';
+    const accountFileLabel = isPurchase ? 'Purchase_Accounts' : 'Sales_Accounts';
     
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -53,22 +57,22 @@ export default function PurchaseAccountsMonthlySummary() {
             const res = await api.get('/group');
             if (res.data && res.data.data) {
                 const groupList = res.data.data;
-                const match = groupList.find(g => g.name.toLowerCase().trim() === 'purchase accounts');
+                const match = groupList.find(g => g.name.toLowerCase().trim() === accountLabel.toLowerCase());
                 if (match) {
                     setGroupId(match._id || match.id);
                 } else {
-                    setError('Purchase Accounts group not found');
+                    setError(`${accountLabel} group not found`);
                     setLoading(false);
                 }
             }
         } catch (err) {
             console.error('Error fetching groups:', err);
-            setError('Failed to resolve Purchase Accounts group ID');
+            setError(`Failed to resolve ${accountLabel} group ID`);
             setLoading(false);
         }
     };
 
-    // Fetch the Birds Purchase ledger once group ID is available
+    // Fetch the matching account ledger once group ID is available
     useEffect(() => {
         if (groupId) {
             fetchLedgers();
@@ -81,18 +85,24 @@ export default function PurchaseAccountsMonthlySummary() {
             const res = await api.get(`/ledger/group/${groupId}`);
             if (res.data && res.data.data) {
                 const ledgers = res.data.data;
-                const birdsPurchaseLedger = ledgers.find(l => l.name.toLowerCase().includes('birds purchase') || l.slug === 'birds-purchase') || ledgers[0];
+                const targetLedger = ledgers.find(l => {
+                    const name = l.name.toLowerCase();
+                    const slug = (l.slug || '').toLowerCase();
+                    return isPurchase
+                        ? name.includes('birds purchase') || slug === 'birds-purchase'
+                        : name.includes('sales') || slug.includes('sales');
+                }) || ledgers[0];
                 
-                if (birdsPurchaseLedger) {
-                    setLedgerId(birdsPurchaseLedger.id || birdsPurchaseLedger._id);
+                if (targetLedger) {
+                    setLedgerId(targetLedger.id || targetLedger._id);
                 } else {
-                    setError('Birds Purchase ledger not found');
+                    setError(`${isPurchase ? 'Purchase' : 'Sales'} ledger not found`);
                     setLoading(false);
                 }
             }
         } catch (err) {
             console.error('Error fetching ledgers by group:', err);
-            setError('Failed to fetch ledgers under Purchase Accounts');
+            setError(`Failed to fetch ledgers under ${accountLabel}`);
             setLoading(false);
         }
     };
@@ -123,7 +133,7 @@ export default function PurchaseAccountsMonthlySummary() {
             }
         } catch (err) {
             console.error('Error fetching transactions:', err);
-            setError(err.response?.data?.message || 'Failed to fetch purchase transactions');
+            setError(err.response?.data?.message || `Failed to fetch ${isPurchase ? 'purchase' : 'sales'} transactions`);
         } finally {
             setLoading(false);
         }
@@ -184,7 +194,7 @@ export default function PurchaseAccountsMonthlySummary() {
 
     const handleMonthClick = (month) => {
         if (!ledgerId) return;
-        navigate(`/monthly-summary/ledger/${ledgerId}?startDate=${month.startDate}&endDate=${month.endDate}&groupName=Purchase Accounts`);
+        navigate(`/monthly-summary/ledger/${ledgerId}?startDate=${month.startDate}&endDate=${month.endDate}&groupName=${encodeURIComponent(accountLabel)}`);
     };
 
     const handleExportToExcel = () => {
@@ -207,8 +217,8 @@ export default function PurchaseAccountsMonthlySummary() {
 
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "Purchase Accounts Summary");
-        XLSX.writeFile(wb, `Purchase_Accounts_Monthly_Summary_FY${year}_${year + 1}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, `${accountLabel} Summary`);
+        XLSX.writeFile(wb, `${accountFileLabel}_Monthly_Summary_FY${year}_${year + 1}.xlsx`);
     };
 
     if (loading && transactions.length === 0) {
@@ -242,7 +252,7 @@ export default function PurchaseAccountsMonthlySummary() {
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-3xl font-bold text-gray-900">Purchase Accounts Monthly Summary</h1>
+                        <h1 className="text-3xl font-bold text-gray-900">{accountTitle}</h1>
                         <p className="text-gray-600 mt-1">Breakdown of Birds, Weight, and Amount by Month</p>
                     </div>
                 </div>

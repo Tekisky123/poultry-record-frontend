@@ -5,6 +5,11 @@ import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 
+const shouldHideChildren = (groupName) => {
+  const normalizedName = (groupName || '').toLowerCase();
+  return normalizedName === 'purchase accounts' || normalizedName === 'sales accounts';
+};
+
 // Render group node with infinite level of nesting (memoized for performance)
 const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
   const navigate = useNavigate();
@@ -47,6 +52,11 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
 
     if (lowerName === "purchase accounts" || group.slug === "purchase-accounts") {
       navigate(`/purchase-accounts/monthly-summary?groupId=${groupId}&startDate=${startDate}&endDate=${endDate}`);
+      return;
+    }
+
+    if (lowerName === "sales accounts" || group.slug === "sales-accounts") {
+      navigate(`/sales-accounts/monthly-summary?groupId=${groupId}&startDate=${startDate}&endDate=${endDate}`);
       return;
     }
 
@@ -126,7 +136,7 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
       </div>
 
       {/* Direct Children (render recursively) */}
-      {hasChildren && (group.name || '').toLowerCase() !== 'purchase accounts' && (
+      {hasChildren && !shouldHideChildren(group.name) && (
         <div className="ml-1">
           {group.children.map((child) => (
             <GroupNode
@@ -307,7 +317,7 @@ export default function ProfitAndLoss() {
         result.push({ name, balance, level });
 
         // Include one level of children
-        if (level === 0 && group.children && group.children.length > 0 && (group.name || '').toLowerCase() !== 'purchase accounts') {
+        if (level === 0 && group.children && group.children.length > 0 && !shouldHideChildren(group.name)) {
           group.children.forEach(child => {
             const childBalance = Math.abs(child.balance || 0);
             result.push({
