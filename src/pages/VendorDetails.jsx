@@ -429,33 +429,27 @@ const VendorDetails = () => {
                         <thead>
                             <tr className="bg-gray-50 border-b border-gray-200">
                                 <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Date</th>
-                                {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Delivery Date</th>}
-                                {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Vehicle No</th>}
-                                {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Driver Name</th>}
-                                {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Supervisor</th>}
                                 <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Particular</th>
-                                {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">DC NO</th>}
+                                {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Bill No</th>}
                                 {isFeedCreditor && <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">No. Of Bags</th>}
                                 {!isFeedCreditor && <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Birds</th>}
-                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Quantity (Kg)</th>
+                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Weight</th>
                                 {!isFeedCreditor && <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Avg</th>}
-                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Rate (per Kg)</th>
-                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Amount (Dr)</th>
-                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Amount (Cr)</th>
-                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Less TDS</th>
+                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Rate</th>
+                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Debit (Sales)</th>
+                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Credit (Receipt)</th>
                                 <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Balance</th>
+                                {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Supplier</th>}
+                                {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Supervisor</th>}
+                                {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Driver</th>}
+                                {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Vehicle No</th>}
                                 {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Trip ID</th>}
-                                {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Voucher No</th>}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-200">
                             {ledger.map((entry, index) => (
                                 <tr key={entry.uniqueId} className="hover:bg-gray-50" ref={index === ledger.length - 1 ? lastEntryRef : null}>
                                     <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{formatDate(entry.liftingDate || entry.date)}</td>
-                                    {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{entry.type === 'OPENING' ? '-' : formatDate(entry.deliveryDate)}</td>}
-                                    {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{entry.vehicleNo}</td>}
-                                    {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{entry.driverName}</td>}
-                                    {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{entry.supervisor}</td>}
                                     <td className="px-3 py-3 text-gray-900 whitespace-nowrap text-xs">
                                         <span className={`px-2 py-1 rounded-full font-medium ${entry.type === 'PURCHASE' ? 'bg-blue-100 text-blue-800' :
                                             entry.type === 'PAYMENT' ? 'bg-green-100 text-green-800' :
@@ -491,17 +485,17 @@ const VendorDetails = () => {
                                             return isCredit ? `₹${(entry.amount || 0).toLocaleString()}` : '-';
                                         })()}
                                     </td>
-                                    <td className="px-3 py-3 text-right text-gray-900 whitespace-nowrap">{entry.type === 'OPENING' ? '-' : (entry.lessTDS || 0).toLocaleString()}</td>
                                     <td className="px-3 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">₹{(entry.balance || 0).toLocaleString()}</td>
+                                    {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{vendor?.vendorName || '-'}</td>}
+                                    {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{entry.supervisor}</td>}
+                                    {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{entry.driverName}</td>}
+                                    {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{entry.vehicleNo}</td>}
                                     {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">
                                         {entry.tripId?.startsWith('TRP') ? (
                                             <Link to={`/trips/${entry._id}`} className="text-blue-600 hover:text-blue-800 hover:underline">
                                                 {entry.tripId}
                                             </Link>
                                         ) : entry.tripId}
-                                    </td>}
-                                    {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">
-                                        {entry.voucherNo}
                                     </td>}
                                 </tr>
                             ))
