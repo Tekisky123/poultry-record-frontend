@@ -18,7 +18,8 @@ import {
   FileText,
   Save,
   Edit,
-  Trash2
+  Trash2,
+  Pencil
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -27,6 +28,7 @@ import { downloadTripPDF } from '../utils/TripDetailsUtils/downloadTripPDF';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
 import EditTripModal from '../components/EditTripModal';
+import TransferTripModal from '../components/TransferTripModal';
 import downloadTripExcel2 from '../utils/TripDetailsUtils/downloadTripExcel2';
 
 export default function TripDetails() {
@@ -46,6 +48,7 @@ export default function TripDetails() {
   const [showStockModal, setShowStockModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [showEditTripModal, setShowEditTripModal] = useState(false);
+  const [editingTransfer, setEditingTransfer] = useState(null);
 
   // Edit states
   const [editingPurchaseIndex, setEditingPurchaseIndex] = useState(null);
@@ -2915,14 +2918,23 @@ export default function TripDetails() {
                             </span>
                           </div>
                         </div>
-                        {(user.role === 'admin' || user.role === 'superadmin') && (
-                          <button
-                            onClick={() => handleDeleteSubItem('transfer', index)}
-                            className="p-1 bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center ml-4 transition-colors"
-                            title="Delete Transfer"
-                          >
-                            <Trash2 size={16} />
-                          </button>
+                        {isAdmin && (
+                          <div className="ml-4 flex items-center gap-2">
+                            <button
+                              onClick={() => setEditingTransfer({ transfer, index })}
+                              className="p-1 bg-orange-500 text-white rounded hover:bg-orange-600 flex items-center justify-center transition-colors"
+                              title="Edit Transfer"
+                            >
+                              <Pencil size={16} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSubItem('transfer', index)}
+                              className="p-1 bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center transition-colors"
+                              title="Delete Transfer"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
                         )}
                       </div>
                     ))}
@@ -4353,6 +4365,23 @@ export default function TripDetails() {
           fetchTrip(); // Refresh trip data
         }}
       />
+
+      {editingTransfer && (
+        <TransferTripModal
+          isOpen={true}
+          onClose={() => setEditingTransfer(null)}
+          trip={trip}
+          tripId={id}
+          editMode={true}
+          editTransfer={editingTransfer.transfer}
+          editIndex={editingTransfer.index}
+          onEditSuccess={async () => {
+            await fetchTrip();
+            setEditingTransfer(null);
+            alert('Transfer updated successfully!');
+          }}
+        />
+      )}
     </div >
   );
 }
