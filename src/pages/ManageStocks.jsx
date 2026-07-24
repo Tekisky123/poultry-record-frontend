@@ -780,7 +780,14 @@ const ManageStocks = () => {
         }
     };
 
-    const handleDeleteStock = async (stockId) => {
+    const handleDeleteStock = async (stockOrId) => {
+        if (stockOrId?.type === 'opening') {
+            alert("Opening stock cannot be edited or deleted from this report.");
+            return;
+        }
+
+        const stockId = typeof stockOrId === 'object' ? stockOrId._id : stockOrId;
+
         if (!window.confirm("WARNING: Are you sure you want to delete this stock entry? This will revert any customer/vendor outstanding balances and bank/cash/expense ledgers affected by this transaction. This action cannot be undone.")) {
             return;
         }
@@ -1418,12 +1425,17 @@ const ManageStocks = () => {
                                         <td className="border p-2">{stock.vehicleId?.vehicleNumber || stock.vehicleNumber || 'N/A'}</td>
                                         <td className="border p-2">{new Date(stock.date).toLocaleDateString()}</td>
                                         <td className="border p-2">
-                                            {stock.source !== 'trip' && (
+                                            {stock.type !== 'opening' && (
                                                 <div className="flex items-center gap-2 justify-center">
                                                     <button
+                                                        type="button"
+                                                        title="Edit purchase"
+                                                        aria-label="Edit purchase"
                                                         onClick={() => {
                                                             if (stock.source === 'trip') {
-                                                                alert("Cannot edit trip stock here.");
+                                                                if (stock.tripId) {
+                                                                    navigate(isSupervisor ? `/supervisor/trips/${stock.tripId}` : `/trips/${stock.tripId}`);
+                                                                }
                                                                 return;
                                                             }
                                                             setIsEditMode(true);
@@ -1449,16 +1461,21 @@ const ManageStocks = () => {
                                                             }
                                                             setShowPurchaseModal(true);
                                                         }}
-                                                        className="text-blue-600 hover:text-blue-800 font-medium"
+                                                        className="text-green-600 hover:text-green-900"
                                                     >
-                                                        EDIT
+                                                        <Edit size={18} />
                                                     </button>
-                                                    <button
-                                                        onClick={() => handleDeleteStock(stock._id)}
-                                                        className="text-red-600 hover:text-red-800 font-medium"
-                                                    >
-                                                        DELETE
-                                                    </button>
+                                                    {stock.source !== 'trip' && (
+                                                        <button
+                                                            type="button"
+                                                            title="Delete purchase"
+                                                            aria-label="Delete purchase"
+                                                            onClick={() => handleDeleteStock(stock)}
+                                                            className="text-red-600 hover:text-red-900"
+                                                        >
+                                                            <Trash2 size={18} />
+                                                        </button>
+                                                    )}
                                                 </div>
                                             )}
                                         </td>
@@ -1529,6 +1546,9 @@ const ManageStocks = () => {
                                     <td className="border p-2">
                                         <div className="flex items-center gap-2 justify-center">
                                             <button
+                                                type="button"
+                                                title={sale.type === 'receipt' ? 'Edit receipt' : 'Edit sale'}
+                                                aria-label={sale.type === 'receipt' ? 'Edit receipt' : 'Edit sale'}
                                                 onClick={() => {
                                                     setIsEditMode(true);
                                                     setCurrentStockId(sale._id);
@@ -1610,15 +1630,18 @@ const ManageStocks = () => {
                                                         setShowSaleModal(true);
                                                     }
                                                 }}
-                                                className="text-blue-600 hover:text-blue-800 font-medium"
+                                                className="text-green-600 hover:text-green-900"
                                             >
-                                                EDIT
+                                                <Edit size={18} />
                                             </button>
                                             <button
-                                                onClick={() => handleDeleteStock(sale._id)}
-                                                className="text-red-600 hover:text-red-800 font-medium"
+                                                type="button"
+                                                title={sale.type === 'receipt' ? 'Delete receipt' : 'Delete sale'}
+                                                aria-label={sale.type === 'receipt' ? 'Delete receipt' : 'Delete sale'}
+                                                onClick={() => handleDeleteStock(sale)}
+                                                className="text-red-600 hover:text-red-900"
                                             >
-                                                DELETE
+                                                <Trash2 size={18} />
                                             </button>
                                         </div>
                                     </td>
