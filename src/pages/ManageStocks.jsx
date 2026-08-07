@@ -169,15 +169,14 @@ const ManageStocks = () => {
 
     // Auto-calculate Feed Purchase Amount
     useEffect(() => {
-        const bags = Number(feedPurchaseData.bags) || 0;
         const weight = Number(feedPurchaseData.weight) || 0;
         const rate = Number(feedPurchaseData.rate) || 0;
 
         setFeedPurchaseData(prev => ({
             ...prev,
-            amount: Number((bags * weight * rate).toFixed(2))
+            amount: Number((weight * rate).toFixed(2))
         }));
-    }, [feedPurchaseData.bags, feedPurchaseData.weight, feedPurchaseData.rate]);
+    }, [feedPurchaseData.weight, feedPurchaseData.rate]);
 
     const [showFeedConsumeModal, setShowFeedConsumeModal] = useState(false);
     const [feedConsumeData, setFeedConsumeData] = useState({
@@ -1679,7 +1678,7 @@ const ManageStocks = () => {
 
                 // 2. BIRDS MORTALITY CALCS
                 const mortBirds = mortalityStock ? Number(mortalityStock.birds) : 0;
-                const mortAvg = totalSaleAvg;
+                const mortAvg = totalSaleAvg > 0 ? totalSaleAvg : (totalAvg > 0 ? totalAvg : grossAvg);
                 const mortWeightComputed = mortBirds * mortAvg;
                 const mortRate = grossRate;
                 const mortTotalComputed = mortRate * mortWeightComputed;
@@ -1690,24 +1689,34 @@ const ManageStocks = () => {
                 const actRate = grossRate;
                 const actTotalComputed = actRate * actWeight;
 
-                // 4. CLOSING STOCK CALCS
-                // FIX Bug 1: Use direct weight subtraction instead of closeBirds * saleAvg.
-                // Closing weight = what's physically left after sales, mortality, and actual weight loss.
-                // This value is what becomes tomorrow's opening weight — it must be accurate.
+                // 4. CLOSING STOCK & NATURAL WEIGHT LOSS / ON CALCS
                 const closeBirds = grossBirds - mortBirds;
-                // FIX: Natural weight loss stock actual value (if entered by user)
-                const enteredNatWeight = naturalWeightLossStock ? Number(naturalWeightLossStock.weight) : 0;
-                // FIX Bug 1: closeWeight = actual remaining weight (direct subtraction, not avg-derived)
-                const closeWeight = grossWeight - mortWeightComputed - actWeight - enteredNatWeight;
+                const enteredNatWeight = naturalWeightLossStock ? Number(naturalWeightLossStock.weight) : null;
+
+                let natWeight = 0;
+                let closeWeight = 0;
+
+                if (enteredNatWeight !== null) {
+                    natWeight = enteredNatWeight;
+                    closeWeight = Math.max(0, grossWeight - mortWeightComputed - actWeight - natWeight);
+                } else {
+                    if (closeBirds <= 0) {
+                        closeWeight = 0;
+                        natWeight = grossWeight - mortWeightComputed - actWeight;
+                    } else {
+                        const expectedAvg = totalSaleAvg > 0 ? totalSaleAvg : totalAvg;
+                        const expectedCloseWeight = closeBirds * expectedAvg;
+                        natWeight = grossWeight - mortWeightComputed - actWeight - expectedCloseWeight;
+                        closeWeight = expectedCloseWeight;
+                    }
+                }
+
                 const closeAvg = closeBirds > 0 ? closeWeight / closeBirds : 0;
                 const closeRate = grossRate;
                 const closeTotal = closeRate * closeWeight;
 
-                // 5. NATURAL WEIGHT LOSS / ON CALCS
-                // FIX Bug 2: If user entered natural weight loss, use that value.
-                // Otherwise compute as residual (what weight can't be explained by other entries).
                 const natBirds = 0;
-                const natWeight = enteredNatWeight;
+                const natAvg = totalAvg > 0 ? totalAvg : (totalSaleAvg > 0 ? totalSaleAvg : (grossAvg > 0 ? grossAvg : 0));
                 const natRate = grossRate;
                 const natTotalComputed = natRate * natWeight;
 
@@ -1897,10 +1906,51 @@ const ManageStocks = () => {
                                             <td className="border p-2 text-left text-gray-700">NATURAL WEIGHT LOSS/ ON</td>
                                             <td className="border p-2 text-gray-400">-</td>
                                             <td className="border p-2 font-bold">{natWeight.toFixed(2)}</td>
-                                            <td className="border p-2 text-gray-400">-</td>
+                                            <td className="border p-2">{natAvg > 0 ? natAvg.toFixed(2) : '-'}</td>
                                             <td className="border p-2">{natRate.toFixed(2)}</td>
                                             <td className="border p-2">{natTotalComputed.toFixed(2)}</td>
-                                            <td className="border p-2"></td>
+                                            <td className="border p-2">
+                                                <div className="flex items-center gap-2 justify-center">
+                                                    <button
+                                                        onClick={() => {
+                                                            setIsEditMode(true);
+                                                            if (naturalWeightLossStock) {
+                                                                setCurrentStockId(naturalWeightLossStock._id);
+                                                                setNaturalWeightLossData({
+                                                                    birds: 0,
+                                                                    weight: naturalWeightLossStock.weight,
+                                                                    rate: naturalWeightLossStock.rate || grossRate,
+                                                                    amount: naturalWeightLossStock.amount || (naturalWeightLossStock.weight * (naturalWeightLossStock.rate || grossRate)),
+                                                                    date: naturalWeightLossStock.date ? new Date(naturalWeightLossStock.date).toISOString().split('T')[0] : defaultDate,
+                                                                    type: 'natural_weight_loss'
+                                                                });
+                                                            } else {
+                                                                setCurrentStockId(null);
+                                                                setNaturalWeightLossData({
+                                                                    birds: 0,
+                                                                    weight: natWeight !== 0 ? natWeight.toFixed(2) : '',
+                                                                    rate: grossRate,
+                                                                    amount: natWeight !== 0 ? Number((natWeight * grossRate).toFixed(2)) : 0,
+                                                                    date: defaultDate,
+                                                                    type: 'natural_weight_loss'
+                                                                });
+                                                            }
+                                                            setShowNaturalWeightLossModal(true);
+                                                        }}
+                                                        className="text-blue-600 hover:text-blue-800 font-medium"
+                                                    >
+                                                        {naturalWeightLossStock ? 'Edit' : 'Add'}
+                                                    </button>
+                                                    {naturalWeightLossStock && (
+                                                        <button
+                                                            onClick={() => handleDeleteStock(naturalWeightLossStock._id)}
+                                                            className="text-red-600 hover:text-red-800 font-medium"
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
                                         </tr>
 
                                         {/* CLOSING STOCK */}

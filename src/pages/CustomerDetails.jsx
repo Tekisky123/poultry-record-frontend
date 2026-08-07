@@ -698,6 +698,7 @@ const CustomerDetails = () => {
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Rate</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Debit</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Credit</th>
+                    <th className="px-3 py-3 text-right font-medium text-gray-700">TDS</th>
                     <th className="px-3 py-3 text-right font-medium text-gray-700">Balance</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Product</th>
                     <th className="px-3 py-3 text-left font-medium text-gray-700">Supervisor</th>
@@ -749,6 +750,9 @@ const CustomerDetails = () => {
                           }
                           return '-';
                         })()}
+                      </td>
+                      <td className="px-3 py-3 text-right text-blue-600 font-medium">
+                        {entry.tds ? `₹${(entry.tds || 0).toLocaleString()}` : '-'}
                       </td>
                       <td className="px-3 py-3 text-right font-semibold text-gray-900">₹{(entry.outstandingBalance || 0).toLocaleString()}</td>
                       <td className="px-3 py-3 text-gray-900">{entry.product || '-'}</td>

@@ -63,6 +63,7 @@ const customerSchema = z.object({
       // If not empty, validate password strength
       return val.length >= 6 && /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(val);
     }, 'Password must contain at least one uppercase letter, one lowercase letter, and one number'),
+  tdsApplicable: z.boolean().default(false)
 });
 
 const getStatusColor = (isActive) => {
@@ -122,6 +123,7 @@ export default function Customers() {
       openingBalanceType: 'debit',
       email: '',
       password: '',
+      tdsApplicable: false,
       group: ''
     }
   });
@@ -330,6 +332,7 @@ export default function Customers() {
     setValue('gstOrPanNumber', customer.gstOrPanNumber || '');
     setValue('openingBalance', customer.openingBalance || 0);
     setValue('openingBalanceType', customer.openingBalanceType || 'debit');
+    setValue('tdsApplicable', customer.tdsApplicable || false);
     setValue('group', customer.group?.id || '');
     // Pre-fill user credentials if available
     if (customer.user) {
@@ -550,6 +553,7 @@ export default function Customers() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">TDS</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -579,6 +583,17 @@ export default function Customers() {
                         </td>
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {customer.address || 'N/A'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {customer.tdsApplicable ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              ✓ Applicable
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                              Not Applicable
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(customer.isActive)}`}>
@@ -745,6 +760,18 @@ export default function Customers() {
                       <span className="text-sm font-medium text-gray-900">
                         {customer.address || 'Not specified'}
                       </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">TDS:</span>
+                      {customer.tdsApplicable ? (
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          ✓ Applicable
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                          Not Applicable
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-500">Status:</span>
@@ -948,6 +975,20 @@ export default function Customers() {
                     ))}
                   </select>
                   {errors.group && <p className="text-red-500 text-xs mt-1">{errors.group.message}</p>}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+                    <input
+                      type="checkbox"
+                      {...register('tdsApplicable')}
+                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    />
+                    <span>TDS applicable</span>
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Enable this if TDS should be applied to this customer&apos;s transactions.
+                  </p>
                 </div>
 
                 <div className="md:col-span-2">

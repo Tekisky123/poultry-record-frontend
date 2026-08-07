@@ -74,7 +74,7 @@ const LedgerDetails = () => {
             if (response.data.success) {
                 const data = response.data.data;
                 setLedgerData(data.ledger);
-                setTransactions([...(data.transactions || [])].reverse());
+                setTransactions(data.transactions || []);
 
                 // Calculate totals
                 const totalDebit = (data.transactions || []).reduce((sum, t) => sum + (t.debit || 0), 0);
