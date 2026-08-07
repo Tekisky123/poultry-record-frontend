@@ -436,8 +436,9 @@ const VendorDetails = () => {
                                 <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Weight</th>
                                 {!isFeedCreditor && <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Avg</th>}
                                 <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Rate</th>
-                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Debit (Sales)</th>
-                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Credit (Receipt)</th>
+                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Debit</th>
+                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Credit</th>
+                                <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">TDS</th>
                                 <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Balance</th>
                                 {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Supplier</th>}
                                 {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Supervisor</th>}
@@ -484,6 +485,9 @@ const VendorDetails = () => {
                                             const isCredit = entry.type === 'PURCHASE' || entry.amountType === 'credit';
                                             return isCredit ? `₹${(entry.amount || 0).toLocaleString()}` : '-';
                                         })()}
+                                    </td>
+                                    <td className="px-3 py-3 text-right text-blue-600 font-medium whitespace-nowrap">
+                                        {entry.type === 'OPENING' ? '-' : (entry.lessTDS || entry.tds ? `₹${(entry.lessTDS || entry.tds || 0).toLocaleString()}` : '-')}
                                     </td>
                                     <td className="px-3 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">₹{(entry.balance || 0).toLocaleString()}</td>
                                     {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{vendor?.vendorName || '-'}</td>}

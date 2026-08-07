@@ -1,12 +1,38 @@
 // Utility functions for voucher export functionality
 
+export const getDebitAndCreditParties = (voucher) => {
+  let debitParty = '-';
+  let creditParty = '-';
+
+  if (!voucher) return { debitParty, creditParty };
+
+  if (voucher.voucherType === 'Payment') {
+    debitParty = voucher.partyName || (voucher.parties && voucher.parties.length > 0 ? voucher.parties.map(p => p.partyName || p.partyId?.shopName || p.partyId?.vendorName || p.partyId?.name).filter(Boolean).join(', ') : 'N/A');
+    creditParty = voucher.account?.name || voucher.accountName || 'Cash/Bank Account';
+  } else if (voucher.voucherType === 'Receipt') {
+    debitParty = voucher.account?.name || voucher.accountName || 'Cash/Bank Account';
+    creditParty = voucher.partyName || (voucher.parties && voucher.parties.length > 0 ? voucher.parties.map(p => p.partyName || p.partyId?.shopName || p.partyId?.vendorName || p.partyId?.name).filter(Boolean).join(', ') : 'N/A');
+  } else if (voucher.entries && voucher.entries.length > 0) {
+    const debits = voucher.entries.filter(e => Number(e.debitAmount) > 0).map(e => e.account);
+    const credits = voucher.entries.filter(e => Number(e.creditAmount) > 0).map(e => e.account);
+    debitParty = debits.length > 0 ? debits.join(', ') : '-';
+    creditParty = credits.length > 0 ? credits.join(', ') : '-';
+  } else {
+    debitParty = voucher.partyName || 'N/A';
+    creditParty = voucher.account?.name || 'N/A';
+  }
+
+  return { debitParty, creditParty };
+};
+
 export const exportVouchersToExcel = (vouchers, filename = 'vouchers') => {
   // Create CSV content
   const headers = [
     'Voucher Number',
     'Date',
     'Voucher Type',
-    'Party Name',
+    'Debit Party',
+    'Credit Party',
     'Total Debit',
     'Total Credit',
     'Narration',
@@ -17,18 +43,22 @@ export const exportVouchersToExcel = (vouchers, filename = 'vouchers') => {
 
   const csvContent = [
     headers.join(','),
-    ...vouchers.map(voucher => [
-      voucher.voucherNumber || '',
-      new Date(voucher.date).toLocaleDateString(),
-      voucher.voucherType || '',
-      voucher.partyName || '',
-      voucher.totalDebit || 0,
-      voucher.totalCredit || 0,
-      `"${(voucher.narration || '').replace(/"/g, '""')}"`, // Escape quotes in narration
-      voucher.status || '',
-      voucher.createdBy?.name || '',
-      new Date(voucher.createdAt).toLocaleDateString()
-    ].join(','))
+    ...vouchers.map(voucher => {
+      const { debitParty, creditParty } = getDebitAndCreditParties(voucher);
+      return [
+        voucher.voucherNumber || '',
+        new Date(voucher.date).toLocaleDateString(),
+        voucher.voucherType || '',
+        `"${(debitParty || '').replace(/"/g, '""')}"`,
+        `"${(creditParty || '').replace(/"/g, '""')}"`,
+        voucher.totalDebit || 0,
+        voucher.totalCredit || 0,
+        `"${(voucher.narration || '').replace(/"/g, '""')}"`, // Escape quotes in narration
+        voucher.status || '',
+        voucher.createdBy?.name || '',
+        new Date(voucher.createdAt).toLocaleDateString()
+      ].join(',');
+    })
   ].join('\n');
 
   // Download CSV file

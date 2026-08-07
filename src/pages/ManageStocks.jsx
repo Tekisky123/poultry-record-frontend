@@ -169,15 +169,14 @@ const ManageStocks = () => {
 
     // Auto-calculate Feed Purchase Amount
     useEffect(() => {
-        const bags = Number(feedPurchaseData.bags) || 0;
         const weight = Number(feedPurchaseData.weight) || 0;
         const rate = Number(feedPurchaseData.rate) || 0;
 
         setFeedPurchaseData(prev => ({
             ...prev,
-            amount: Number((bags * weight * rate).toFixed(2))
+            amount: Number((weight * rate).toFixed(2))
         }));
-    }, [feedPurchaseData.bags, feedPurchaseData.weight, feedPurchaseData.rate]);
+    }, [feedPurchaseData.weight, feedPurchaseData.rate]);
 
     const [showFeedConsumeModal, setShowFeedConsumeModal] = useState(false);
     const [feedConsumeData, setFeedConsumeData] = useState({

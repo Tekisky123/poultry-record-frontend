@@ -1,77 +1,191 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Plus,
   Search,
-  Filter,
   Download,
   Edit,
   Trash2,
   Eye,
   Calendar,
   FileText,
-  DollarSign,
   Users,
   AlertCircle,
-  CheckCircle,
-  Clock
+  ArrowLeft,
+  X
 } from 'lucide-react';
 import api from '../lib/axios';
-import { exportVouchersToExcel, exportVouchersToPDF } from '../utils/voucherExport';
+import { exportVouchersToExcel, exportVouchersToPDF, getDebitAndCreditParties } from '../utils/voucherExport';
 
 const VoucherList = () => {
-  const [vouchers, setVouchers] = useState([]);
+  // Determine current financial year start (April 1st)
+  const currentMonth = new Date().getMonth();
+  const currentFullYear = new Date().getFullYear();
+  const defaultFYStartYear = currentMonth >= 3 ? currentFullYear : currentFullYear - 1;
+
+  const [selectedYear, setSelectedYear] = useState(defaultFYStartYear);
+  const [selectedMonth, setSelectedMonth] = useState(null); // null = Monthly Breakdown Landing Page, or { monthIndex, name, year, startDate, endDate }
+
+  const [allFyVouchers, setAllFyVouchers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [searchTerm, setSearchTerm] = useState('');
+
+  // Filters for Month Details View
+  const [vNoSearch, setVNoSearch] = useState('');
   const [voucherTypeFilter, setVoucherTypeFilter] = useState('');
-  const [dateFilter, setDateFilter] = useState({ startDate: '', endDate: '' });
-  const [totals, setTotals] = useState({ totalDebit: 0, totalCredit: 0, balance: 0 });
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    totalPages: 1,
-    totalItems: 0,
-    itemsPerPage: 10
-  });
 
   const voucherTypes = ['Sales', 'Purchase', 'Payment', 'Receipt', 'Contra', 'Journal'];
 
-  useEffect(() => {
-    fetchVouchers();
-  }, [pagination.currentPage, searchTerm, voucherTypeFilter, dateFilter]);
+  // Financial years options (e.g., 2024 -> FY 2024-2025)
+  const yearOptions = useMemo(() => {
+    const options = [];
+    const baseYear = new Date().getFullYear();
+    for (let y = 2023; y <= baseYear + 1; y++) {
+      options.push(y);
+    }
+    return options;
+  }, []);
 
-  const fetchVouchers = async () => {
+  // Fetch all FY vouchers when selectedYear changes
+  useEffect(() => {
+    fetchFYVouchers();
+  }, [selectedYear]);
+
+  const fetchFYVouchers = async () => {
     try {
       setLoading(true);
+      setError('');
+      const startDate = `${selectedYear}-04-01`;
+      const endDate = `${selectedYear + 1}-03-31`;
+
       const params = new URLSearchParams({
-        page: pagination.currentPage,
-        limit: pagination.itemsPerPage,
-        ...(searchTerm && { search: searchTerm }),
-        ...(voucherTypeFilter && { voucherType: voucherTypeFilter }),
-        ...(dateFilter.startDate && { startDate: dateFilter.startDate }),
-        ...(dateFilter.endDate && { endDate: dateFilter.endDate })
+        page: 1,
+        limit: 10000,
+        startDate,
+        endDate
       });
 
       const response = await api.get(`/voucher?${params}`);
       if (response.data.success) {
-        setVouchers(response.data.data.vouchers);
-        setTotals(response.data.data.totals);
-        setPagination(response.data.data.pagination);
+        setAllFyVouchers(response.data.data.vouchers || []);
       }
-    } catch (error) {
-      console.error('Error fetching vouchers:', error);
-      setError('Failed to fetch vouchers');
+    } catch (err) {
+      console.error('Error fetching vouchers for FY:', err);
+      setError('Failed to fetch voucher data');
     } finally {
       setLoading(false);
     }
   };
+
+  // Generate 12 months for the selected Financial Year (April -> March)
+  const monthsSummary = useMemo(() => {
+    const monthNames = [
+      'April', 'May', 'June', 'July', 'August', 'September',
+      'October', 'November', 'December', 'January', 'February', 'March'
+    ];
+
+    let runningBalance = 0;
+
+    return monthNames.map((mName, idx) => {
+      // April (idx=0) to Dec (idx=8) belong to selectedYear; Jan (idx=9) to Mar (idx=11) belong to selectedYear + 1
+      const year = idx <= 8 ? selectedYear : selectedYear + 1;
+      const monthNum = idx <= 8 ? idx + 4 : idx - 8; // 1-indexed month number (April=4, ..., Dec=12, Jan=1, Feb=2, Mar=3)
+      const monthKey = `${year}-${String(monthNum).padStart(2, '0')}`;
+
+      // Filter vouchers in this month
+      const monthVouchers = allFyVouchers.filter(v => {
+        const d = new Date(v.date);
+        const vKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        return vKey === monthKey;
+      });
+
+      const debitSum = monthVouchers.reduce((acc, v) => acc + (v.totalDebit || 0), 0);
+      const creditSum = monthVouchers.reduce((acc, v) => acc + (v.totalCredit || 0), 0);
+      runningBalance += (debitSum - creditSum);
+
+      const lastDay = new Date(year, monthNum, 0).getDate();
+      const startDate = `${year}-${String(monthNum).padStart(2, '0')}-01`;
+      const endDate = `${year}-${String(monthNum).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+      return {
+        monthIndex: idx,
+        name: `${mName} ${year}`,
+        monthNum,
+        year,
+        startDate,
+        endDate,
+        debit: debitSum,
+        credit: creditSum,
+        closingBalance: runningBalance,
+        voucherCount: monthVouchers.length,
+        vouchers: monthVouchers
+      };
+    });
+  }, [allFyVouchers, selectedYear]);
+
+  // Total FY Debit and Credit
+  const fyTotals = useMemo(() => {
+    const debit = monthsSummary.reduce((acc, m) => acc + m.debit, 0);
+    const credit = monthsSummary.reduce((acc, m) => acc + m.credit, 0);
+    return { debit, credit };
+  }, [monthsSummary]);
+
+  // Vouchers for currently selected month
+  const selectedMonthVouchers = useMemo(() => {
+    if (!selectedMonth) return [];
+    
+    // Find latest month data from monthsSummary
+    const mData = monthsSummary.find(m => m.startDate === selectedMonth.startDate);
+    const rawVouchers = mData ? mData.vouchers : selectedMonth.vouchers || [];
+
+    return rawVouchers.filter(v => {
+      // Apply voucher type filter
+      if (voucherTypeFilter && v.voucherType !== voucherTypeFilter) {
+        return false;
+      }
+      // Apply Voucher Number search
+      if (vNoSearch) {
+        const term = vNoSearch.trim().toLowerCase();
+        const { debitParty, creditParty } = getDebitAndCreditParties(v);
+        const matchNo = v.voucherNumber && String(v.voucherNumber).toLowerCase().includes(term);
+        const matchParty = (debitParty && debitParty.toLowerCase().includes(term)) || (creditParty && creditParty.toLowerCase().includes(term));
+        return matchNo || matchParty;
+      }
+      return true;
+    });
+  }, [selectedMonth, monthsSummary, voucherTypeFilter, vNoSearch]);
+
+  // Group vouchers date-wise for selected month details view
+  const dateWiseGroups = useMemo(() => {
+    const dateMap = {};
+    selectedMonthVouchers.forEach(v => {
+      const d = new Date(v.date);
+      const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const formattedDate = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
+      if (!dateMap[dateKey]) {
+        dateMap[dateKey] = {
+          dateKey,
+          formattedDate,
+          vouchers: [],
+          totalDebit: 0,
+          totalCredit: 0
+        };
+      }
+      dateMap[dateKey].vouchers.push(v);
+      dateMap[dateKey].totalDebit += (v.totalDebit || 0);
+      dateMap[dateKey].totalCredit += (v.totalCredit || 0);
+    });
+
+    return Object.values(dateMap).sort((a, b) => b.dateKey.localeCompare(a.dateKey));
+  }, [selectedMonthVouchers]);
 
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this voucher?')) {
       try {
         const response = await api.delete(`/voucher/${id}`);
         if (response.data.success) {
-          fetchVouchers();
+          fetchFYVouchers();
         }
       } catch (error) {
         console.error('Error deleting voucher:', error);
@@ -80,44 +194,22 @@ const VoucherList = () => {
     }
   };
 
-  const handleExport = async (format) => {
+  const handleExport = (format) => {
     try {
+      const exportList = selectedMonth ? selectedMonthVouchers : allFyVouchers;
+      const fileName = selectedMonth ? `vouchers_${selectedMonth.name.replace(/\s+/g, '_')}` : `vouchers_FY_${selectedYear}`;
       if (format === 'excel') {
-        // Export current vouchers to Excel
-        exportVouchersToExcel(vouchers, 'vouchers');
+        exportVouchersToExcel(exportList, fileName);
       } else if (format === 'pdf') {
-        // Export current vouchers to PDF
-        exportVouchersToPDF(vouchers, 'vouchers');
+        exportVouchersToPDF(exportList, fileName);
       }
-    } catch (error) {
-      console.error('Error exporting vouchers:', error);
+    } catch (err) {
+      console.error('Error exporting:', err);
       setError('Failed to export vouchers');
     }
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'posted':
-        return <CheckCircle className="w-4 h-4 text-green-600" />;
-      case 'draft':
-        return <Clock className="w-4 h-4 text-yellow-600" />;
-      default:
-        return <AlertCircle className="w-4 h-4 text-gray-600" />;
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'posted':
-        return 'bg-green-100 text-green-800';
-      case 'draft':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  if (loading) {
+  if (loading && allFyVouchers.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -125,137 +217,246 @@ const VoucherList = () => {
     );
   }
 
+  const renderVoucherRow = (voucher) => {
+    const { debitParty, creditParty } = getDebitAndCreditParties(voucher);
+    return (
+      <tr key={voucher.id || voucher._id} className="hover:bg-gray-50 text-sm">
+        <td className="px-4 py-3.5 whitespace-nowrap text-gray-900">
+          <div className="flex items-center gap-1.5">
+            <Calendar size={14} className="text-gray-400" />
+            {new Date(voucher.date).toLocaleDateString('en-GB')}
+          </div>
+        </td>
+        <td className="px-4 py-3.5 whitespace-nowrap font-semibold text-gray-900">
+          {voucher.voucherNumber}
+        </td>
+        <td className="px-4 py-3.5 whitespace-nowrap">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+            {voucher.voucherType}
+          </span>
+        </td>
+        <td className="px-4 py-3.5 text-gray-900 max-w-[200px] truncate" title={debitParty}>
+          <div className="flex items-center gap-1.5 font-medium text-gray-800">
+            <Users size={14} className="text-blue-500 shrink-0" />
+            <span className="truncate">{debitParty}</span>
+          </div>
+        </td>
+        <td className="px-4 py-3.5 text-gray-900 max-w-[200px] truncate" title={creditParty}>
+          <div className="flex items-center gap-1.5 text-gray-700">
+            <Users size={14} className="text-green-500 shrink-0" />
+            <span className="truncate">{creditParty}</span>
+          </div>
+        </td>
+        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-green-600">
+          ₹{(voucher.totalDebit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+        </td>
+        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-red-600">
+          ₹{(voucher.totalCredit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+        </td>
+        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-right">
+          <div className="flex items-center justify-end gap-2">
+            <Link
+              to={`/vouchers/${voucher.id || voucher._id}`}
+              className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+              title="View"
+            >
+              <Eye size={16} />
+            </Link>
+            <Link
+              to={`/vouchers/${voucher.id || voucher._id}/edit`}
+              className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+              title="Edit"
+            >
+              <Edit size={16} />
+            </Link>
+            <button
+              onClick={() => handleDelete(voucher.id || voucher._id)}
+              className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+              title="Delete"
+            >
+              <Trash2 size={16} />
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
+  // ==========================================
+  // VIEW 2: MONTH DETAILS PAGE (Vouchers for selected month)
+  // ==========================================
+  if (selectedMonth) {
+    // Sort vouchers by date descending
+    const sortedMonthVouchers = [...selectedMonthVouchers].sort((a, b) => new Date(b.date) - new Date(a.date));
+
+    return (
+      <div className="space-y-6">
+        {/* Top Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setSelectedMonth(null)}
+              className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Back to Monthly Summary"
+            >
+              <ArrowLeft size={20} />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Vouchers - {selectedMonth.name}</h1>
+              <p className="text-gray-600 text-sm">Manage accounting vouchers for {selectedMonth.name}</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => handleExport('excel')}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm"
+            >
+              <Download size={16} />
+              Export Excel
+            </button>
+
+            <Link
+              to="/vouchers/add"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm shadow-sm"
+            >
+              <Plus size={16} />
+              Add Voucher
+            </Link>
+          </div>
+        </div>
+
+        {/* Content Container Card */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {/* Card Sub-header */}
+          <div className="p-6 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <FileText size={20} className="text-blue-600" />
+                Vouchers ({sortedMonthVouchers.length} records)
+              </h2>
+
+              {/* Search V.NO */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Search V.NO..."
+                  value={vNoSearch}
+                  onChange={(e) => setVNoSearch(e.target.value)}
+                  className="pl-9 pr-8 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent w-36 sm:w-44"
+                />
+                {vNoSearch && (
+                  <button
+                    onClick={() => setVNoSearch('')}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <select
+                value={voucherTypeFilter}
+                onChange={(e) => setVoucherTypeFilter(e.target.value)}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-blue-500 bg-white"
+              >
+                <option value="">All Types</option>
+                {voucherTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {error && (
+            <div className="p-4 bg-red-50 border-l-4 border-red-400">
+              <div className="flex">
+                <AlertCircle className="h-5 w-5 text-red-400" />
+                <div className="ml-3">
+                  <p className="text-sm text-red-700">{error}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {sortedMonthVouchers.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-200">
+                  <tr className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3.5 text-left">Date</th>
+                    <th className="px-4 py-3.5 text-left">Voucher No</th>
+                    <th className="px-4 py-3.5 text-left">Type</th>
+                    <th className="px-4 py-3.5 text-left">Debit Party</th>
+                    <th className="px-4 py-3.5 text-left">Credit Party</th>
+                    <th className="px-4 py-3.5 text-left">Debit</th>
+                    <th className="px-4 py-3.5 text-left">Credit</th>
+                    <th className="px-4 py-3.5 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sortedMonthVouchers.map((voucher) => renderVoucherRow(voucher))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+              <p className="text-gray-500 font-medium">No vouchers found for {selectedMonth.name}.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ==========================================
+  // VIEW 1: DEFAULT LANDING PAGE (Monthly Breakdown Summary)
+  // ==========================================
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Vouchers</h1>
-          <p className="text-gray-600">Manage accounting vouchers</p>
+          <h1 className="text-2xl font-bold text-gray-900">Vouchers - Monthly Summary</h1>
+          <p className="text-gray-600">Monthly breakdown of all accounting vouchers</p>
         </div>
-        <div className="flex items-center gap-3">
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* FY Selector */}
+          <select
+            value={selectedYear}
+            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+            className="px-3 py-2 border border-gray-300 rounded-lg text-sm font-medium focus:ring-2 focus:ring-blue-500 bg-white"
+          >
+            {yearOptions.map(y => (
+              <option key={y} value={y}>FY {y}-{y + 1}</option>
+            ))}
+          </select>
+
           <button
             onClick={() => handleExport('excel')}
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors text-sm font-medium"
           >
-            <Download size={16} />
-            Export Excel
+            <Download size={18} />
+            <span>Export</span>
           </button>
-          {/* <button
-            onClick={() => handleExport('pdf')}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-          >
-            <Download size={16} />
-            Export PDF
-          </button> */}
+
           <Link
             to="/vouchers/add"
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-sm shadow-sm"
           >
-            <Plus size={16} />
-            Add Voucher
+            <Plus size={18} />
+            <span>Add Voucher</span>
           </Link>
         </div>
       </div>
 
-      {/* Filters */}
-      {/* <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
-              <input
-                type="text"
-                placeholder="Search vouchers..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Voucher Type</label>
-            <select
-              value={voucherTypeFilter}
-              onChange={(e) => setVoucherTypeFilter(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">All Types</option>
-              {voucherTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-            <input
-              type="date"
-              value={dateFilter.startDate}
-              onChange={(e) => setDateFilter(prev => ({ ...prev, startDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-            <input
-              type="date"
-              value={dateFilter.endDate}
-              onChange={(e) => setDateFilter(prev => ({ ...prev, endDate: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
-      </div> */}
-
-      {/* Totals */}
-      {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Debit</p>
-              <p className="text-2xl font-bold text-red-600">₹{totals.totalDebit.toLocaleString()}</p>
-            </div>
-            <div className="p-3 bg-red-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-red-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Total Credit</p>
-              <p className="text-2xl font-bold text-green-600">₹{totals.totalCredit.toLocaleString()}</p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-lg">
-              <DollarSign className="w-6 h-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Balance</p>
-              <p className={`text-2xl font-bold ${totals.balance >= 0 ? 'text-blue-600' : 'text-orange-600'}`}>
-                ₹{Math.abs(totals.balance).toLocaleString()}
-              </p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-lg">
-              <FileText className="w-6 h-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-      </div> */}
-
-      {/* Vouchers Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <FileText size={20} />
-            Vouchers ({pagination.totalItems} records)
-          </h2>
-        </div>
-
+      {/* Main Monthly Summary Table */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {error && (
           <div className="p-4 bg-red-50 border-l-4 border-red-400">
             <div className="flex">
@@ -267,124 +468,52 @@ const VoucherList = () => {
           </div>
         )}
 
-        {vouchers.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Voucher No</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Party</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Debit</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credit</th>
-                  {/* <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th> */}
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-6 py-3.5 text-left font-semibold text-gray-700">Month</th>
+                <th className="px-6 py-3.5 text-right font-semibold text-gray-700">Debit</th>
+                <th className="px-6 py-3.5 text-right font-semibold text-gray-700">Credit</th>
+                <th className="px-6 py-3.5 text-right font-semibold text-gray-700">Closing Balance</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200 bg-white">
+              {monthsSummary.map((month) => (
+                <tr
+                  key={month.monthIndex}
+                  onClick={() => setSelectedMonth(month)}
+                  className="hover:bg-blue-50/50 cursor-pointer transition-colors"
+                >
+                  <td className="px-6 py-4 font-semibold text-blue-600 hover:underline">
+                    {month.name}
+                  </td>
+                  <td className="px-6 py-4 text-right text-gray-900 font-medium">
+                    {month.debit > 0 ? `₹${month.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-right text-gray-900 font-medium">
+                    {month.credit > 0 ? `₹${month.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
+                  </td>
+                  <td className="px-6 py-4 text-right font-semibold text-gray-900">
+                    ₹{Math.abs(month.closingBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })} {month.closingBalance >= 0 ? 'Dr' : 'Cr'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {vouchers.map((voucher) => (
-                  <tr key={voucher.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div className="flex items-center gap-1">
-                        <Calendar size={14} className="text-gray-400" />
-                        {new Date(voucher.date).toLocaleDateString()}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {voucher.voucherNumber}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                        {voucher.voucherType}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div className="flex items-center gap-1">
-                        <Users size={14} className="text-gray-400" />
-                        {voucher.partyName || 'N/A'}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ₹{voucher.totalDebit.toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ₹{voucher.totalCredit.toLocaleString()}
-                    </td>
-                    {/* <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(voucher.status)}`}>
-                        {getStatusIcon(voucher.status)}
-                        {voucher.status}
-                      </span>
-                    </td> */}
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          to={`/vouchers/${voucher.id}`}
-                          className="text-blue-600 hover:text-blue-900 p-1"
-                          title="View"
-                        >
-                          <Eye size={16} />
-                        </Link>
-                        <Link
-                          to={`/vouchers/${voucher.id}/edit`}
-                          className="text-green-600 hover:text-green-900 p-1"
-                          title="Edit"
-                        >
-                          <Edit size={16} />
-                        </Link>
-                        <button
-                          onClick={() => handleDelete(voucher.id)}
-                          className="text-red-600 hover:text-red-900 p-1"
-                          title="Delete"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-8">
-            <FileText className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-            <p className="text-gray-500">No vouchers found.</p>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {pagination.totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1} to{' '}
-                {Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of{' '}
-                {pagination.totalItems} results
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage - 1 }))}
-                  disabled={pagination.currentPage === 1}
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                >
-                  Previous
-                </button>
-                <span className="px-3 py-1 text-sm">
-                  Page {pagination.currentPage} of {pagination.totalPages}
-                </span>
-                <button
-                  onClick={() => setPagination(prev => ({ ...prev, currentPage: prev.currentPage + 1 }))}
-                  disabled={pagination.currentPage === pagination.totalPages}
-                  className="px-3 py-1 border border-gray-300 rounded-md text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
-                >
-                  Next
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+              ))}
+              <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
+                <td className="px-6 py-4 text-gray-900 text-base">Total</td>
+                <td className="px-6 py-4 text-right text-green-700 text-base">
+                  ₹{fyTotals.debit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </td>
+                <td className="px-6 py-4 text-right text-red-700 text-base">
+                  ₹{fyTotals.credit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                </td>
+                <td className="px-6 py-4 text-right text-base text-gray-900">
+                  ₹{Math.abs(fyTotals.debit - fyTotals.credit).toLocaleString('en-IN', { minimumFractionDigits: 2 })} {(fyTotals.debit - fyTotals.credit) >= 0 ? 'Dr' : 'Cr'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
