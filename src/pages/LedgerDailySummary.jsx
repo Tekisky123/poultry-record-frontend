@@ -104,6 +104,27 @@ export default function LedgerDailySummary() {
         );
     }
 
+    const isCashLedger = data?.subject?.name?.toLowerCase().includes('cash');
+
+    if (!isCashLedger) {
+        return (
+            <div className="p-8 text-center bg-white rounded-xl shadow-sm border border-gray-200 m-6">
+                <h2 className="text-xl font-bold text-gray-800 mb-2">Daily Breakdown Not Available</h2>
+                <p className="text-gray-600 mb-6">
+                    Daily Breakdown report is available only for Cash Ledger, Trips, Stock Reports, and Indirect Purchase & Sales.
+                </p>
+                <div className="flex justify-center gap-4">
+                    <button onClick={() => navigate(`/ledgers/${id}`)} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium">
+                        View Ledger Transactions
+                    </button>
+                    <button onClick={() => navigate(-1)} className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium">
+                        Go Back
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

@@ -155,15 +155,34 @@ export default function MonthlySummary() {
         const yearVal = d.getFullYear();
         const monthVal = d.getMonth() + 1;
 
+        const subjectName = data?.subject?.name || '';
+        const groupNameStr = groupName || data?.subject?.group?.name || '';
+        const isCashLedger = subjectName.toLowerCase().includes('cash') || groupNameStr.toLowerCase().includes('cash');
+
+        if (isCashLedger) {
+            if (type === 'customer') {
+                navigate(`/customers/${id}/daily?year=${yearVal}&month=${monthVal}&groupName=${encodeURIComponent(groupName)}`);
+                return;
+            } else if (type === 'vendor') {
+                navigate(`/vendors/${id}/daily?year=${yearVal}&month=${monthVal}&groupName=${encodeURIComponent(groupName)}`);
+                return;
+            } else if (type === 'ledger') {
+                navigate(`/ledgers/${id}/daily?year=${yearVal}&month=${monthVal}&groupName=${encodeURIComponent(groupName)}`);
+                return;
+            }
+        }
+
+        // For all non-cash ledgers, navigate directly to monthly voucher/transaction view
+        const lastDay = new Date(yearVal, monthVal, 0).getDate();
+        const startStr = `${yearVal}-${String(monthVal).padStart(2, '0')}-01`;
+        const endStr = `${yearVal}-${String(monthVal).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
         if (type === 'customer') {
-            navigate(`/customers/${id}/daily?year=${yearVal}&month=${monthVal}&groupName=${encodeURIComponent(groupName)}`);
-            return;
+            navigate(`/customers/${id}?startDate=${startStr}&endDate=${endStr}`);
         } else if (type === 'vendor') {
-            navigate(`/vendors/${id}/daily?year=${yearVal}&month=${monthVal}&groupName=${encodeURIComponent(groupName)}`);
-            return;
+            navigate(`/vendors/${id}?startDate=${startStr}&endDate=${endStr}`);
         } else if (type === 'ledger') {
-            navigate(`/ledgers/${id}/daily?year=${yearVal}&month=${monthVal}&groupName=${encodeURIComponent(groupName)}`);
-            return;
+            navigate(`/ledgers/${id}?startDate=${startStr}&endDate=${endStr}`);
         }
     };
 
