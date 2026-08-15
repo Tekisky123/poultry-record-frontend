@@ -725,7 +725,7 @@ export default function IndirectSaleDetail() {
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Birds *</label>
                 <input
@@ -737,7 +737,7 @@ export default function IndirectSaleDetail() {
                     data: { ...prev.data, birds: event.target.value }
                   }))}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 />
               </div>
               <div>
@@ -752,7 +752,20 @@ export default function IndirectSaleDetail() {
                     data: { ...prev.data, weight: event.target.value }
                   }))}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Avg (Kg)</label>
+                <input
+                  type="text"
+                  readOnly
+                  value={
+                    (Number(purchaseModal.data.birds) > 0 && Number(purchaseModal.data.weight) > 0)
+                      ? (Number(purchaseModal.data.weight) / Number(purchaseModal.data.birds)).toFixed(2)
+                      : '0.00'
+                  }
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-600 font-medium cursor-not-allowed text-sm"
                 />
               </div>
               <div>
@@ -767,7 +780,7 @@ export default function IndirectSaleDetail() {
                     data: { ...prev.data, rate: event.target.value }
                   }))}
                   required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                 />
               </div>
             </div>

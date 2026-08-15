@@ -59,10 +59,8 @@ const AddEditVoucher = () => {
 
   // Reset parties/entries when voucher type changes
   useEffect(() => {
-    const isPaymentOrReceiptType = formData.voucherType === 'Payment' || formData.voucherType === 'Receipt';
+    const isPaymentOrReceiptType = formData.voucherType === 'Payment' || formData.voucherType === 'Receipt' || formData.voucherType === 'Journal';
     const isContra = formData.voucherType === 'Contra';
-    const isJournal = formData.voucherType === 'Journal';
-    const isRestrictedVoucher = isContra || isJournal;
 
     if (isPaymentOrReceiptType && formData.parties.length === 0) {
       // Initialize with one empty party
@@ -70,8 +68,8 @@ const AddEditVoucher = () => {
         ...prev,
         parties: [{ partyId: '', partyType: '', partyName: '', amount: 0, currentBalance: 0, currentBalanceType: 'debit' }]
       }));
-    } else if (isRestrictedVoucher) {
-      // Enforce structure for Contra/Journal: exactly 2 entries (Dr, Cr)
+    } else if (isContra) {
+      // Enforce structure for Contra: exactly 2 entries (Dr, Cr)
       setFormData(prev => ({
         ...prev,
         parties: [], // Clear parties
@@ -80,13 +78,6 @@ const AddEditVoucher = () => {
           { account: prev.entries[0]?.account || '', debitAmount: prev.entries[0]?.debitAmount || 0, creditAmount: 0, narration: prev.entries[0]?.narration || '', type: 'Dr' },
           { account: prev.entries[1]?.account || '', debitAmount: 0, creditAmount: prev.entries[1]?.creditAmount || 0, narration: prev.entries[1]?.narration || '', type: 'Cr' }
         ]
-      }));
-    } else if (!isPaymentOrReceiptType && !isRestrictedVoucher && formData.parties.length > 0) {
-      // Clear parties when switching away from Payment/Receipt to others
-      setFormData(prev => ({
-        ...prev,
-        parties: [],
-        account: ''
       }));
     }
   }, [formData.voucherType, formData.parties.length]);
@@ -540,7 +531,7 @@ const AddEditVoucher = () => {
     return formData.parties.reduce((sum, party) => sum + (parseFloat(party.amount) || 0), 0);
   };
 
-  const isPaymentOrReceipt = formData.voucherType === 'Payment' || formData.voucherType === 'Receipt';
+  const isPaymentOrReceipt = formData.voucherType === 'Payment' || formData.voucherType === 'Receipt' || formData.voucherType === 'Journal';
 
   const handlePartyChange = (partyId) => {
     const customer = customers.find(c => c.id === partyId);
@@ -658,6 +649,7 @@ const AddEditVoucher = () => {
         const partiesData = formData.parties.map(p => ({
           partyId: p.partyId,
           partyType: p.partyType,
+          partyName: p.partyName,
           amount: p.amount
         }));
 
@@ -966,7 +958,7 @@ const AddEditVoucher = () => {
                               required
                             />
                             <span className="text-sm font-medium text-gray-600">
-                              {formData.voucherType === 'Payment' ? 'Dr' : 'Cr'}
+                              {formData.voucherType === 'Payment' || formData.voucherType === 'Journal' ? 'Dr' : 'Cr'}
                             </span>
                           </div>
                         </div>
@@ -991,7 +983,7 @@ const AddEditVoucher = () => {
                 <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
                   <span className="text-sm font-semibold text-gray-700">Total Auto</span>
                   <span className="text-sm font-semibold text-gray-900">
-                    {formatAmount(calculateTotalAmount())} {formData.voucherType === 'Payment' ? 'Cr' : 'Dr'}
+                    {formatAmount(calculateTotalAmount())} {formData.voucherType === 'Payment' || formData.voucherType === 'Journal' ? 'Cr' : 'Dr'}
                   </span>
                 </div>
               </div>
@@ -1051,7 +1043,7 @@ const AddEditVoucher = () => {
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700 focus:outline-none"
                       />
                       <span className="text-sm font-medium text-gray-600">
-                        {formData.voucherType === 'Payment' ? 'Cr' : 'Dr'}
+                        {formData.voucherType === 'Payment' || formData.voucherType === 'Journal' ? 'Cr' : 'Dr'}
                       </span>
                     </div>
                   </div>

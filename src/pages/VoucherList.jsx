@@ -218,6 +218,84 @@ const VoucherList = () => {
   }
 
   const renderVoucherRow = (voucher) => {
+    const isNewVoucher = Boolean(voucher.isMultiPartyDisplay) || (voucher.parties && voucher.parties.length > 1) || (voucher.createdAt && new Date(voucher.createdAt) >= new Date('2026-08-15T00:00:00.000Z'));
+    const isPayment = voucher.voucherType === 'Payment' || voucher.voucherType === 'Journal';
+    const isReceipt = voucher.voucherType === 'Receipt';
+    const accountName = voucher.account?.name || voucher.accountName || 'Cash/Bank Account';
+
+    if (isNewVoucher && (isPayment || isReceipt) && voucher.parties && voucher.parties.length > 0) {
+      return voucher.parties.map((p, idx) => {
+        const partyName = p.partyName || p.partyId?.shopName || p.partyId?.vendorName || p.partyId?.name || p.partyId?.ownerName || 'Unknown Party';
+        const amt = Number(p.amount) || 0;
+        const debitParty = isPayment ? partyName : accountName;
+        const creditParty = isPayment ? accountName : partyName;
+        const debitAmt = isPayment ? amt : 0;
+        const creditAmt = isPayment ? 0 : amt;
+
+        return (
+          <tr key={`${voucher.id || voucher._id}-${idx}`} className="hover:bg-gray-50 text-sm">
+            <td className="px-4 py-3.5 whitespace-nowrap text-gray-900">
+              <div className="flex items-center gap-1.5">
+                <Calendar size={14} className="text-gray-400" />
+                {new Date(voucher.date).toLocaleDateString('en-GB')}
+              </div>
+            </td>
+            <td className="px-4 py-3.5 whitespace-nowrap font-semibold text-gray-900">
+              {voucher.voucherNumber}
+            </td>
+            <td className="px-4 py-3.5 whitespace-nowrap">
+              <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                {voucher.voucherType}
+              </span>
+            </td>
+            <td className="px-4 py-3.5 text-gray-900 max-w-[200px] truncate" title={debitParty}>
+              <div className="flex items-center gap-1.5 font-medium text-gray-800">
+                <Users size={14} className="text-blue-500 shrink-0" />
+                <span className="truncate">{debitParty}</span>
+              </div>
+            </td>
+            <td className="px-4 py-3.5 text-gray-900 max-w-[200px] truncate" title={creditParty}>
+              <div className="flex items-center gap-1.5 text-gray-700">
+                <Users size={14} className="text-green-500 shrink-0" />
+                <span className="truncate">{creditParty}</span>
+              </div>
+            </td>
+            <td className="px-4 py-3.5 whitespace-nowrap font-medium text-green-600">
+              ₹{debitAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </td>
+            <td className="px-4 py-3.5 whitespace-nowrap font-medium text-red-600">
+              ₹{creditAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </td>
+            <td className="px-4 py-3.5 whitespace-nowrap font-medium text-right">
+              <div className="flex items-center justify-end gap-2">
+                <Link
+                  to={`/vouchers/${voucher.id || voucher._id}`}
+                  className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                  title="View"
+                >
+                  <Eye size={16} />
+                </Link>
+                <Link
+                  to={`/vouchers/${voucher.id || voucher._id}/edit`}
+                  className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                  title="Edit"
+                >
+                  <Edit size={16} />
+                </Link>
+                <button
+                  onClick={() => handleDelete(voucher.id || voucher._id)}
+                  className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                  title="Delete"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            </td>
+          </tr>
+        );
+      });
+    }
+
     const { debitParty, creditParty } = getDebitAndCreditParties(voucher);
     return (
       <tr key={voucher.id || voucher._id} className="hover:bg-gray-50 text-sm">

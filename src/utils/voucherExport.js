@@ -41,11 +41,38 @@ export const exportVouchersToExcel = (vouchers, filename = 'vouchers') => {
     'Created At'
   ];
 
-  const csvContent = [
-    headers.join(','),
-    ...vouchers.map(voucher => {
+  const rows = [];
+  vouchers.forEach(voucher => {
+    const isPayment = voucher.voucherType === 'Payment' || voucher.voucherType === 'Journal';
+    const isReceipt = voucher.voucherType === 'Receipt';
+    const isNewVoucher = Boolean(voucher.isMultiPartyDisplay) || (voucher.parties && voucher.parties.length > 1) || (voucher.createdAt && new Date(voucher.createdAt) >= new Date('2026-08-15T00:00:00.000Z'));
+
+    if (isNewVoucher && (isPayment || isReceipt) && voucher.parties && voucher.parties.length > 0) {
+      voucher.parties.forEach(p => {
+        const partyName = p.partyName || p.partyId?.shopName || p.partyId?.vendorName || p.partyId?.name || 'N/A';
+        const amt = Number(p.amount) || 0;
+        const debitParty = isPayment ? partyName : accountName;
+        const creditParty = isPayment ? accountName : partyName;
+        const debitAmt = isPayment ? amt : 0;
+        const creditAmt = isPayment ? 0 : amt;
+
+        rows.push([
+          voucher.voucherNumber || '',
+          new Date(voucher.date).toLocaleDateString(),
+          voucher.voucherType || '',
+          `"${(debitParty || '').replace(/"/g, '""')}"`,
+          `"${(creditParty || '').replace(/"/g, '""')}"`,
+          debitAmt,
+          creditAmt,
+          `"${(voucher.narration || '').replace(/"/g, '""')}"`,
+          voucher.status || '',
+          voucher.createdBy?.name || '',
+          new Date(voucher.createdAt).toLocaleDateString()
+        ].join(','));
+      });
+    } else {
       const { debitParty, creditParty } = getDebitAndCreditParties(voucher);
-      return [
+      rows.push([
         voucher.voucherNumber || '',
         new Date(voucher.date).toLocaleDateString(),
         voucher.voucherType || '',
@@ -53,12 +80,17 @@ export const exportVouchersToExcel = (vouchers, filename = 'vouchers') => {
         `"${(creditParty || '').replace(/"/g, '""')}"`,
         voucher.totalDebit || 0,
         voucher.totalCredit || 0,
-        `"${(voucher.narration || '').replace(/"/g, '""')}"`, // Escape quotes in narration
+        `"${(voucher.narration || '').replace(/"/g, '""')}"`,
         voucher.status || '',
         voucher.createdBy?.name || '',
         new Date(voucher.createdAt).toLocaleDateString()
-      ].join(',');
-    })
+      ].join(','));
+    }
+  });
+
+  const csvContent = [
+    headers.join(','),
+    ...rows
   ].join('\n');
 
   // Download CSV file

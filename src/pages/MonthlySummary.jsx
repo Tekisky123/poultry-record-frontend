@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, Loader2, Download, ChevronDown, Calendar, X, Filter } from 'lucide-react';
@@ -13,7 +14,9 @@ export default function MonthlySummary() {
 
     const groupName = searchParams.get('groupName') || '';
     const isFeedGroup = groupName.toLowerCase().includes('feed');
-    const isSundryGroup = type === 'customer' || type === 'vendor' || groupName.toLowerCase().includes('debtor') || groupName.toLowerCase().includes('creditor') || groupName.toLowerCase().includes('sundry');
+    const isDebtorGroup = type === 'customer' || groupName.toLowerCase().includes('debtor');
+    const isCreditorGroup = type === 'vendor' || groupName.toLowerCase().includes('creditor');
+    const isSundryGroup = isDebtorGroup || isCreditorGroup || groupName.toLowerCase().includes('sundry');
 
     const isPurchaseOrSalesGroup = groupName.toLowerCase().trim().includes('purchase') || groupName.toLowerCase().trim().includes('sales');
 
@@ -183,6 +186,8 @@ export default function MonthlySummary() {
             navigate(`/vendors/${id}?startDate=${startStr}&endDate=${endStr}`);
         } else if (type === 'ledger') {
             navigate(`/ledgers/${id}?startDate=${startStr}&endDate=${endStr}`);
+        } else if (type === 'dieselStation') {
+            navigate(`/diesel-stations/${id}?startDate=${startStr}&endDate=${endStr}`);
         }
     };
 
@@ -254,8 +259,8 @@ export default function MonthlySummary() {
                 }
             }
 
-            row[isSundryGroup ? 'Debit (Sales)' : 'Debit'] = month.debit || 0;
-            row[isSundryGroup ? 'Credit (Receipts)' : 'Credit'] = month.credit || 0;
+            row[isDebtorGroup ? 'Debit (Sales)' : 'Debit'] = month.debit || 0;
+            row[isDebtorGroup ? 'Credit (Receipts)' : 'Credit'] = month.credit || 0;
             row['Closing Balance'] = `${month.closingBalance.toFixed(2)} ${month.closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`;
 
             return row;
@@ -282,8 +287,8 @@ export default function MonthlySummary() {
             }
         }
 
-        totalRow[isSundryGroup ? 'Debit (Sales)' : 'Debit'] = data.totals.debit || 0;
-        totalRow[isSundryGroup ? 'Credit (Receipts)' : 'Credit'] = data.totals.credit || 0;
+        totalRow[isDebtorGroup ? 'Debit (Sales)' : 'Debit'] = data.totals.debit || 0;
+        totalRow[isDebtorGroup ? 'Credit (Receipts)' : 'Credit'] = data.totals.credit || 0;
         totalRow['Closing Balance'] = `${data.months[data.months.length - 1].closingBalance.toFixed(2)} ${data.months[data.months.length - 1].closingBalanceType === 'credit' ? 'Cr' : 'Dr'}`;
 
         exportData.push(totalRow);
@@ -650,8 +655,8 @@ export default function MonthlySummary() {
                                         <th className="px-6 py-3 text-right font-medium text-gray-700">{isFeedGroup ? 'Total Quantity (Kg)' : 'Total Weight'}</th>
                                     </>
                                 ) : null}
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">{isSundryGroup ? 'Debit (Sales)' : 'Debit'}</th>
-                                <th className="px-6 py-3 text-right font-medium text-gray-700">{isSundryGroup ? 'Credit (Receipts)' : 'Credit'}</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">{isDebtorGroup ? 'Debit (Sales)' : 'Debit'}</th>
+                                <th className="px-6 py-3 text-right font-medium text-gray-700">{isDebtorGroup ? 'Credit (Receipts)' : 'Credit'}</th>
                                 <th className="px-6 py-3 text-right font-medium text-gray-700">Closing Balance</th>
                             </tr>
                         </thead>

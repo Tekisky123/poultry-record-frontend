@@ -87,7 +87,6 @@ export default function GroupSummary() {
       }
 
       if (isExpandedView) {
-        const isFeedGroup = groupSummary.group.name.toLowerCase().includes('feed');
         if (isFeedGroup) {
           row['Total Bags'] = entry.birds || 0;
           row['Total Quantity (Kg)'] = entry.weight ? parseFloat(entry.weight.toFixed(2)) : 0;
@@ -95,8 +94,8 @@ export default function GroupSummary() {
           row['Total Birds'] = entry.birds || 0;
           row['Total Weight'] = entry.weight ? parseFloat(entry.weight.toFixed(2)) : 0;
         }
-        row['Debit (Sales)'] = entry.transactionDebit || entry.debit || 0;
-        row['Credit (Receipts)'] = entry.transactionCredit || entry.credit || 0;
+        row[isDebtorGroup ? 'Debit (Sales)' : 'Debit'] = entry.transactionDebit || entry.debit || 0;
+        row[isDebtorGroup ? 'Credit (Receipts)' : 'Credit'] = entry.transactionCredit || entry.credit || 0;
 
         const closingBal = entry.closingBalance !== undefined ? entry.closingBalance : (entry.debit - entry.credit);
         row['Closing Balance'] = Math.abs(closingBal).toFixed(2) + (closingBal >= 0 ? ' Dr' : ' Cr');
@@ -124,7 +123,6 @@ export default function GroupSummary() {
     }
 
     if (isExpandedView) {
-      const isFeedGroup = groupSummary.group.name.toLowerCase().includes('feed');
       if (isFeedGroup) {
         totalRow['Total Bags'] = groupSummary.totals.birds || 0;
         totalRow['Total Quantity (Kg)'] = groupSummary.totals.weight ? parseFloat(groupSummary.totals.weight.toFixed(2)) : 0;
@@ -137,8 +135,8 @@ export default function GroupSummary() {
       const totalCredit = groupSummary.entries.reduce((sum, e) => sum + (e.transactionCredit || e.credit || 0), 0);
       const totalDiscountAndOther = groupSummary.entries.reduce((sum, e) => sum + (e.discountAndOther || 0), 0);
 
-      totalRow['Debit (Sales)'] = totalDebit;
-      totalRow['Credit (Receipts)'] = totalCredit;
+      totalRow[isDebtorGroup ? 'Debit (Sales)' : 'Debit'] = totalDebit;
+      totalRow[isDebtorGroup ? 'Credit (Receipts)' : 'Credit'] = totalCredit;
 
 
       const netBalance = groupSummary.entries.reduce((sum, e) => sum + (e.closingBalance || (e.debit - e.credit) || 0), 0);
@@ -225,9 +223,10 @@ export default function GroupSummary() {
     return null;
   }
 
-  const isExpandedView = (groupSummary.entries.some(e => e.birds > 0 || e.weight > 0) || groupSummary.group.name.toLowerCase().includes('debtor'));
+  const isExpandedView = (groupSummary.entries.some(e => e.birds > 0 || e.weight > 0) || groupSummary.group.name.toLowerCase().includes('debtor') || groupSummary.group.name.toLowerCase().includes('creditor'));
   const isDieselView = groupSummary.entries.some(e => e.type === 'dieselStation');
   const isFeedGroup = groupSummary.group.name.toLowerCase().includes('feed');
+  const isDebtorGroup = groupSummary.group.name.toLowerCase().includes('debtor') || groupSummary.group.name.toLowerCase().includes('customer');
   const groupNameLower = groupSummary.group.name.toLowerCase().trim();
   const isStockGroup = groupNameLower === 'stock-in-hand' || groupNameLower === 'stock in hand' || groupNameLower === 'birds stock' || groupNameLower === 'feed stock';
 
@@ -298,22 +297,10 @@ export default function GroupSummary() {
           </button>
           <div>
             <p className="text-gray-600 mt-1">Group Summary</p>
-            <h1 className="text-3xl font-bold text-gray-900">{groupSummary.group.name}</h1>
-            {groupSummary.parentGroup && (
-              <div className="text-sm text-gray-500 mb-1">
-                <button
-                  onClick={() => navigate(`/group-summary/${groupSummary.parentGroup.id}`)}
-                  className="hover:text-blue-600 hover:underline"
-                >
-                  {groupSummary.parentGroup.name}
-                </button>
-                <span className="mx-2">/</span>
-                <span className="text-gray-700">{groupSummary.group.name}</span>
-              </div>
-            )}
+            <h1 className="text-2xl font-bold text-gray-900">{groupSummary.group.name}</h1>
           </div>
         </div>
-        <div className="flex gap-3 mt-4 sm:mt-0">
+        <div className="mt-4 sm:mt-0 flex items-center gap-3 flex-wrap">
           <button
             onClick={() => setShowPercentage(!showPercentage)}
             className={`px-4 py-2 border rounded-lg font-medium transition-colors shadow-sm ${showPercentage
@@ -373,8 +360,8 @@ export default function GroupSummary() {
                   <>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">{isFeedGroup ? 'Total Bags' : 'Total Birds'}</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">{isFeedGroup ? 'Total Quantity (Kg)' : 'Total Weight'}</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit (Sales)</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit (Receipts)</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">{isDebtorGroup ? 'Debit (Sales)' : 'Debit'}</th>
+                    <th className="text-right py-3 px-4 font-semibold text-gray-900">{isDebtorGroup ? 'Credit (Receipts)' : 'Credit'}</th>
                   </>
                 )}
                 {!isExpandedView && !isStockGroup && (
