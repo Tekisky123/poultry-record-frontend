@@ -651,8 +651,9 @@ export default function Trips() {
   const handleEdit = async (trip) => {
     setEditingTrip(trip);
     setValue('place', trip.place || '');
-    setValue('vehicle', trip.vehicle?.id || trip.vehicle || '');
-    setValue('supervisor', trip.supervisor?.id || trip.supervisor || '');
+    setValue('vehicle', trip.vehicle?._id || trip.vehicle?.id || (typeof trip.vehicle === 'string' ? trip.vehicle : ''));
+    const supVal = trip.supervisor?._id || trip.supervisor?.id || (typeof trip.supervisor === 'string' ? trip.supervisor : '');
+    setValue('supervisor', supVal);
     setValue('driver', trip.driver || '');
     setValue('labour', trip.labour || '');
     setValue('route.from', trip.route?.from || '');
@@ -705,7 +706,18 @@ export default function Trips() {
 
     // Ensure supervisor field is set for supervisors
     if (user?.role === 'supervisor') {
-      data.supervisor = user.id;
+      data.supervisor = user.id || user._id;
+    }
+
+    if (data.supervisor) {
+      if (typeof data.supervisor === 'object') {
+        data.supervisor = data.supervisor._id || data.supervisor.id;
+      } else if (typeof data.supervisor === 'string' && !/^[0-9a-fA-F]{24}$/.test(data.supervisor)) {
+        const found = supervisors.find(s => (s.name && s.name.toLowerCase() === data.supervisor.toLowerCase()) || s.id === data.supervisor || s._id === data.supervisor);
+        if (found) {
+          data.supervisor = found._id || found.id;
+        }
+      }
     }
 
     // Ensure labour is a string (optional)
@@ -1502,21 +1514,7 @@ export default function Trips() {
                 {errors.labour && <p className="text-red-500 text-xs mt-1">{errors.labour.message}</p>}
               </div>
 
-              {/* Distance (Optional) */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Estimated Distance (km) - Optional
-                  </label>
-                  <input
-                    type="number"
-                    {...register('route.distance', { valueAsNumber: true })}
-                    placeholder="0"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Estimated trip distance if known</p>
-                </div>
-              </div>
+
 
               <div className="flex justify-end gap-3">
                 <button

@@ -51,10 +51,11 @@ export const exportVouchersToExcel = (vouchers, filename = 'vouchers') => {
       voucher.parties.forEach(p => {
         const partyName = p.partyName || p.partyId?.shopName || p.partyId?.vendorName || p.partyId?.name || 'N/A';
         const amt = Number(p.amount) || 0;
+        const accountName = voucher.account?.name || voucher.accountName || 'Cash/Bank Account';
         const debitParty = isPayment ? partyName : accountName;
         const creditParty = isPayment ? accountName : partyName;
-        const debitAmt = isPayment ? amt : 0;
-        const creditAmt = isPayment ? 0 : amt;
+        const debitAmt = amt;
+        const creditAmt = amt;
 
         rows.push([
           voucher.voucherNumber || '',

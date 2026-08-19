@@ -1834,15 +1834,17 @@ const ManageStocks = () => {
                                                             setShowMortalityModal(true);
                                                         }}
                                                         className="text-blue-600 hover:text-blue-800 font-medium"
+                                                        title={mortalityStock ? 'Edit' : 'Add'}
                                                     >
-                                                        {mortalityStock ? 'Edit' : 'Add'}
+                                                        {mortalityStock ? <Edit className="w-4 h-4" /> : 'Add'}
                                                     </button>
                                                     {mortalityStock && (
                                                         <button
                                                             onClick={() => handleDeleteStock(mortalityStock._id)}
                                                             className="text-red-600 hover:text-red-800 font-medium"
+                                                            title="Delete"
                                                         >
-                                                            Delete
+                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     )}
                                                 </div>
@@ -1886,15 +1888,17 @@ const ManageStocks = () => {
                                                             setShowWeightLossModal(true);
                                                         }}
                                                         className="text-blue-600 hover:text-blue-800 font-medium"
+                                                        title={weightLossStock ? 'Edit' : 'Add'}
                                                     >
-                                                        {weightLossStock ? 'Edit' : 'Add'}
+                                                        {weightLossStock ? <Edit className="w-4 h-4" /> : 'Add'}
                                                     </button>
                                                     {weightLossStock && (
                                                         <button
                                                             onClick={() => handleDeleteStock(weightLossStock._id)}
                                                             className="text-red-600 hover:text-red-800 font-medium"
+                                                            title="Delete"
                                                         >
-                                                            Delete
+                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     )}
                                                 </div>
@@ -1938,15 +1942,17 @@ const ManageStocks = () => {
                                                             setShowNaturalWeightLossModal(true);
                                                         }}
                                                         className="text-blue-600 hover:text-blue-800 font-medium"
+                                                        title={naturalWeightLossStock ? 'Edit' : 'Add'}
                                                     >
-                                                        {naturalWeightLossStock ? 'Edit' : 'Add'}
+                                                        {naturalWeightLossStock ? <Edit className="w-4 h-4" /> : 'Add'}
                                                     </button>
                                                     {naturalWeightLossStock && (
                                                         <button
                                                             onClick={() => handleDeleteStock(naturalWeightLossStock._id)}
                                                             className="text-red-600 hover:text-red-800 font-medium"
+                                                            title="Delete"
                                                         >
-                                                            Delete
+                                                            <Trash2 className="w-4 h-4" />
                                                         </button>
                                                     )}
                                                 </div>
@@ -2040,14 +2046,16 @@ const ManageStocks = () => {
                                                                         setShowFeedPurchaseModal(true);
                                                                     }}
                                                                     className="text-blue-600 hover:text-blue-800 font-medium"
+                                                                    title="Edit"
                                                                 >
-                                                                    Edit
+                                                                    <Edit className="w-4 h-4" />
                                                                 </button>
                                                                 <button
                                                                     onClick={() => handleDeleteStock(purchStocks[0]._id)}
                                                                     className="text-red-600 hover:text-red-800 font-medium"
+                                                                    title="Delete"
                                                                 >
-                                                                    Delete
+                                                                    <Trash2 className="w-4 h-4" />
                                                                 </button>
                                                             </div>
                                                         )}
@@ -2080,14 +2088,16 @@ const ManageStocks = () => {
                                                                         setShowFeedConsumeModal(true);
                                                                     }}
                                                                     className="text-blue-600 hover:text-blue-800 font-medium"
+                                                                    title="Edit"
                                                                 >
-                                                                    Edit
+                                                                    <Edit className="w-4 h-4" />
                                                                 </button>
                                                                 <button
                                                                     onClick={() => handleDeleteStock(consStocks[0]._id)}
                                                                     className="text-red-600 hover:text-red-800 font-medium"
+                                                                    title="Delete"
                                                                 >
-                                                                    Delete
+                                                                    <Trash2 className="w-4 h-4" />
                                                                 </button>
                                                             </div>
                                                         )}

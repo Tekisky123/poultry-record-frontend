@@ -603,11 +603,10 @@ export default function MonthlySummary() {
 
                     <button
                         onClick={() => setShowPercentage(!showPercentage)}
-                        className={`px-4 py-2 border rounded-lg font-medium transition-colors shadow-sm ${
-                            showPercentage
+                        className={`px-4 py-2 border rounded-lg font-medium transition-colors shadow-sm ${showPercentage
                                 ? 'bg-blue-600 text-white border-blue-600 hover:bg-blue-700'
                                 : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                        }`}
+                            }`}
                     >
                         % Percentage
                     </button>

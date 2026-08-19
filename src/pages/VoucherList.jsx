@@ -229,8 +229,8 @@ const VoucherList = () => {
         const amt = Number(p.amount) || 0;
         const debitParty = isPayment ? partyName : accountName;
         const creditParty = isPayment ? accountName : partyName;
-        const debitAmt = isPayment ? amt : 0;
-        const creditAmt = isPayment ? 0 : amt;
+        const debitAmt = amt;
+        const creditAmt = amt;
 
         return (
           <tr key={`${voucher.id || voucher._id}-${idx}`} className="hover:bg-gray-50 text-sm">
@@ -297,6 +297,12 @@ const VoucherList = () => {
     }
 
     const { debitParty, creditParty } = getDebitAndCreditParties(voucher);
+    const rawDebit = Number(voucher.totalDebit) || 0;
+    const rawCredit = Number(voucher.totalCredit) || 0;
+    const fallbackAmt = rawDebit > 0 ? rawDebit : rawCredit;
+    const displayDebit = rawDebit > 0 ? rawDebit : fallbackAmt;
+    const displayCredit = rawCredit > 0 ? rawCredit : fallbackAmt;
+
     return (
       <tr key={voucher.id || voucher._id} className="hover:bg-gray-50 text-sm">
         <td className="px-4 py-3.5 whitespace-nowrap text-gray-900">
@@ -326,10 +332,10 @@ const VoucherList = () => {
           </div>
         </td>
         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-green-600">
-          ₹{(voucher.totalDebit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          ₹{displayDebit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
         </td>
         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-red-600">
-          ₹{(voucher.totalCredit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          ₹{displayCredit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
         </td>
         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-right">
           <div className="flex items-center justify-end gap-2">

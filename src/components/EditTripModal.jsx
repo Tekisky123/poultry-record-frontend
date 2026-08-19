@@ -184,7 +184,7 @@ const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-gray-900">Route Information</h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   From *
@@ -211,22 +211,6 @@ const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
                   onChange={handleInputChange}
                   required
                   placeholder="End location"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Distance (km)
-                </label>
-                <input
-                  type="number"
-                  name="route.distance"
-                  value={formData.route.distance}
-                  onChange={handleInputChange}
-                  min="0"
-                  step="0.1"
-                  placeholder="0"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
