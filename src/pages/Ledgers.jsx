@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import AddGroupModal from '../components/AddGroupModal';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -14,7 +14,8 @@ import {
   Loader2,
   X,
   Tag,
-  Eye
+  Eye,
+  ChevronDown
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -56,9 +57,14 @@ export default function Ledgers() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAddGroupModalOpen, setIsAddGroupModalOpen] = useState(false);
 
+  // Searchable Group Dropdown States
+  const [groupSearchTerm, setGroupSearchTerm] = useState('');
+  const [isGroupDropdownOpen, setIsGroupDropdownOpen] = useState(false);
+  const groupDropdownRef = useRef(null);
+
   const hasAdminAccess = user?.role === 'admin' || user?.role === 'superadmin';
 
-  const { register, handleSubmit, reset, formState: { errors }, setValue } = useForm({
+  const { register, handleSubmit, reset, formState: { errors }, setValue, watch } = useForm({
     resolver: zodResolver(ledgerSchema),
     defaultValues: {
       name: '',
@@ -67,6 +73,31 @@ export default function Ledgers() {
       openingBalanceType: 'debit'
     }
   });
+
+  const selectedGroupId = watch('group');
+  const selectedGroup = flatGroups.find(g => (g.id === selectedGroupId || g._id === selectedGroupId));
+
+  const filteredGroupOptions = flatGroups.filter(g => {
+    if (!groupSearchTerm.trim()) return true;
+    const term = groupSearchTerm.toLowerCase();
+    return (
+      (g.displayName && g.displayName.toLowerCase().includes(term)) ||
+      (g.name && g.name.toLowerCase().includes(term)) ||
+      (g.type && g.type.toLowerCase().includes(term))
+    );
+  });
+
+  // Click outside handler to close group dropdown
+  useEffect(() => {
+    if (!isGroupDropdownOpen) return;
+    const handleClickOutside = (event) => {
+      if (groupDropdownRef.current && !groupDropdownRef.current.contains(event.target)) {
+        setIsGroupDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isGroupDropdownOpen]);
 
   // Fetch all data
   const fetchData = async () => {
@@ -438,17 +469,72 @@ export default function Ledgers() {
                     + Add Group
                   </button>
                 </div>
-                <select
-                  {...register('group')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Select a group</option>
-                  {flatGroups.map(group => (
-                    <option key={group.id} value={group.id}>
-                      {group.displayName} ({group.type})
-                    </option>
-                  ))}
-                </select>
+                <div className="relative" ref={groupDropdownRef}>
+                  <div
+                    onClick={() => setIsGroupDropdownOpen(!isGroupDropdownOpen)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer bg-white flex items-center justify-between ${
+                      errors.group ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  >
+                    <span className={selectedGroup ? "text-gray-900 font-medium text-sm truncate" : "text-gray-400 text-sm"}>
+                      {selectedGroup ? `${selectedGroup.displayName} (${selectedGroup.type})` : "Search or select a group..."}
+                    </span>
+                    <ChevronDown size={18} className="text-gray-400 shrink-0 ml-2" />
+                  </div>
+
+                  {isGroupDropdownOpen && (
+                    <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                      <div className="p-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+                        <Search size={16} className="text-gray-400 ml-1 shrink-0" />
+                        <input
+                          type="text"
+                          placeholder="Type to search group..."
+                          value={groupSearchTerm}
+                          onChange={(e) => setGroupSearchTerm(e.target.value)}
+                          className="w-full bg-transparent text-sm focus:outline-none py-1"
+                          autoFocus
+                        />
+                        {groupSearchTerm && (
+                          <button
+                            type="button"
+                            onClick={() => setGroupSearchTerm('')}
+                            className="text-gray-400 hover:text-gray-600 mr-1"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-60 overflow-y-auto divide-y divide-gray-50">
+                        {filteredGroupOptions.length > 0 ? (
+                          filteredGroupOptions.map((group) => (
+                            <div
+                              key={group.id}
+                              onClick={() => {
+                                setValue('group', group.id, { shouldValidate: true });
+                                setIsGroupDropdownOpen(false);
+                                setGroupSearchTerm('');
+                              }}
+                              className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 flex items-center justify-between ${
+                                selectedGroupId === group.id ? 'bg-blue-50/80 font-semibold text-blue-600' : 'text-gray-700'
+                              }`}
+                            >
+                              <span className="truncate pr-2">{group.displayName}</span>
+                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded shrink-0">
+                                {group.type}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-3 text-center text-xs text-gray-500">
+                            No matching groups found
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <input type="hidden" {...register('group')} />
                 {errors.group && <p className="text-red-500 text-xs mt-1">{errors.group.message}</p>}
               </div>
 

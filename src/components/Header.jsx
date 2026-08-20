@@ -1,4 +1,4 @@
-import { Bell, Search, Home, FileText, Receipt } from 'lucide-react';
+import { Bell, Search, Home, FileText, Receipt, BookOpen } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import Dropdown from './Dropdown';
@@ -38,6 +38,15 @@ export default function Header() {
           >
             <Receipt size={18} />
             <span className="hidden md:inline">Vouchers</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/ledgers')}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100"
+            title="Go to Ledgers"
+          >
+            <BookOpen size={18} />
+            <span className="hidden md:inline">Ledgers</span>
           </button>
         </div>
 

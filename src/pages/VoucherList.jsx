@@ -254,14 +254,14 @@ const VoucherList = () => {
                 <span className="truncate">{debitParty}</span>
               </div>
             </td>
+            <td className="px-4 py-3.5 whitespace-nowrap font-medium text-green-600">
+              ₹{debitAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+            </td>
             <td className="px-4 py-3.5 text-gray-900 max-w-[200px] truncate" title={creditParty}>
               <div className="flex items-center gap-1.5 text-gray-700">
                 <Users size={14} className="text-green-500 shrink-0" />
                 <span className="truncate">{creditParty}</span>
               </div>
-            </td>
-            <td className="px-4 py-3.5 whitespace-nowrap font-medium text-green-600">
-              ₹{debitAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
             </td>
             <td className="px-4 py-3.5 whitespace-nowrap font-medium text-red-600">
               ₹{creditAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -325,14 +325,14 @@ const VoucherList = () => {
             <span className="truncate">{debitParty}</span>
           </div>
         </td>
+        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-green-600">
+          ₹{displayDebit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+        </td>
         <td className="px-4 py-3.5 text-gray-900 max-w-[200px] truncate" title={creditParty}>
           <div className="flex items-center gap-1.5 text-gray-700">
             <Users size={14} className="text-green-500 shrink-0" />
             <span className="truncate">{creditParty}</span>
           </div>
-        </td>
-        <td className="px-4 py-3.5 whitespace-nowrap font-medium text-green-600">
-          ₹{displayDebit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
         </td>
         <td className="px-4 py-3.5 whitespace-nowrap font-medium text-red-600">
           ₹{displayCredit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
@@ -475,8 +475,8 @@ const VoucherList = () => {
                     <th className="px-4 py-3.5 text-left">Voucher No</th>
                     <th className="px-4 py-3.5 text-left">Type</th>
                     <th className="px-4 py-3.5 text-left">Debit Party</th>
-                    <th className="px-4 py-3.5 text-left">Credit Party</th>
                     <th className="px-4 py-3.5 text-left">Debit</th>
+                    <th className="px-4 py-3.5 text-left">Credit Party</th>
                     <th className="px-4 py-3.5 text-left">Credit</th>
                     <th className="px-4 py-3.5 text-right">Actions</th>
                   </tr>

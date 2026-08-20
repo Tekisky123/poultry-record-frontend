@@ -49,7 +49,6 @@ const getMenuItems = (user) => {
     isParent: true,
     children: [
       { name: 'Customers', path: '/customers', icon: Store },
-      { name: '+ Add Customer', path: '/add-customer', icon: Store },
       { name: 'Vehicles', path: '/vehicles', icon: Car },
       { name: 'Vendors', path: '/vendors', icon: UsersIcon },
       { name: 'Diesel Stations', path: '/diesel-stations', icon: Fuel },
