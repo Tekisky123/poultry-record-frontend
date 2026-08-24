@@ -61,21 +61,6 @@ const REPORT_COLUMNS = [
     }
   },
   {
-    key: 'customers',
-    label: 'Customers',
-    render: (day) => day.customers || '-'
-  },
-  {
-    key: 'vehicles',
-    label: 'Vehicle No',
-    render: (day) => day.vehicles || '-'
-  },
-  {
-    key: 'drivers',
-    label: 'Driver Name',
-    render: (day) => day.drivers || '-'
-  },
-  {
     key: 'totalPurchaseBirds',
     label: 'Total No Of Birds Pur',
     render: (day) => `${Number(day.totalPurchaseBirds || 0).toLocaleString('en-IN')}`

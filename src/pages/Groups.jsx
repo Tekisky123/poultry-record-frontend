@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -257,6 +257,10 @@ export default function Groups() {
     }
   });
 
+  const selectedParentId = watch('parentGroup');
+  const [parentSearchTerm, setParentSearchTerm] = useState('');
+  const [isParentDropdownOpen, setIsParentDropdownOpen] = useState(false);
+  const parentDropdownRef = useRef(null);
   const selectedType = watch('type');
 
   // Fetch groups
@@ -354,11 +358,25 @@ export default function Groups() {
     }
   };
 
+  // Click outside handler to close parent group dropdown
+  useEffect(() => {
+    if (!isParentDropdownOpen) return;
+    const handleClickOutside = (event) => {
+      if (parentDropdownRef.current && !parentDropdownRef.current.contains(event.target)) {
+        setIsParentDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [isParentDropdownOpen]);
+
   const handleEdit = (group) => {
     setEditingGroup(group);
     setValue('name', group.name || '');
     setValue('type', group.type || 'Assets');
     setValue('parentGroup', group.parentGroup?.id || null);
+    setIsParentDropdownOpen(false);
+    setParentSearchTerm('');
     setShowAddModal(true);
   };
 
@@ -379,6 +397,8 @@ export default function Groups() {
   const handleAddNew = () => {
     setEditingGroup(null);
     reset();
+    setIsParentDropdownOpen(false);
+    setParentSearchTerm('');
     setShowAddModal(true);
   };
 
@@ -386,6 +406,8 @@ export default function Groups() {
     setShowAddModal(false);
     setEditingGroup(null);
     reset();
+    setIsParentDropdownOpen(false);
+    setParentSearchTerm('');
     setError('');
   };
 
@@ -649,17 +671,96 @@ export default function Groups() {
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Parent Group (Optional)
                 </label>
-                <select
-                  {...register('parentGroup')}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">None (Root Group)</option>
-                  {getAvailableParents().map(parent => (
-                    <option key={parent.id} value={parent.id}>
-                      {parent.name} ({parent.type})
-                    </option>
-                  ))}
-                </select>
+                <div className="relative" ref={parentDropdownRef}>
+                  <div
+                    onClick={() => setIsParentDropdownOpen(!isParentDropdownOpen)}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer bg-white flex items-center justify-between ${
+                      errors.parentGroup ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  >
+                    <span className={selectedParentId ? "text-gray-900 font-medium text-sm truncate" : "text-gray-700 text-sm"}>
+                      {selectedParentId
+                        ? (() => {
+                            const p = groups.find(g => (g.id || g._id) === selectedParentId);
+                            return p ? `${p.name} (${p.type})` : "None (Root Group)";
+                          })()
+                        : "None (Root Group)"}
+                    </span>
+                    <ChevronDown size={18} className="text-gray-400 shrink-0 ml-2" />
+                  </div>
+
+                  {isParentDropdownOpen && (
+                    <div className="absolute left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
+                      <div className="p-2 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+                        <Search size={16} className="text-gray-400 ml-1 shrink-0" />
+                        <input
+                          type="text"
+                          placeholder="Type to search group..."
+                          value={parentSearchTerm}
+                          onChange={(e) => setParentSearchTerm(e.target.value)}
+                          className="w-full bg-transparent text-sm focus:outline-none py-1"
+                          autoFocus
+                        />
+                        {parentSearchTerm && (
+                          <button
+                            type="button"
+                            onClick={() => setParentSearchTerm('')}
+                            className="text-gray-400 hover:text-gray-600 mr-1"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
+
+                      <div className="max-h-60 overflow-y-auto divide-y divide-gray-50">
+                        <div
+                          onClick={() => {
+                            setValue('parentGroup', null, { shouldValidate: true });
+                            setIsParentDropdownOpen(false);
+                            setParentSearchTerm('');
+                          }}
+                          className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 flex items-center justify-between ${
+                            !selectedParentId ? 'bg-blue-50/80 font-semibold text-blue-600' : 'text-gray-700'
+                          }`}
+                        >
+                          <span>None (Root Group)</span>
+                        </div>
+                        {getAvailableParents().filter(p => {
+                          if (!parentSearchTerm.trim()) return true;
+                          const term = parentSearchTerm.toLowerCase();
+                          return (p.name && p.name.toLowerCase().includes(term)) || (p.type && p.type.toLowerCase().includes(term));
+                        }).length > 0 ? (
+                          getAvailableParents().filter(p => {
+                            if (!parentSearchTerm.trim()) return true;
+                            const term = parentSearchTerm.toLowerCase();
+                            return (p.name && p.name.toLowerCase().includes(term)) || (p.type && p.type.toLowerCase().includes(term));
+                          }).map(parent => (
+                            <div
+                              key={parent.id}
+                              onClick={() => {
+                                setValue('parentGroup', parent.id, { shouldValidate: true });
+                                setIsParentDropdownOpen(false);
+                                setParentSearchTerm('');
+                              }}
+                              className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 flex items-center justify-between ${
+                                selectedParentId === parent.id ? 'bg-blue-50/80 font-semibold text-blue-600' : 'text-gray-700'
+                              }`}
+                            >
+                              <span className="truncate pr-2">{parent.name}</span>
+                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded shrink-0">
+                                {parent.type}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="p-3 text-center text-xs text-gray-500">
+                            No matching groups found
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
                 {errors.parentGroup && <p className="text-red-500 text-xs mt-1">{errors.parentGroup.message}</p>}
               </div>
 

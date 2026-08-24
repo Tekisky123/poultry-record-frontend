@@ -62,21 +62,6 @@ const REPORT_COLUMNS = [
     }
   },
   {
-    key: 'customers',
-    label: 'Customers',
-    render: (row) => row.customers || '-'
-  },
-  {
-    key: 'vehicles',
-    label: 'Vehicle No',
-    render: (row) => row.vehicles || '-'
-  },
-  {
-    key: 'drivers',
-    label: 'Driver Name',
-    render: (row) => row.drivers || '-'
-  },
-  {
     key: 'totalPurchaseBirds',
     label: 'Total No Of Birds Pur',
     render: (row) => `${Number(row.totalPurchaseBirds || 0).toLocaleString('en-IN')}`
@@ -567,6 +552,15 @@ export default function IndirectSalesMonthlySummary() {
                                             column.key === 'salesAmount' ? `₹${Number(data?.totals.salesAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
                                             column.key === 'netProfit' ? `₹${Number(data?.totals.netProfit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
                                             column.key === 'margin' ? `₹${Number(data?.totals.margin || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}/Kg` :
+                                            column.key === 'totalPurchaseBirds' ? `${Number(data?.totals.totalPurchaseBirds || 0).toLocaleString('en-IN')}` :
+                                            column.key === 'totalPurchaseWeight' ? `${Number(data?.totals.totalPurchaseWeight || 0).toLocaleString('en-IN')} Kg` :
+                                            column.key === 'totalPurchaseAmount' ? `₹${Number(data?.totals.purchaseAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                            column.key === 'totalSalesBirds' ? `${Number(data?.totals.totalSalesBirds || 0).toLocaleString('en-IN')}` :
+                                            column.key === 'totalSalesWeight' ? `${Number(data?.totals.salesWeight || 0).toLocaleString('en-IN')} Kg` :
+                                            column.key === 'totalSalesAmount' ? `₹${Number(data?.totals.salesAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                            column.key === 'totalMortalityBirds' ? `${Number(data?.totals.totalMortalityBirds || 0).toLocaleString('en-IN')}` :
+                                            column.key === 'totalMortalityWeight' ? `${Number(data?.totals.totalMortalityWeight || 0).toLocaleString('en-IN')} Kg` :
+                                            column.key === 'totalMortalityAmount' ? `₹${Number(data?.totals.totalMortalityAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
                                             '-'
                                         )}
                                     </td>

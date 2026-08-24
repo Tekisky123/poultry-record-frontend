@@ -472,9 +472,8 @@ export default function Ledgers() {
                 <div className="relative" ref={groupDropdownRef}>
                   <div
                     onClick={() => setIsGroupDropdownOpen(!isGroupDropdownOpen)}
-                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer bg-white flex items-center justify-between ${
-                      errors.group ? 'border-red-500' : 'border-gray-300'
-                    }`}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer bg-white flex items-center justify-between ${errors.group ? 'border-red-500' : 'border-gray-300'
+                      }`}
                   >
                     <span className={selectedGroup ? "text-gray-900 font-medium text-sm truncate" : "text-gray-400 text-sm"}>
                       {selectedGroup ? `${selectedGroup.displayName} (${selectedGroup.type})` : "Search or select a group..."}
@@ -515,9 +514,8 @@ export default function Ledgers() {
                                 setIsGroupDropdownOpen(false);
                                 setGroupSearchTerm('');
                               }}
-                              className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 flex items-center justify-between ${
-                                selectedGroupId === group.id ? 'bg-blue-50/80 font-semibold text-blue-600' : 'text-gray-700'
-                              }`}
+                              className={`px-3 py-2 text-sm cursor-pointer hover:bg-blue-50 flex items-center justify-between ${selectedGroupId === group.id ? 'bg-blue-50/80 font-semibold text-blue-600' : 'text-gray-700'
+                                }`}
                             >
                               <span className="truncate pr-2">{group.displayName}</span>
                               <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded shrink-0">

@@ -358,13 +358,13 @@ const VendorDetails = () => {
                     <div className="flex justify-between items-start">
                         <div>
                             <p className="text-sm font-medium text-gray-600">Outstanding Balance</p>
-                            <p className="text-2xl font-bold text-orange-600 mt-1">₹{(vendor.outstandingBalance ?? 0).toLocaleString('en-IN', {
+                            <p className="text-2xl font-bold text-green-600 mt-1">₹{(vendor.outstandingBalance ?? 0).toLocaleString('en-IN', {
                                 minimumFractionDigits: 2,
                                 maximumFractionDigits: 2,
                             })}</p>
                         </div>
-                        <div className="p-2 bg-orange-50 rounded-lg">
-                            <CreditCard className="w-5 h-5 text-orange-600" />
+                        <div className="p-2 bg-green-50 rounded-lg">
+                            <CreditCard className="w-5 h-5 text-green-600" />
                         </div>
                     </div>
                 </div>
@@ -440,7 +440,6 @@ const VendorDetails = () => {
                                 <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Credit</th>
                                 <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">TDS</th>
                                 <th className="px-3 py-3 text-right font-medium text-gray-700 whitespace-nowrap">Balance</th>
-                                {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Supplier</th>}
                                 {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Supervisor</th>}
                                 {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Driver</th>}
                                 {!isFeedCreditor && <th className="px-3 py-3 text-left font-medium text-gray-700 whitespace-nowrap">Vehicle No</th>}
@@ -490,7 +489,6 @@ const VendorDetails = () => {
                                         {entry.type === 'OPENING' ? '-' : (entry.lessTDS || entry.tds ? `₹${(entry.lessTDS || entry.tds || 0).toLocaleString()}` : '-')}
                                     </td>
                                     <td className="px-3 py-3 text-right font-semibold text-gray-900 whitespace-nowrap">₹{(entry.balance || 0).toLocaleString()}</td>
-                                    {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{vendor?.vendorName || '-'}</td>}
                                     {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{entry.supervisor}</td>}
                                     {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{entry.driverName}</td>}
                                     {!isFeedCreditor && <td className="px-3 py-3 text-gray-900 whitespace-nowrap">{entry.vehicleNo}</td>}

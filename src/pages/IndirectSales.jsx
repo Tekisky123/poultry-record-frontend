@@ -53,6 +53,51 @@ const REPORT_COLUMNS = [
     label: 'Margin (₹/Kg)',
     defaultSelected: true,
     render: (row) => `₹${row.margin.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  },
+  {
+    key: 'totalPurchaseBirds',
+    label: 'Total No Of Birds Pur',
+    render: (row) => `${Number(row.totalPurchaseBirds || 0).toLocaleString('en-IN')}`
+  },
+  {
+    key: 'totalPurchaseWeight',
+    label: 'Total Weight Of B Pur',
+    render: (row) => `${Number(row.totalPurchaseWeight || 0).toLocaleString('en-IN')} Kg`
+  },
+  {
+    key: 'totalPurchaseAmount',
+    label: 'Total Amount Of B Pur',
+    render: (row) => `₹${Number(row.totalPurchaseAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+  },
+  {
+    key: 'totalSalesBirds',
+    label: 'Total No Of Birds Sales',
+    render: (row) => `${Number(row.totalSalesBirds || 0).toLocaleString('en-IN')}`
+  },
+  {
+    key: 'totalSalesWeight',
+    label: 'Total Weight Of Sales',
+    render: (row) => `${Number(row.totalSalesWeight || 0).toLocaleString('en-IN')} Kg`
+  },
+  {
+    key: 'totalSalesAmount',
+    label: 'Total Amount Of Sales',
+    render: (row) => `₹${Number(row.totalSalesAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+  },
+  {
+    key: 'totalMortalityBirds',
+    label: 'Mortality Birds',
+    render: (row) => `${Number(row.totalMortalityBirds || 0).toLocaleString('en-IN')}`
+  },
+  {
+    key: 'totalMortalityWeight',
+    label: 'Mortality Weight',
+    render: (row) => `${Number(row.totalMortalityWeight || 0).toLocaleString('en-IN')} Kg`
+  },
+  {
+    key: 'totalMortalityAmount',
+    label: 'Mortality Amount',
+    render: (row) => `₹${Number(row.totalMortalityAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
   }
 ];
 
@@ -263,6 +308,16 @@ export default function IndirectSales() {
     return records.map(record => {
       const profit = record.summary?.netProfit || 0;
       const margin = record.summary?.margin || 0;
+      const pBirds = record.summary?.totalPurchaseBirds || (record.purchases ? record.purchases.reduce((s, p) => s + (p.birds || 0), 0) : 0);
+      const pWeight = record.summary?.totalPurchaseWeight || (record.purchases ? record.purchases.reduce((s, p) => s + (p.weight || 0), 0) : 0);
+      const pAmount = record.summary?.totalPurchaseAmount || (record.purchases ? record.purchases.reduce((s, p) => s + (p.amount || 0), 0) : 0);
+      const sBirds = record.sales?.birds || 0;
+      const sWeight = record.sales?.weight || 0;
+      const sAmount = record.sales?.amount || 0;
+      const mBirds = record.mortality?.birds || 0;
+      const mWeight = record.mortality?.weight || 0;
+      const mAmount = record.mortality?.amount || 0;
+
       return {
         id: record.id,
         date: record.date,
@@ -271,7 +326,16 @@ export default function IndirectSales() {
         vendor: record.vendor?.vendorName || 'N/A',
         place: record.place || 'N/A',
         profit,
-        margin
+        margin,
+        totalPurchaseBirds: pBirds,
+        totalPurchaseWeight: pWeight,
+        totalPurchaseAmount: pAmount,
+        totalSalesBirds: sBirds,
+        totalSalesWeight: sWeight,
+        totalSalesAmount: sAmount,
+        totalMortalityBirds: mBirds,
+        totalMortalityWeight: mWeight,
+        totalMortalityAmount: mAmount
       };
     });
   }, [records]);

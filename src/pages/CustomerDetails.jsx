@@ -615,11 +615,11 @@ const CustomerDetails = () => {
           <div className="flex flex-col h-full justify-between relative z-10">
             <div>
               <p className="text-sm font-medium text-gray-500 mb-1">Outstanding Balance</p>
-              <p className="text-2xl font-bold text-orange-600">₹{(customer.outstandingBalance || 0).toLocaleString()}</p>
+              <p className="text-2xl font-bold text-green-600">₹{(customer.outstandingBalance || 0).toLocaleString()}</p>
             </div>
           </div>
-          <div className="absolute right-2 top-2 p-2 bg-orange-50 rounded-lg">
-            <CreditCard className="w-6 h-6 text-orange-600" />
+          <div className="absolute right-2 top-2 p-2 bg-green-50 rounded-lg">
+            <CreditCard className="w-6 h-6 text-green-600" />
           </div>
         </div>
       </div>
@@ -729,7 +729,7 @@ const CustomerDetails = () => {
                       <td className="px-3 py-3 text-right text-gray-900">{(entry.weight || 0).toFixed(2)}</td>
                       <td className="px-3 py-3 text-right text-gray-900">{(entry.avgWeight || 0).toFixed(2)}</td>
                       <td className="px-3 py-3 text-right text-gray-900">₹{(entry.rate || 0).toLocaleString()}</td>
-                      <td className="px-3 py-3 text-right text-green-600 font-medium">
+                      <td className="px-3 py-3 text-right text-red-600 font-medium">
                         {(() => {
                           const p = displayParticulars(entry);
                           // Sales/Debit types: Sales, Stock Sale, Indirect Sales, Payment (mapped from Receipt voucher)
@@ -740,7 +740,7 @@ const CustomerDetails = () => {
                           return '-';
                         })()}
                       </td>
-                      <td className="px-3 py-3 text-right text-red-600 font-medium">
+                      <td className="px-3 py-3 text-right text-green-600 font-medium">
                         {(() => {
                           const p = displayParticulars(entry);
                           // Credit types: Receipt, Cash/Bank Receipt, Discount
