@@ -7,7 +7,7 @@ import * as XLSX from 'xlsx';
 
 const shouldHideChildren = (groupName) => {
   const normalizedName = (groupName || '').toLowerCase();
-  return normalizedName === 'purchase accounts' || normalizedName === 'sales accounts';
+  return normalizedName === 'sales accounts';
 };
 
 // Render group node with infinite level of nesting (memoized for performance)
@@ -26,7 +26,18 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
     e.stopPropagation();
     if (!groupId) return;
 
-    if (group.slug === 'other-purchases' || group.slug === 'other-sales') {
+    const lowerName = group.name ? group.name.toLowerCase().trim() : "";
+    const lowerParentName = parentName ? parentName.toLowerCase().trim() : "";
+
+    // Block header group clicks from opening reports
+    if (
+      lowerName === "opening stock" ||
+      lowerName === "purchase accounts" ||
+      lowerName === "closing stock" ||
+      lowerName === "sales accounts" ||
+      group.slug === 'other-purchases' ||
+      group.slug === 'other-sales'
+    ) {
       return;
     }
 
@@ -46,37 +57,42 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
       return;
     }
 
-    // Redirect LIVE POULTRY BIRDS group to its special stock pages
-    const lowerName = group.name ? group.name.toLowerCase() : "";
-    const lowerParentName = parentName ? parentName.toLowerCase() : "";
-
-    if (lowerName === "purchase accounts" || group.slug === "purchase-accounts") {
-      navigate(`/purchase-accounts/monthly-summary?groupId=${groupId}&startDate=${startDate}&endDate=${endDate}`);
+    // Routing for sub-options under Opening Stock, Purchase Accounts, Closing Stock, and others
+    if (group.slug === 'birds-opening-stock' || (lowerName.includes("birds") && lowerParentName.includes("opening"))) {
+      navigate(`/birds-opening-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
     }
 
-    if (lowerName === "sales accounts" || group.slug === "sales-accounts") {
-      navigate(`/sales-accounts/monthly-summary?groupId=${groupId}&startDate=${startDate}&endDate=${endDate}`);
+    if (group.slug === 'feed-opening-stock' || (lowerName.includes("feed") && lowerParentName.includes("opening"))) {
+      navigate(`/feed-opening-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
     }
 
-    if (lowerName.includes("live poultry birds") && lowerName.includes("purchase")) {
+    if (group.slug === 'birds-purchase' || (lowerName.includes("birds") && lowerName.includes("purchase")) || (lowerName.includes("birds") && lowerParentName.includes("purchase"))) {
       navigate(`/live-poultry-purchase/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
-    } else if (lowerName.includes("poultry feed purchase")) {
+    }
+
+    if (group.slug === 'feed-purchase' || lowerName.includes("poultry feed purchase") || (lowerName.includes("feed") && lowerParentName.includes("purchase"))) {
       navigate(`/feed-stock-purchase/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
-    } else if (lowerName.includes("feed consumption")) {
+    }
+
+    if (group.slug === 'birds-closing-stock' || (lowerName.includes("birds") && lowerParentName.includes("closing"))) {
+      navigate(`/birds-closing-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    }
+
+    if (group.slug === 'feed-closing-stock' || (lowerName.includes("feed") && lowerParentName.includes("closing"))) {
+      navigate(`/feed-closing-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    }
+
+    if (lowerName.includes("feed consumption")) {
       navigate(`/feed-stock-consumption/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
     } else if (lowerName.includes("live poultry birds") && lowerName.includes("sales")) {
       navigate(`/live-poultry-sales/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
-      return;
-    } else if (lowerName.includes("live poultry birds") && lowerParentName.includes("closing")) {
-      navigate(`/live-poultry-closing-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
-      return;
-    } else if (lowerName.includes("live poultry birds")) {
-      navigate(`/live-poultry-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
     } else if (lowerName.includes("trip expenses")) {
       navigate(`/trip-expenses/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
@@ -90,28 +106,22 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
     } else if (lowerName.includes("birds weight loss")) {
       navigate(`/birds-weight-loss/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
-    } else if (lowerName.includes("birds opening stock")) {
-      navigate(`/birds-opening-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
-      return;
-    } else if (lowerName.includes("feed opening stock")) {
-      navigate(`/feed-opening-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
-      return;
-    } else if (lowerName.includes("birds stock")) {
-      navigate(`/birds-closing-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
-      return;
-    } else if (lowerName.includes("feed stock")) {
-      navigate(`/feed-closing-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
-      return;
     }
 
     navigate(`/group-summary/${groupId}?startDate=${startDate}&endDate=${endDate}`);
   }, [navigate, groupId, searchParams, group.name, group.slug, parentName]);
 
+  const isBlocked = (
+    group.slug === 'other-purchases' || 
+    group.slug === 'other-sales' ||
+    ['opening stock', 'purchase accounts', 'closing stock', 'sales accounts'].includes((group.name || '').toLowerCase().trim())
+  );
+
   return (
     <div className="select-none">
       {/* Parent Group */}
       <div
-        className={`flex items-stretch rounded px-2 transition-colors ${(group.slug === 'other-purchases' || group.slug === 'other-sales') ? 'cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}
+        className={`flex items-stretch rounded px-2 transition-colors ${isBlocked ? 'cursor-default' : 'hover:bg-gray-50 cursor-pointer'}`}
         onClick={handleGroupClick}
         style={{
           paddingLeft: `${leftPadding}px`
