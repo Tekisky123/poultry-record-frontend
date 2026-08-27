@@ -51,55 +51,58 @@ export default function LiveBirdsOpeningStockMonthlySummary() {
         if (!stocks.length) return [];
 
         const fyStart = new Date(`${year}-04-01T00:00:00Z`);
-        const fyEnd   = new Date(`${year + 1}-03-31T23:59:59Z`);
+        const fyEnd = new Date(`${year + 1}-03-31T23:59:59Z`);
 
         let cumulativePurchWeight = 0;
         let cumulativePurchAmount = 0;
-        let cumulativePurchBirds  = 0;
-        let cumulativeOutWeight   = 0;
-        let cumulativeOutBirds    = 0;
-
-        const stocksBeforeFY  = [];
-        const stocksDuringFY  = [];
+        let cumulativeOutWeight = 0;
 
         const opStocks = stocks.filter(s => s.type === 'opening');
         const firstOpStock = opStocks.length > 0
             ? opStocks.sort((a, b) => new Date(a.date) - new Date(b.date))[0]
             : null;
 
-        let anchorDate = new Date(0);
+        let fyAnchorDate = new Date(0);
         if (firstOpStock) {
-            const d = new Date(firstOpStock.date);
-            anchorDate = new Date(`${firstOpStock.date.split('T')[0]}T00:00:00`);
+            const bOpDate = new Date(firstOpStock.date);
+            const bOpYear = bOpDate.getFullYear();
+            const bOpMonth = bOpDate.getMonth();
+            const bOpFyStartYear = bOpMonth >= 3 ? bOpYear : bOpYear - 1;
+            fyAnchorDate = new Date(`${bOpFyStartYear}-04-01T00:00:00`);
         }
+
+        const stocksBeforeFY = [];
+        const stocksDuringFY = [];
 
         stocks.forEach(stock => {
             const date = new Date(stock.date);
+
             if (stock.type === 'opening') {
                 if (!firstOpStock || stock._id !== firstOpStock._id) return;
                 stocksBeforeFY.push(stock);
             } else {
-                if (date < anchorDate) return;
-                if (date < fyStart) stocksBeforeFY.push(stock);
-                else if (date <= fyEnd) stocksDuringFY.push(stock);
+                if (date < fyAnchorDate) return;
+
+                if (date < fyStart) {
+                    stocksBeforeFY.push(stock);
+                } else if (date <= fyEnd) {
+                    stocksDuringFY.push(stock);
+                }
             }
         });
 
-        const processStock = (s) => {
-            const w   = Number(s.weight) || 0;
+        stocksBeforeFY.forEach(s => {
+            const type = s.type;
+            const w = Number(s.weight) || 0;
             const amt = Number(s.amount) || 0;
-            const b   = Number(s.birds) || 0;
-            if (s.type === 'purchase' || s.type === 'opening') {
+
+            if (type === 'purchase' || type === 'opening') {
                 cumulativePurchWeight += w;
                 cumulativePurchAmount += amt;
-                cumulativePurchBirds  += b;
-            } else if (['sale', 'receipt', 'mortality', 'weight_loss', 'natural_weight_loss'].includes(s.type)) {
+            } else if (['sale', 'receipt', 'mortality', 'weight_loss', 'natural_weight_loss'].includes(type)) {
                 cumulativeOutWeight += w;
-                cumulativeOutBirds  += b;
             }
-        };
-
-        stocksBeforeFY.forEach(processStock);
+        });
 
         const monthsMap = new Map();
         for (let i = 0; i < 12; i++) {
@@ -110,37 +113,99 @@ export default function LiveBirdsOpeningStockMonthlySummary() {
                 name: mDate.toLocaleString('default', { month: 'short' }),
                 year: mDate.getFullYear(),
                 monthIndex: mDate.getMonth(),
-                birds: 0,
-                weight: 0,
-                amount: 0,
-                rate: 0
+                sortOrder: i,
+                inwardWeight: 0,
+                inwardAmount: 0,
+                outwardWeight: 0,
+                outwardAmount: 0,
+                openingWeight: 0,
+                openingAmount: 0,
+                closingWeight: 0,
+                closingAmount: 0
             });
         }
 
         const sortedMonths = Array.from(monthsMap.values());
 
         sortedMonths.forEach(month => {
-            // OPENING = cumulative state BEFORE this month's transactions
-            const avgRate       = cumulativePurchWeight > 0 ? cumulativePurchAmount / cumulativePurchWeight : 0;
-            const openingWeight = cumulativePurchWeight - cumulativeOutWeight;
-            const openingBirds  = cumulativePurchBirds - cumulativeOutBirds;
-            const openingAmount = openingWeight * avgRate;
+            const prevAvgRate = cumulativePurchWeight > 0 ? (cumulativePurchAmount / cumulativePurchWeight) : 0;
+            const currentOpeningWeight = cumulativePurchWeight - cumulativeOutWeight;
+            const currentOpeningAmount = currentOpeningWeight * prevAvgRate;
 
-            month.birds  = openingBirds;
-            month.weight = openingWeight;
-            month.amount = openingAmount;
-            month.rate   = openingWeight > 0 ? openingAmount / openingWeight : 0;
+            month.openingWeight = currentOpeningWeight;
+            month.openingAmount = currentOpeningAmount;
 
-            // Now apply this month's transactions for next month's opening
+            const yearStr = month.year;
+            const monthObj = month.monthIndex;
+
             const monthlyStocks = stocksDuringFY.filter(s => {
                 const d = new Date(s.date);
-                return d.getFullYear() === month.year && d.getMonth() === month.monthIndex;
+                return d.getFullYear() === yearStr && d.getMonth() === monthObj;
             });
-            monthlyStocks.forEach(processStock);
+
+            let periodPurchWeight = 0;
+            let periodPurchAmount = 0;
+            let periodSaleWeight = 0;
+            let periodSaleAmount = 0;
+            let periodOtherWeight = 0;
+
+            monthlyStocks.forEach(s => {
+                const type = s.type;
+                const w = Number(s.weight) || 0;
+                const amt = Number(s.amount) || 0;
+
+                if (type === 'purchase' || type === 'opening') {
+                    periodPurchWeight += w;
+                    periodPurchAmount += amt;
+                } else if (type === 'sale' || type === 'receipt') {
+                    periodSaleWeight += w;
+                    periodSaleAmount += amt;
+                } else if (['mortality', 'weight_loss', 'natural_weight_loss'].includes(type)) {
+                    periodOtherWeight += w;
+                }
+            });
+
+            cumulativePurchWeight += periodPurchWeight;
+            cumulativePurchAmount += periodPurchAmount;
+            cumulativeOutWeight += (periodSaleWeight + periodOtherWeight);
+
+            const currentAvgRate = cumulativePurchWeight > 0 ? (cumulativePurchAmount / cumulativePurchWeight) : 0;
+
+            month.inwardWeight = periodPurchWeight;
+            month.inwardAmount = periodPurchAmount;
+
+            month.outwardWeight = periodSaleWeight;
+            month.outwardAmount = periodSaleAmount;
+
+            month.inwardRate = month.inwardWeight ? (month.inwardAmount / month.inwardWeight) : 0;
+            month.outwardRate = month.outwardWeight ? (month.outwardAmount / month.outwardWeight) : 0;
+
+            month.closingWeight = currentOpeningWeight + periodPurchWeight - periodSaleWeight - periodOtherWeight;
+            month.closingRate = currentAvgRate;
+            month.closingAmount = month.closingWeight * month.closingRate;
+
+            month.periodPurchWeight = periodPurchWeight;
+            month.periodPurchAmount = periodPurchAmount;
         });
 
         return sortedMonths;
     }, [stocks, year]);
+
+    const totals = useMemo(() => {
+        return monthlyData.reduce((acc, curr) => ({
+            inWeight: acc.inWeight + curr.periodPurchWeight,
+            inAmt: acc.inAmt + curr.periodPurchAmount,
+            outWeight: acc.outWeight + curr.outwardWeight,
+            outAmt: acc.outAmt + curr.outwardAmount
+        }), {
+            inWeight: monthlyData[0]?.openingWeight || 0,
+            inAmt: monthlyData[0]?.openingAmount || 0,
+            outWeight: 0,
+            outAmt: 0
+        });
+    }, [monthlyData]);
+
+    const finalMonth = monthlyData[monthlyData.length - 1];
 
     const handleMonthClick = (month) => {
         navigate(`/birds-opening-stock/daily-summary?year=${month.year}&month=${month.monthIndex + 1}`);
@@ -148,31 +213,60 @@ export default function LiveBirdsOpeningStockMonthlySummary() {
 
     const handleExportToExcel = () => {
         if (!monthlyData.length) return;
-        const exportData = monthlyData.map(m => ({
-            'Month':         `${m.name} ${m.year}`,
-            'No. of Birds':  m.birds,
-            'Quantity (kg)': m.weight.toFixed(2),
-            'Rate':          m.rate.toFixed(2),
-            'Amount':        m.amount.toFixed(2)
-        }));
+
+        const exportData = [];
+        const opW = monthlyData[0]?.openingWeight || 0;
+        const opA = monthlyData[0]?.openingAmount || 0;
+        const opR = opW > 0 ? (opA / opW) : 0;
+
         exportData.push({
-            'Month':         'Total',
-            'No. of Birds':  monthlyData.reduce((s, m) => s + m.birds, 0),
-            'Quantity (kg)': monthlyData.reduce((s, m) => s + m.weight, 0).toFixed(2),
-            'Rate':          '',
-            'Amount':        monthlyData.reduce((s, m) => s + m.amount, 0).toFixed(2)
+            'Item Name': 'OP STOCK',
+            'Inward Quantity (kg)': opW,
+            'Inward Rate (₹)': opR.toFixed(2),
+            'Inward Amount (₹)': opA,
+            'Outward Quantity (kg)': 0,
+            'Outward Rate (₹)': '0.00',
+            'Outward Amount (₹)': 0,
+            'Closing Quantity (kg)': opW,
+            'Closing Rate (₹)': opR.toFixed(2),
+            'Closing Amount (₹)': opA
         });
+
+        monthlyData.forEach(month => {
+            exportData.push({
+                'Item Name': `${month.name} ${month.year}`,
+                'Inward Quantity (kg)': month.inwardWeight,
+                'Inward Rate (₹)': month.inwardRate.toFixed(2),
+                'Inward Amount (₹)': month.inwardAmount,
+                'Outward Quantity (kg)': month.outwardWeight,
+                'Outward Rate (₹)': month.outwardRate.toFixed(2),
+                'Outward Amount (₹)': month.outwardAmount,
+                'Closing Quantity (kg)': month.closingWeight,
+                'Closing Rate (₹)': month.closingRate.toFixed(2),
+                'Closing Amount (₹)': month.closingAmount
+            });
+        });
+
+        exportData.push({
+            'Item Name': 'Total',
+            'Inward Quantity (kg)': totals.inWeight,
+            'Inward Rate (₹)': totals.inWeight ? (totals.inAmt / totals.inWeight).toFixed(2) : '0.00',
+            'Inward Amount (₹)': totals.inAmt,
+            'Outward Quantity (kg)': totals.outWeight,
+            'Outward Rate (₹)': totals.outWeight ? (totals.outAmt / totals.outWeight).toFixed(2) : '0.00',
+            'Outward Amount (₹)': totals.outAmt,
+            'Closing Quantity (kg)': finalMonth?.closingWeight || 0,
+            'Closing Rate (₹)': finalMonth?.closingRate?.toFixed(2) || '0.00',
+            'Closing Amount (₹)': finalMonth?.closingAmount || 0
+        });
+
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, 'Birds Opening Stock');
+        XLSX.utils.book_append_sheet(wb, ws, "Birds Opening Stock");
         XLSX.writeFile(wb, `Birds_Opening_Stock_${year}-${year + 1}.xlsx`);
     };
 
-    if (loading && !stocks.length) return <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-orange-600" /></div>;
-
-    const totalBirds = monthlyData.reduce((s, m) => s + m.birds, 0);
-    const totalWeight = monthlyData.reduce((s, m) => s + m.weight, 0);
-    const totalAmount = monthlyData.reduce((s, m) => s + m.amount, 0);
+    if (loading && !stocks.length) return <div className="flex justify-center p-12"><Loader2 className="animate-spin w-8 h-8 text-blue-600" /></div>;
 
     return (
         <div className="space-y-6">
@@ -186,7 +280,7 @@ export default function LiveBirdsOpeningStockMonthlySummary() {
                             <ArrowLeft size={20} />
                         </button>
                         <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-                            <Package className="w-8 h-8 text-orange-600" />
+                            <Package className="w-8 h-8 text-blue-600" />
                             Birds Opening Stock (Monthly)
                         </h1>
                     </div>
@@ -196,19 +290,19 @@ export default function LiveBirdsOpeningStockMonthlySummary() {
                     <select
                         value={year}
                         onChange={(e) => setYear(Number(e.target.value))}
-                        className="p-2 border border-orange-200 bg-orange-50 text-orange-800 rounded-md font-semibold focus:ring-orange-500 focus:border-orange-500 shadow-sm"
+                        className="px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 text-sm font-medium text-gray-700 bg-white"
                     >
-                        {[0, 1, 2, 3, 4].map(i => {
-                            const y = new Date().getFullYear() - i;
-                            return <option key={y} value={y}>FY {y}-{String(y + 1).slice(2)}</option>;
+                        {Array.from({ length: 5 }, (_, i) => {
+                            const y = new Date().getFullYear() - 3 + i;
+                            return <option key={y} value={y}>FY {y}-{y + 1}</option>;
                         })}
                     </select>
                     <button
                         onClick={handleExportToExcel}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors text-sm font-medium"
                     >
                         <Download size={20} />
-                        <span className="font-medium">Export</span>
+                        <span>Export Excel</span>
                     </button>
                 </div>
             </div>
@@ -220,58 +314,90 @@ export default function LiveBirdsOpeningStockMonthlySummary() {
                 </div>
             )}
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-100 text-gray-700 uppercase font-semibold border-b-2 border-gray-300">
-                        <tr>
-                            <th className="py-3 px-4 border-r border-gray-300">Month</th>
-                            <th className="py-3 px-4 text-right border-r border-gray-300 bg-blue-50 text-blue-800">No. of Birds</th>
-                            <th className="py-3 px-4 text-right border-r border-gray-300 bg-orange-50 text-orange-800">Quantity (kg)</th>
-                            <th className="py-3 px-4 text-right border-r border-gray-300 bg-orange-50 text-orange-800">Rate</th>
-                            <th className="py-3 px-4 text-right bg-orange-50 text-orange-800">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                        {monthlyData.length > 0 ? monthlyData.map(month => (
-                            <tr
-                                key={month.monthKey}
-                                onClick={() => handleMonthClick(month)}
-                                className="hover:bg-gray-50 cursor-pointer transition-colors"
-                            >
-                                <td className="py-3 px-4 border-r font-medium text-gray-900 flex items-center gap-2">
-                                    <Calendar className="w-4 h-4 text-orange-500" />
-                                    {month.name} {month.year}
-                                </td>
-                                <td className="py-3 px-4 text-right text-blue-700 font-medium border-r">
-                                    {month.birds ? month.birds.toLocaleString('en-IN') : '-'}
-                                </td>
-                                <td className="py-3 px-4 text-right text-orange-700 font-medium border-r">
-                                    {month.weight ? month.weight.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}
-                                </td>
-                                <td className="py-3 px-4 text-right text-gray-600 border-r">
-                                    {month.rate ? month.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}
-                                </td>
-                                <td className="py-3 px-4 text-right text-gray-800 font-medium">
-                                    {month.amount ? month.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}
-                                </td>
-                            </tr>
-                        )) : (
+            {monthlyData.length > 0 && (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                        <thead className="bg-gray-100 text-gray-700 uppercase font-semibold border-b-2 border-gray-300">
                             <tr>
-                                <td colSpan="5" className="py-8 text-center text-gray-500 italic">No records found for FY {year}-{year + 1}</td>
+                                <th rowSpan="2" className="py-3 px-4 border-r border-gray-300">Item Name</th>
+                                <th colSpan="3" className="py-2 px-4 text-center border-r border-gray-300 bg-green-50 text-green-800">Inward</th>
+                                <th colSpan="3" className="py-2 px-4 text-center border-r border-gray-300 bg-red-50 text-red-800">Outward</th>
+                                <th colSpan="3" className="py-2 px-4 text-center bg-blue-50 text-blue-800">Closing</th>
                             </tr>
-                        )}
-                    </tbody>
-                    <tfoot className="bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-400">
-                        <tr>
-                            <td className="py-3 px-4 border-r uppercase text-sm">Totals</td>
-                            <td className="py-3 px-4 text-right text-blue-700 border-r">{totalBirds.toLocaleString('en-IN')}</td>
-                            <td className="py-3 px-4 text-right text-orange-700 border-r">{totalWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                            <td className="py-3 px-4 text-right border-r">{totalWeight > 0 ? (totalAmount / totalWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</td>
-                            <td className="py-3 px-4 text-right text-orange-700">{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
+                            <tr className="border-t border-gray-300">
+                                <th className="py-2 px-4 bg-green-50">Quantity (kg)</th>
+                                <th className="py-2 px-4 bg-green-50">Rate (₹)</th>
+                                <th className="py-2 px-4 border-r border-gray-300 bg-green-50">Amount (₹)</th>
+                                <th className="py-2 px-4 bg-red-50">Quantity (kg)</th>
+                                <th className="py-2 px-4 bg-red-50">Rate (₹)</th>
+                                <th className="py-2 px-4 border-r border-gray-300 bg-red-50">Amount (₹)</th>
+                                <th className="py-2 px-4 bg-blue-50">Quantity (kg)</th>
+                                <th className="py-2 px-4 bg-blue-50">Rate (₹)</th>
+                                <th className="py-2 px-4 bg-blue-50">Amount (₹)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            <tr className="bg-yellow-50/60 font-medium hover:bg-yellow-50">
+                                <td className="py-3 px-4 border-r text-gray-900 flex items-center gap-2">
+                                    <Package className="w-4 h-4 text-orange-500" />
+                                    OP STOCK
+                                </td>
+                                <td className="py-3 px-4 text-right text-green-700">{monthlyData[0]?.openingWeight ? monthlyData[0].openingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+                                <td className="py-3 px-4 text-right text-gray-600">{monthlyData[0]?.openingWeight ? (monthlyData[0].openingAmount / monthlyData[0].openingWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
+                                <td className="py-3 px-4 text-right border-r text-gray-800">{monthlyData[0]?.openingAmount ? monthlyData[0].openingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+
+                                <td className="py-3 px-4 text-right text-red-700">-</td>
+                                <td className="py-3 px-4 text-right text-gray-600">-</td>
+                                <td className="py-3 px-4 text-right border-r text-gray-800">-</td>
+
+                                <td className="py-3 px-4 text-right text-blue-700 font-bold">{monthlyData[0]?.openingWeight ? monthlyData[0].openingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '0.00'}</td>
+                                <td className="py-3 px-4 text-right text-gray-600">{monthlyData[0]?.openingWeight ? (monthlyData[0].openingAmount / monthlyData[0].openingWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</td>
+                                <td className="py-3 px-4 text-right font-bold text-gray-900">{monthlyData[0]?.openingAmount ? monthlyData[0].openingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '0.00'}</td>
+                            </tr>
+                            {monthlyData.map((month) => (
+                                <tr
+                                    key={month.monthKey}
+                                    onClick={() => handleMonthClick(month)}
+                                    className="hover:bg-gray-50 cursor-pointer transition-colors"
+                                >
+                                    <td className="py-3 px-4 border-r font-medium text-gray-900 flex items-center gap-2">
+                                        <Calendar className="w-4 h-4 text-blue-500" />
+                                        {month.name} {month.year}
+                                    </td>
+
+                                    <td className="py-3 px-4 text-right text-green-700 font-medium">{month.inwardWeight ? month.inwardWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+                                    <td className="py-3 px-4 text-right text-gray-600">{month.inwardRate ? month.inwardRate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
+                                    <td className="py-3 px-4 text-right border-r font-medium text-gray-800">{month.inwardAmount ? month.inwardAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+
+                                    <td className="py-3 px-4 text-right text-red-700 font-medium">{month.outwardWeight ? month.outwardWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+                                    <td className="py-3 px-4 text-right text-gray-600">{month.outwardRate ? month.outwardRate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '-'}</td>
+                                    <td className="py-3 px-4 text-right border-r font-medium text-gray-800">{month.outwardAmount ? month.outwardAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}</td>
+
+                                    <td className="py-3 px-4 text-right text-blue-700 font-bold">{month.closingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td className="py-3 px-4 text-right text-gray-600">{month.closingRate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    <td className="py-3 px-4 text-right font-bold text-gray-900">{month.closingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                        <tfoot className="bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-400">
+                            <tr>
+                                <td className="py-3 px-4 border-r uppercase text-sm">Totals</td>
+                                <td className="py-3 px-4 text-right text-green-700">{totals.inWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td className="py-3 px-4 text-right">{totals.inWeight ? (totals.inAmt / totals.inWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</td>
+                                <td className="py-3 px-4 text-right border-r">{totals.inAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+
+                                <td className="py-3 px-4 text-right text-red-700">{totals.outWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td className="py-3 px-4 text-right">{totals.outWeight ? (totals.outAmt / totals.outWeight).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</td>
+                                <td className="py-3 px-4 text-right border-r">{totals.outAmt.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+
+                                <td className="py-3 px-4 text-right text-blue-700">{finalMonth ? finalMonth.closingWeight.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '0.00'}</td>
+                                <td className="py-3 px-4 text-right text-gray-600">{finalMonth ? finalMonth.closingRate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}</td>
+                                <td className="py-3 px-4 text-right text-gray-900">{finalMonth ? finalMonth.closingAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '0.00'}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            )}
         </div>
     );
 }

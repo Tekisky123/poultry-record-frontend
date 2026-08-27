@@ -62,6 +62,21 @@ const REPORT_COLUMNS = [
     }
   },
   {
+    key: 'customerName',
+    label: 'Customer Name',
+    render: (row) => row.customerName || row.customers || '-'
+  },
+  {
+    key: 'vehicleNumber',
+    label: 'Vehicle No',
+    render: (row) => row.vehicleNumber || row.vehicles || '-'
+  },
+  {
+    key: 'driverName',
+    label: 'Driver Name',
+    render: (row) => row.driverName || row.driver || row.drivers || '-'
+  },
+  {
     key: 'totalPurchaseBirds',
     label: 'Total No Of Birds Pur',
     render: (row) => `${Number(row.totalPurchaseBirds || 0).toLocaleString('en-IN')}`

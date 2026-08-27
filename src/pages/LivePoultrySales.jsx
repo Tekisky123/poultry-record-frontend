@@ -479,17 +479,8 @@ export default function LivePoultrySales() {
                                     <td className="py-3 px-4 border-r text-left font-medium text-gray-900">
                                         {record.particular}
                                     </td>
-                                    <td className="py-3 px-4 border-r font-medium text-center">
-                                        <span className={`px-2 py-1 rounded-md border uppercase text-xs whitespace-nowrap ${record.type.toLowerCase().includes('indirect')
-                                            ? 'bg-purple-50 border-purple-200 text-purple-700'
-                                            : record.type.toLowerCase().includes('direct')
-                                                ? 'bg-blue-50 border-blue-200 text-blue-700'
-                                                : record.type.toLowerCase().includes('stock point')
-                                                    ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                                                    : 'bg-gray-50 border-gray-200 text-gray-700'
-                                            }`}>
-                                            {record.type}
-                                        </span>
+                                    <td className="py-3 px-4 border-r text-center text-gray-900 font-medium">
+                                        {record.type}
                                     </td>
                                     <td className="py-3 px-4 text-right border-r text-gray-900 font-medium">
                                         {record.birds ? record.birds.toLocaleString('en-IN') : 0}
