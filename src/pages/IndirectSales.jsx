@@ -55,6 +55,21 @@ const REPORT_COLUMNS = [
     render: (row) => `₹${row.margin.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   },
   {
+    key: 'customerName',
+    label: 'Customer Name',
+    render: (row) => row.customerName || row.customer || '-'
+  },
+  {
+    key: 'vehicleNumber',
+    label: 'Vehicle No',
+    render: (row) => row.vehicleNumber || '-'
+  },
+  {
+    key: 'driverName',
+    label: 'Driver Name',
+    render: (row) => row.driverName || '-'
+  },
+  {
     key: 'totalPurchaseBirds',
     label: 'Total No Of Birds Pur',
     render: (row) => `${Number(row.totalPurchaseBirds || 0).toLocaleString('en-IN')}`
@@ -123,6 +138,7 @@ export default function IndirectSales() {
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState(searchParams.get('startDate') || '');
   const [endDate, setEndDate] = useState(searchParams.get('endDate') || '');
+  const [customerFilter, setCustomerFilter] = useState('');
   const [vehicleFilter, setVehicleFilter] = useState('');
   const [driverFilter, setDriverFilter] = useState('');
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
@@ -174,6 +190,7 @@ export default function IndirectSales() {
           page,
           limit: pagination.itemsPerPage,
           search: query || undefined,
+          customer: customerFilter || undefined,
           startDate: startDate || undefined,
           endDate: endDate || undefined,
           vehicleNumber: vehicleFilter || undefined,
@@ -214,7 +231,7 @@ export default function IndirectSales() {
     fetchRecords(1);
     loadCustomersAndVendors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate, vehicleFilter, driverFilter]);
+  }, [startDate, endDate, customerFilter, vehicleFilter, driverFilter]);
 
   const handleSearch = (event) => {
     event.preventDefault();
@@ -323,8 +340,11 @@ export default function IndirectSales() {
         date: record.date,
         invoiceNumber: record.invoiceNumber || '—',
         customer: record.customer?.shopName || 'N/A',
+        customerName: record.customer?.ownerName || record.customer?.shopName || record.customerName || 'N/A',
         vendor: record.vendor?.vendorName || 'N/A',
         place: record.place || 'N/A',
+        vehicleNumber: record.vehicleNumber || '-',
+        driverName: record.driver || record.driverName || '-',
         profit,
         margin,
         totalPurchaseBirds: pBirds,
@@ -390,6 +410,35 @@ export default function IndirectSales() {
           >
             Search
           </button>
+
+          <select
+            value={customerFilter}
+            onChange={(e) => setCustomerFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white"
+          >
+            <option value="">All Customers</option>
+            {customers.map((c) => (
+              <option key={c.id || c._id} value={c.id || c._id}>
+                {c.shopName || c.ownerName}
+              </option>
+            ))}
+          </select>
+
+          <input
+            type="text"
+            placeholder="Vehicle No"
+            value={vehicleFilter}
+            onChange={(e) => setVehicleFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+          />
+
+          <input
+            type="text"
+            placeholder="Driver Name"
+            value={driverFilter}
+            onChange={(e) => setDriverFilter(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+          />
 
           <input
             type="date"

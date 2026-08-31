@@ -6,8 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import * as XLSX from 'xlsx';
 
 const shouldHideChildren = (groupName) => {
-  const normalizedName = (groupName || '').toLowerCase();
-  return normalizedName === 'sales accounts';
+  return false;
 };
 
 // Render group node with infinite level of nesting (memoized for performance)
@@ -57,7 +56,7 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
       return;
     }
 
-    // Routing for sub-options under Opening Stock, Purchase Accounts, Closing Stock, and others
+    // Routing for sub-options under Opening Stock, Purchase Accounts, Sales Accounts, Closing Stock, and others
     if (group.slug === 'birds-opening-stock' || (lowerName.includes("birds") && lowerParentName.includes("opening"))) {
       navigate(`/birds-opening-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
@@ -78,6 +77,16 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
       return;
     }
 
+    if (group.slug === 'birds-sales' || (lowerName.includes("birds") && lowerName.includes("sales")) || (lowerName.includes("live poultry birds") && lowerName.includes("sales")) || (lowerName.includes("birds") && lowerParentName.includes("sales"))) {
+      navigate(`/live-poultry-sales/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    }
+
+    if (group.slug === 'feed-sales' || (lowerName.includes("feed") && lowerName.includes("sales")) || (lowerName.includes("feed") && lowerParentName.includes("sales"))) {
+      navigate(`/feed-stock-consumption/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
+      return;
+    }
+
     if (group.slug === 'birds-closing-stock' || (lowerName.includes("birds") && lowerParentName.includes("closing"))) {
       navigate(`/birds-closing-stock/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
@@ -90,9 +99,6 @@ const GroupNode = memo(({ group, level = 0, parentName = '' }) => {
 
     if (lowerName.includes("feed consumption")) {
       navigate(`/feed-stock-consumption/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
-      return;
-    } else if (lowerName.includes("live poultry birds") && lowerName.includes("sales")) {
-      navigate(`/live-poultry-sales/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);
       return;
     } else if (lowerName.includes("trip expenses")) {
       navigate(`/trip-expenses/monthly-summary?startDate=${startDate}&endDate=${endDate}&groupId=${groupId}`);

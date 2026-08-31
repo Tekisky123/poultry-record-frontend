@@ -60,22 +60,7 @@ const REPORT_COLUMNS = [
       return margin !== 0 ? `₹${margin.toLocaleString('en-IN', { minimumFractionDigits: 2 })}/Kg` : '-';
     }
   },
-   {
-    key: 'customerName',
-    label: 'Customer Name',
-    render: (day) => day.customerName || day.customers || '-'
-  },
   {
-    key: 'vehicleNumber',
-    label: 'Vehicle No',
-    render: (day) => day.vehicleNumber || day.vehicles || '-'
-  },
-  {
-    key: 'driverName',
-    label: 'Driver Name',
-    render: (day) => day.driverName || day.driver || day.drivers || '-'
-  },
-{
     key: 'totalPurchaseBirds',
     label: 'Total No Of Birds Pur',
     render: (day) => `${Number(day.totalPurchaseBirds || 0).toLocaleString('en-IN')}`

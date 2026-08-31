@@ -11,6 +11,15 @@ const formatDateDisplay = (dateString) => {
     return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+const extractPanFromGst = (gst) => {
+    if (!gst) return '-';
+    const cleanGst = gst.trim().toUpperCase();
+    if (cleanGst.length === 15) {
+        return cleanGst.substring(2, 12);
+    }
+    return '-';
+};
+
 export default function LivePoultrySales() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
@@ -153,14 +162,14 @@ export default function LivePoultrySales() {
         setError('');
         try {
             let startOfPeriod, endOfPeriod;
-            if (resolvedStart && resolvedEnd) {
+            if (resolvedStart && resolvedEnd && !isNaN(new Date(resolvedStart).getTime()) && !isNaN(new Date(resolvedEnd).getTime())) {
                 startOfPeriod = resolvedStart;
                 endOfPeriod = resolvedEnd;
-            } else if (resolvedStart) {
+            } else if (resolvedStart && !isNaN(new Date(resolvedStart).getTime())) {
                 startOfPeriod = resolvedStart;
                 const d = new Date();
                 endOfPeriod = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-            } else if (resolvedEnd) {
+            } else if (resolvedEnd && !isNaN(new Date(resolvedEnd).getTime())) {
                 startOfPeriod = `${selectedFY}-04-01`;
                 endOfPeriod = resolvedEnd;
             } else {
@@ -171,18 +180,20 @@ export default function LivePoultrySales() {
             let combinedRecords = [];
 
             // 1. Fetch Inventory Stocks (type = 'sale')
-            const invRes = await api.get('/inventory-stock', {
-                params: {
-                    startDate: startOfPeriod,
-                    endDate: endOfPeriod,
-                    type: 'sale'
-                }
-            });
+            const invParams = { type: 'sale' };
+            if (startOfPeriod) invParams.startDate = startOfPeriod;
+            if (endOfPeriod) invParams.endDate = endOfPeriod;
+
+            const invRes = await api.get('/inventory-stock', { params: invParams });
 
             if (invRes.data.success && invRes.data.data) {
                 invRes.data.data.forEach(stock => {
-                    // It's a sale, so vendorId is irrelevant, we look for customerId
-                    const customerName = stock.customerId?.shopName || stock.customerId?.ownerName || stock.customerId?.name || 'N/A';
+                    const customer = stock.customerId;
+                    const customerName = customer?.shopName || customer?.ownerName || customer?.name || stock.customerName || 'N/A';
+                    const rawGst = customer?.gstNumber || stock.gstNo || stock.gstNumber || '';
+                    const rawPan = customer?.panNumber || stock.panNo || stock.panNumber || extractPanFromGst(rawGst);
+                    const gstNo = rawGst || '-';
+                    const panNo = rawPan || '-';
 
                     let typeLabel = 'OTHER SALES';
                     if (stock.inventoryType === 'bird') {
@@ -195,6 +206,8 @@ export default function LivePoultrySales() {
                     const birds = Number(stock.birds) || 0;
                     const amount = Number(stock.amount) || 0;
                     const rate = Number(stock.rate) || (weight > 0 ? amount / weight : 0);
+                    const vehicleNo = stock.vehicleNumber || stock.vehicleId?.vehicleNumber || stock.vehicleNo || '-';
+                    const driver = stock.driver || stock.driverName || '-';
 
                     combinedRecords.push({
                         id: stock._id,
@@ -204,7 +217,11 @@ export default function LivePoultrySales() {
                         birds: birds,
                         quantity: weight,
                         rate: rate,
-                        amount: amount
+                        amount: amount,
+                        vehicleNo: vehicleNo,
+                        driver: driver,
+                        gstNo: gstNo,
+                        panNo: panNo
                     });
                 });
             }
@@ -226,18 +243,24 @@ export default function LivePoultrySales() {
                     trips.forEach(trip => {
                         if (trip.sales && Array.isArray(trip.sales)) {
                             trip.sales.forEach(sale => {
-                                const customerName = sale.client?.shopName || sale.client?.ownerName || sale.client?.name || 'N/A';
+                                const client = sale.client;
+                                const customerName = client?.shopName || client?.ownerName || client?.name || sale.clientName || sale.customerName || 'N/A';
+                                const rawGst = client?.gstNumber || sale.gstNo || sale.gstNumber || trip.gstNo || '';
+                                const rawPan = client?.panNumber || sale.panNo || sale.panNumber || trip.panNo || extractPanFromGst(rawGst);
+                                const gstNo = rawGst || '-';
+                                const panNo = rawPan || '-';
+
                                 const weight = Number(sale.weight) || 0;
                                 const birds = Number(sale.birds) || 0;
                                 const amount = Number(sale.amount) || 0;
                                 const rate = Number(sale.rate) || 0;
+                                const vehicleNo = trip.vehicle?.vehicleNumber || trip.vehicleNo || trip.vehicleNumber || '-';
+                                const driver = trip.driver || trip.driverName || '-';
 
-                                // Note: We use the embedded timestamp if available, fallback to trip date
                                 const saleDate = sale.timestamp ? new Date(sale.timestamp) : new Date(trip.date);
+                                const saleDateStr = !isNaN(saleDate.getTime()) ? saleDate.toISOString().split('T')[0] : '';
 
-                                const saleDateStr = saleDate.toISOString().split('T')[0];
-
-                                if (saleDateStr >= startOfPeriod && saleDateStr <= endOfPeriod) {
+                                if (!saleDateStr || (saleDateStr >= startOfPeriod && saleDateStr <= endOfPeriod)) {
                                     combinedRecords.push({
                                         id: sale._id || `${trip.id || trip._id}-${Math.random()}`,
                                         tripId: trip.id || trip._id,
@@ -247,7 +270,11 @@ export default function LivePoultrySales() {
                                         birds: birds,
                                         quantity: weight,
                                         rate: rate,
-                                        amount: amount
+                                        amount: amount,
+                                        vehicleNo: vehicleNo,
+                                        driver: driver,
+                                        gstNo: gstNo,
+                                        panNo: panNo
                                     });
                                 }
                             });
@@ -258,9 +285,9 @@ export default function LivePoultrySales() {
                     break;
                 }
                 tripPage++;
-            } while (tripPage <= tripTotalPages && tripPage <= 200); // fetches all pages (up to 100,000 records)
+            } while (tripPage <= tripTotalPages && tripPage <= 200);
 
-            // 3. Fetch Indirect Sales (contains indirect sales)
+            // 3. Fetch Indirect Sales
             let indPage = 1;
             let indTotalPages = 1;
             do {
@@ -276,9 +303,15 @@ export default function LivePoultrySales() {
                 if (indRes.data.success && indRes.data.data) {
                     const records = indRes.data.data.records || [];
                     records.forEach(indSale => {
-                        const customerName = indSale.customer?.shopName || indSale.customer?.ownerName || 'N/A';
+                        const customer = indSale.customer;
+                        const customerName = customer?.shopName || customer?.ownerName || customer?.name || indSale.customerName || 'N/A';
+                        const rawGst = customer?.gstNumber || indSale.gstNo || indSale.gstNumber || '';
+                        const rawPan = customer?.panNumber || indSale.panNo || indSale.panNumber || extractPanFromGst(rawGst);
+                        const gstNo = rawGst || '-';
+                        const panNo = rawPan || '-';
+                        const vehicleNo = indSale.vehicleNumber || indSale.vehicleNo || '-';
+                        const driver = indSale.driver || indSale.driverName || '-';
 
-                        // IndirectSale has a single `.sales` object
                         if (indSale.sales) {
                             const weight = Number(indSale.sales.weight) || 0;
                             const birds = Number(indSale.sales.birds) || 0;
@@ -295,7 +328,11 @@ export default function LivePoultrySales() {
                                     birds: birds,
                                     quantity: weight,
                                     rate: rate,
-                                    amount: amount
+                                    amount: amount,
+                                    vehicleNo: vehicleNo,
+                                    driver: driver,
+                                    gstNo: gstNo,
+                                    panNo: panNo
                                 });
                             }
                         }
@@ -305,10 +342,14 @@ export default function LivePoultrySales() {
                     break;
                 }
                 indPage++;
-            } while (indPage <= indTotalPages && indPage <= 200); // fetches all pages (up to 100,000 records)
+            } while (indPage <= indTotalPages && indPage <= 200);
 
             // Sort chronologically
-            combinedRecords.sort((a, b) => a.date - b.date);
+            combinedRecords.sort((a, b) => {
+                const timeA = a.date instanceof Date && !isNaN(a.date) ? a.date.getTime() : 0;
+                const timeB = b.date instanceof Date && !isNaN(b.date) ? b.date.getTime() : 0;
+                return timeA - timeB;
+            });
 
             setSaleRecords(combinedRecords);
         } catch (err) {
@@ -322,15 +363,26 @@ export default function LivePoultrySales() {
     const handleExportToExcel = () => {
         if (!saleRecords.length) return;
 
-        const exportData = saleRecords.map(record => ({
-            'Date': record.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-'),
-            'Particular': record.particular,
-            'Type': record.type,
-            'No. Of Birds': record.birds,
-            'Quantity (kg)': record.quantity,
-            'Rate': record.rate.toFixed(2),
-            'Amount': record.amount
-        }));
+        const exportData = saleRecords.map(record => {
+            const validDate = record.date instanceof Date && !isNaN(record.date) ? record.date : null;
+            const dateStr = validDate
+                ? validDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')
+                : '-';
+
+            return {
+                'Date': dateStr,
+                'Particular': record.particular || '-',
+                'Type': record.type || '-',
+                'No. Of Birds': record.birds || 0,
+                'Quantity (kg)': record.quantity || 0,
+                'Rate': typeof record.rate === 'number' ? record.rate.toFixed(2) : '0.00',
+                'Amount': record.amount || 0,
+                'Vehicle No': record.vehicleNo || '-',
+                'Driver': record.driver || '-',
+                'GST No': record.gstNo || '-',
+                'PAN No': record.panNo || '-'
+            };
+        });
 
         const totalBirds = saleRecords.reduce((sum, r) => sum + (r.birds || 0), 0);
         const totalQty = saleRecords.reduce((sum, r) => sum + r.quantity, 0);
@@ -343,7 +395,11 @@ export default function LivePoultrySales() {
             'No. Of Birds': totalBirds,
             'Quantity (kg)': totalQty,
             'Rate': '',
-            'Amount': totalAmount
+            'Amount': totalAmount,
+            'Vehicle No': '',
+            'Driver': '',
+            'GST No': '',
+            'PAN No': ''
         });
 
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -456,49 +512,72 @@ export default function LivePoultrySales() {
                 <table className="w-full text-sm text-center">
                     <thead className="bg-gray-100 text-gray-700 uppercase font-semibold border-b-2 border-gray-300">
                         <tr>
-                            <th className="py-3 px-4 text-left border-r border-gray-300">Date</th>
-                            <th className="py-3 px-4 text-left border-r border-gray-300">Particular</th>
-                            <th className="py-3 px-4 border-r border-gray-300">Type</th>
-                            <th className="py-3 px-4 border-r border-gray-300 text-right">No. Of Birds</th>
-                            <th className="py-3 px-4 border-r border-gray-300 text-right">Quantity (kg)</th>
-                            <th className="py-3 px-4 border-r border-gray-300 text-right">Rate</th>
-                            <th className="py-3 px-4 text-right">Amount</th>
+                            <th className="py-3 px-4 text-left border-r border-gray-300 whitespace-nowrap">Date</th>
+                            <th className="py-3 px-4 text-left border-r border-gray-300 whitespace-nowrap">Particular</th>
+                            <th className="py-3 px-4 border-r border-gray-300 whitespace-nowrap">Type</th>
+                            <th className="py-3 px-4 border-r border-gray-300 text-right whitespace-nowrap">No. Of Birds</th>
+                            <th className="py-3 px-4 border-r border-gray-300 text-right whitespace-nowrap">Quantity (kg)</th>
+                            <th className="py-3 px-4 border-r border-gray-300 text-right whitespace-nowrap">Rate</th>
+                            <th className="py-3 px-4 border-r border-gray-300 text-right whitespace-nowrap">Amount</th>
+                            <th className="py-3 px-4 border-r border-gray-300 text-left whitespace-nowrap">Vehicle No</th>
+                            <th className="py-3 px-4 border-r border-gray-300 text-left whitespace-nowrap">Driver</th>
+                            <th className="py-3 px-4 border-r border-gray-300 text-left whitespace-nowrap">GST No</th>
+                            <th className="py-3 px-4 text-left whitespace-nowrap">PAN No</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
                         {visibleRecords.length > 0 ? (
-                            visibleRecords.map((record, idx) => (
-                                <tr
-                                    key={record.id || idx}
-                                    onClick={() => handleRowClick(record)}
-                                    className="hover:bg-gray-100 transition-colors cursor-pointer"
-                                >
-                                    <td className="py-3 px-4 border-r text-left text-gray-900 whitespace-nowrap">
-                                        {record.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}
-                                    </td>
-                                    <td className="py-3 px-4 border-r text-left font-medium text-gray-900">
-                                        {record.particular}
-                                    </td>
-                                    <td className="py-3 px-4 border-r text-center text-gray-900 font-medium">
-                                        {record.type}
-                                    </td>
-                                    <td className="py-3 px-4 text-right border-r text-gray-900 font-medium">
-                                        {record.birds ? record.birds.toLocaleString('en-IN') : 0}
-                                    </td>
-                                    <td className="py-3 px-4 text-right border-r text-gray-900 font-medium">
-                                        {record.quantity.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </td>
-                                    <td className="py-3 px-4 text-right border-r text-gray-600">
-                                        {record.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </td>
-                                    <td className="py-3 px-4 text-right text-gray-900 font-bold">
-                                        {record.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </td>
-                                </tr>
-                            ))
+                            visibleRecords.map((record, idx) => {
+                                const validDate = record.date instanceof Date && !isNaN(record.date) ? record.date : null;
+                                const dateStr = validDate
+                                    ? validDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')
+                                    : '-';
+
+                                return (
+                                    <tr
+                                        key={record.id || idx}
+                                        onClick={() => handleRowClick(record)}
+                                        className="hover:bg-gray-100 transition-colors cursor-pointer"
+                                    >
+                                        <td className="py-3 px-4 border-r text-left text-gray-900 whitespace-nowrap">
+                                            {dateStr}
+                                        </td>
+                                        <td className="py-3 px-4 border-r text-left font-medium text-gray-900 whitespace-nowrap">
+                                            {record.particular || '-'}
+                                        </td>
+                                        <td className="py-3 px-4 border-r text-center text-gray-900 font-medium whitespace-nowrap">
+                                            {record.type || '-'}
+                                        </td>
+                                        <td className="py-3 px-4 text-right border-r text-gray-900 font-medium whitespace-nowrap">
+                                            {record.birds ? record.birds.toLocaleString('en-IN') : 0}
+                                        </td>
+                                        <td className="py-3 px-4 text-right border-r text-gray-900 font-medium whitespace-nowrap">
+                                            {(record.quantity || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="py-3 px-4 text-right border-r text-gray-600 whitespace-nowrap">
+                                            {(record.rate || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="py-3 px-4 text-right border-r text-gray-900 font-bold whitespace-nowrap">
+                                            {(record.amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="py-3 px-4 border-r text-left text-gray-900 whitespace-nowrap">
+                                            {record.vehicleNo || '-'}
+                                        </td>
+                                        <td className="py-3 px-4 border-r text-left text-gray-900 whitespace-nowrap">
+                                            {record.driver || '-'}
+                                        </td>
+                                        <td className="py-3 px-4 border-r text-left text-gray-900 whitespace-nowrap">
+                                            {record.gstNo || '-'}
+                                        </td>
+                                        <td className="py-3 px-4 text-left text-gray-900 whitespace-nowrap">
+                                            {record.panNo || '-'}
+                                        </td>
+                                    </tr>
+                                );
+                            })
                         ) : (
                             <tr>
-                                <td colSpan="7" className="py-8 text-center text-gray-500 italic">
+                                <td colSpan="11" className="py-8 text-center text-gray-500 italic">
                                     No sales records found for {isDateFilterActive ? 'the selected date period' : `the current year`}
                                 </td>
                             </tr>
@@ -507,15 +586,16 @@ export default function LivePoultrySales() {
                     {saleRecords.length > 0 && (
                         <tfoot className="bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-400">
                             <tr>
-                                <td colSpan="3" className="py-3 px-4 border-r uppercase text-sm text-right">Totals</td>
-                                <td className="py-3 px-4 text-right border-r">{totalBirds.toLocaleString('en-IN')}</td>
-                                <td className="py-3 px-4 text-right border-r">{totalQty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                <td className="py-3 px-4 text-right border-r">
+                                <td colSpan="3" className="py-3 px-4 border-r uppercase text-sm text-right whitespace-nowrap">Totals</td>
+                                <td className="py-3 px-4 text-right border-r whitespace-nowrap">{totalBirds.toLocaleString('en-IN')}</td>
+                                <td className="py-3 px-4 text-right border-r whitespace-nowrap">{totalQty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                <td className="py-3 px-4 text-right border-r whitespace-nowrap">
                                     {totalQty > 0 ? (totalAmount / totalQty).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
                                 </td>
-                                <td className="py-3 px-4 text-right text-indigo-700">
+                                <td className="py-3 px-4 text-right border-r text-indigo-700 whitespace-nowrap">
                                     {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                 </td>
+                                <td colSpan="4" className="py-3 px-4"></td>
                             </tr>
                         </tfoot>
                     )}
