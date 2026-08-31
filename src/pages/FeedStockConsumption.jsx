@@ -210,8 +210,85 @@ export default function FeedStockConsumption() {
         }
     };
 
+    const [viewMode, setViewMode] = useState('monthly'); // 'monthly' or 'detailed'
+
+    const monthlySummaryData = useMemo(() => {
+        const MONTH_NAMES = [
+            'April', 'May', 'June', 'July', 'August', 'September',
+            'October', 'November', 'December', 'January', 'February', 'March'
+        ];
+
+        const months = MONTH_NAMES.map((name, index) => {
+            const calendarMonthIndex = (index + 3) % 12;
+            const calYear = index < 9 ? selectedFY : selectedFY + 1;
+            const startDateStr = `${calYear}-${String(calendarMonthIndex + 1).padStart(2, '0')}-01`;
+            return {
+                name,
+                year: calYear,
+                monthIndex: calendarMonthIndex,
+                startDate: startDateStr,
+                bags: 0,
+                quantity: 0,
+                amount: 0,
+                count: 0
+            };
+        });
+
+        consumptionRecords.forEach(record => {
+            if (!(record.date instanceof Date) || isNaN(record.date.getTime())) return;
+            const rYear = record.date.getFullYear();
+            const rMonth = record.date.getMonth();
+
+            const slot = months.find(m => m.year === rYear && m.monthIndex === rMonth);
+            if (slot) {
+                slot.bags += Number(record.bags) || 0;
+                slot.quantity += Number(record.quantity) || 0;
+                slot.amount += Number(record.amount) || 0;
+                slot.count += 1;
+            }
+        });
+
+        return months;
+    }, [consumptionRecords, selectedFY]);
+
+    const handleMonthRowClick = (monthItem) => {
+        const mNum = String(monthItem.monthIndex + 1).padStart(2, '0');
+        const start = `${monthItem.year}-${mNum}-01`;
+        const lastDay = new Date(monthItem.year, monthItem.monthIndex + 1, 0).getDate();
+        const end = `${monthItem.year}-${mNum}-${String(lastDay).padStart(2, '0')}`;
+
+        setDateFilter({ startDate: start, endDate: end });
+        setViewMode('detailed');
+    };
+
     const handleExportToExcel = () => {
         if (!consumptionRecords.length) return;
+
+        if (viewMode === 'monthly') {
+            const exportData = monthlySummaryData.map(m => ({
+                'Month': `${m.name} ${m.year}`,
+                'No. Of Bags': m.bags,
+                'Quantity (kg)': m.quantity,
+                'Total Amount': m.amount
+            }));
+
+            const grandBags = monthlySummaryData.reduce((sum, m) => sum + m.bags, 0);
+            const grandQty = monthlySummaryData.reduce((sum, m) => sum + m.quantity, 0);
+            const grandAmount = monthlySummaryData.reduce((sum, m) => sum + m.amount, 0);
+
+            exportData.push({
+                'Month': 'Grand Total',
+                'No. Of Bags': grandBags,
+                'Quantity (kg)': grandQty,
+                'Total Amount': grandAmount
+            });
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Monthly Consumption Summary");
+            XLSX.writeFile(wb, `Feed_Stock_Consumption_Monthly_Summary_FY_${selectedFY}-${selectedFY + 1}.xlsx`);
+            return;
+        }
 
         const exportData = consumptionRecords.map(record => ({
             'Date': record.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-'),
@@ -250,73 +327,53 @@ export default function FeedStockConsumption() {
     const totalAmount = consumptionRecords.reduce((sum, r) => sum + r.amount, 0);
 
     const handleRowClick = (record) => {
-        const y = record.date.getFullYear();
-        const m = String(record.date.getMonth() + 1).padStart(2, '0');
-        const d = String(record.date.getDate()).padStart(2, '0');
-        navigate(`/stocks/manage?date=${y}-${m}-${d}`);
+        if (record.type === 'feed consumption' || record.type === 'FEED CONSUMPTION') {
+            const y = record.date.getFullYear();
+            const m = String(record.date.getMonth() + 1).padStart(2, '0');
+            const d = String(record.date.getDate()).padStart(2, '0');
+            navigate(`/stocks/manage?date=${y}-${m}-${d}`);
+        }
     };
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div>
-                    <div className="flex items-center gap-3">
-                        <button
-                            onClick={() => navigate(-1)}
-                            className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 bg-white shadow-sm"
-                        >
-                            <ArrowLeft size={20} />
-                        </button>
-                        <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-2">
-                            <Package className="w-8 h-8 text-indigo-600" />
-                            Feed Stock Consumption
-                        </h1>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-4">
+                    <button
+                        onClick={() => navigate(-1)}
+                        className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 bg-white shadow-sm"
+                    >
+                        <ArrowLeft size={20} />
+                    </button>
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Feed Stock Sales &amp; Consumption</h1>
+                        <p className="text-gray-600">Overview of Feed Stock Sales &amp; Consumption Records</p>
                     </div>
-                    <p className="text-gray-600 mt-1">{isDateFilterActive ? 'Summary for Selected Period' : 'Yearly Summary of All Feed Consumption'}</p>
                 </div>
-                
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pt-3 border-t md:border-none border-gray-200">
-                    <div className="flex items-center gap-3">
-                        <div className="relative">
-                            <select
-                                value={selectedFY}
-                                onChange={(e) => handleFYChange(Number(e.target.value))}
-                                className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-10 font-medium text-gray-700 hover:bg-gray-50 shadow-sm transition-colors cursor-pointer focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                            >
-                                {yearOptions.map((y) => (
-                                    <option key={y} value={y}>
-                                        FY {y}-{y + 1}
-                                    </option>
-                                ))}
-                            </select>
-                            <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                        </div>
-                        <button
-                          onClick={openDateFilterModal}
-                          className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 transition-colors bg-white shadow-sm"
-                          title="Filter by Date Range"
-                        >
-                          <Calendar size={18} className="text-gray-500" />
-                          <span className="font-medium">
-                            {isDateFilterActive
-                              ? `${formatDateDisplay(effectiveStart)} - ${formatDateDisplay(effectiveEnd)}`
-                              : 'Filter by Date'}
-                          </span>
-                        </button>
 
-                        {isDateFilterActive && (
-                          <button
-                            onClick={handleClearDateFilter}
-                            className="flex items-center gap-1 px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors text-sm font-medium"
-                          >
-                            <X size={16} />
-                            Clear
-                          </button>
-                        )}
-                    </div>
+                <div className="flex items-center gap-3">
+                    <select
+                        value={selectedFY}
+                        onChange={(e) => handleFYChange(Number(e.target.value))}
+                        className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 bg-white text-sm"
+                    >
+                        {yearOptions.map((y) => (
+                            <option key={y} value={y}>
+                                FY {y}-{y + 1}
+                            </option>
+                        ))}
+                    </select>
+
+                    <button
+                        onClick={() => setViewMode(viewMode === 'monthly' ? 'detailed' : 'monthly')}
+                        className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 font-medium text-sm bg-white"
+                    >
+                        {viewMode === 'monthly' ? 'View All Records' : 'View Monthly Summary'}
+                    </button>
+
                     <button
                         onClick={handleExportToExcel}
-                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors"
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 shadow-sm transition-colors text-sm"
                     >
                         <Download size={20} />
                         <span className="font-medium">Export</span>
@@ -331,67 +388,118 @@ export default function FeedStockConsumption() {
                 </div>
             )}
 
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
-                <table className="w-full text-sm text-center">
-                    <thead className="bg-gray-100 text-gray-700 uppercase font-semibold border-b-2 border-gray-300">
-                        <tr>
-                            <th className="py-3 px-4 text-left border-r border-gray-300">Date</th>
-                            <th className="py-3 px-4 border-r border-gray-300 text-right">No. Of Bags</th>
-                            <th className="py-3 px-4 border-r border-gray-300 text-right">Quantity (kg)</th>
-                            <th className="py-3 px-4 border-r border-gray-300 text-right">Rate</th>
-                            <th className="py-3 px-4 text-right">Amount</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                        {consumptionRecords.length > 0 ? (
-                            consumptionRecords.map((record, idx) => (
-                                <tr 
-                                    key={record.id || idx} 
-                                    onClick={() => handleRowClick(record)}
-                                    className="hover:bg-gray-100 transition-colors cursor-pointer"
-                                >
-                                    <td className="py-3 px-4 border-r text-left text-gray-900 whitespace-nowrap">
-                                        {record.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}
+            {viewMode === 'monthly' ? (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead className="bg-gray-50 border-b border-gray-200">
+                                <tr>
+                                    <th className="px-6 py-3 font-medium text-gray-700 text-left">Month</th>
+                                    <th className="px-6 py-3 font-medium text-gray-700 text-right">No. Of Bags</th>
+                                    <th className="px-6 py-3 font-medium text-gray-700 text-right">Quantity (kg)</th>
+                                    <th className="px-6 py-3 font-medium text-gray-700 text-right">Total Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-200">
+                                {monthlySummaryData.map((m, index) => (
+                                    <tr
+                                        key={index}
+                                        onClick={() => handleMonthRowClick(m)}
+                                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                                    >
+                                        <td className="px-6 py-4 font-medium text-blue-600 hover:underline text-left">
+                                            {m.name} {m.year}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-gray-900">
+                                            {m.bags > 0 ? m.bags.toLocaleString('en-IN') : '-'}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-gray-900">
+                                            {m.quantity > 0 ? m.quantity.toLocaleString('en-IN', { minimumFractionDigits: 2 }) : '-'}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-gray-900 font-semibold">
+                                            {m.amount > 0 ? `₹${m.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'}
+                                        </td>
+                                    </tr>
+                                ))}
+                                <tr className="bg-gray-100 font-bold border-t-2 border-gray-300">
+                                    <td className="px-6 py-4 text-gray-900 text-left">Total</td>
+                                    <td className="px-6 py-4 text-right text-gray-900">
+                                        {monthlySummaryData.reduce((sum, m) => sum + m.bags, 0).toLocaleString('en-IN')}
                                     </td>
-                                    <td className="py-3 px-4 text-right border-r text-gray-900 font-medium">
-                                        {record.bags ? record.bags.toLocaleString('en-IN') : 0}
+                                    <td className="px-6 py-4 text-right text-gray-900">
+                                        {monthlySummaryData.reduce((sum, m) => sum + m.quantity, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                     </td>
-                                    <td className="py-3 px-4 text-right border-r text-gray-900 font-medium">
-                                        {record.quantity.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                    </td>
-                                    <td className="py-3 px-4 text-right border-r text-gray-600">
-                                        {record.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </td>
-                                    <td className="py-3 px-4 text-right text-gray-900 font-bold">
-                                        {record.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    <td className="px-6 py-4 text-right text-gray-900">
+                                        ₹{monthlySummaryData.reduce((sum, m) => sum + m.amount, 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                                     </td>
                                 </tr>
-                            ))
-                        ) : (
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ) : (
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-x-auto">
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50 border-b border-gray-200">
                             <tr>
-                                <td colSpan="5" className="py-8 text-center text-gray-500 italic">
-                                    No consumption records found for {isDateFilterActive ? 'the selected date period' : `the current year`}
-                                </td>
+                                <th className="px-6 py-3 font-medium text-gray-700 text-left whitespace-nowrap">Date</th>
+                                <th className="px-6 py-3 font-medium text-gray-700 text-right whitespace-nowrap">No. Of Bags</th>
+                                <th className="px-6 py-3 font-medium text-gray-700 text-right whitespace-nowrap">Quantity (kg)</th>
+                                <th className="px-6 py-3 font-medium text-gray-700 text-right whitespace-nowrap">Rate</th>
+                                <th className="px-6 py-3 font-medium text-gray-700 text-right whitespace-nowrap">Amount</th>
                             </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-200">
+                            {consumptionRecords.length > 0 ? (
+                                consumptionRecords.map((record, idx) => (
+                                    <tr 
+                                        key={record.id || idx} 
+                                        onClick={() => handleRowClick(record)}
+                                        className="hover:bg-gray-50 cursor-pointer transition-colors"
+                                    >
+                                        <td className="px-6 py-4 text-left text-gray-900 whitespace-nowrap">
+                                            {record.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }).replace(/ /g, '-')}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-gray-900 font-medium">
+                                            {record.bags ? record.bags.toLocaleString('en-IN') : 0}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-gray-900 font-medium">
+                                            {record.quantity.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-gray-600">
+                                            {record.rate.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-gray-900 font-semibold">
+                                            {record.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                        </td>
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan="5" className="py-8 text-center text-gray-500 italic">
+                                        No consumption records found for {isDateFilterActive ? 'the selected date period' : `the current year`}
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                        {consumptionRecords.length > 0 && (
+                            <tfoot className="bg-gray-100 font-bold border-t-2 border-gray-300">
+                                <tr>
+                                    <td className="px-6 py-4 uppercase text-sm text-right text-gray-900">Totals</td>
+                                    <td className="px-6 py-4 text-right text-gray-900">{totalBags.toLocaleString('en-IN')}</td>
+                                    <td className="px-6 py-4 text-right text-gray-900">{totalQty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
+                                    <td className="px-6 py-4 text-right text-gray-900">
+                                        {totalQty > 0 ? (totalAmount / totalQty).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
+                                    </td>
+                                    <td className="px-6 py-4 text-right text-gray-900">
+                                        ₹{totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                    </td>
+                                </tr>
+                            </tfoot>
                         )}
-                    </tbody>
-                    {consumptionRecords.length > 0 && (
-                        <tfoot className="bg-gray-100 font-bold text-gray-900 border-t-2 border-gray-400">
-                            <tr>
-                                <td colSpan="1" className="py-3 px-4 border-r uppercase text-sm text-right">Totals</td>
-                                <td className="py-3 px-4 text-right border-r">{totalBags.toLocaleString('en-IN')}</td>
-                                <td className="py-3 px-4 text-right border-r">{totalQty.toLocaleString('en-IN', { minimumFractionDigits: 2 })}</td>
-                                <td className="py-3 px-4 text-right border-r">
-                                    {totalQty > 0 ? (totalAmount / totalQty).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}
-                                </td>
-                                <td className="py-3 px-4 text-right text-indigo-700">
-                                    {totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
-                                </td>
-                            </tr>
-                        </tfoot>
-                    )}
-                </table>
-            </div>
+                    </table>
+                </div>
+            )}
 
             {/* Date Filter Modal */}
             {showDateFilterModal && (
