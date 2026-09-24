@@ -57,30 +57,74 @@ const AddEditVoucher = () => {
     }
   }, [id]);
 
-  // Reset parties/entries when voucher type changes
+  const isCashOrBankLedger = (ledger) => {
+    if (!ledger) return false;
+    const groupSlug = ledger.group?.slug || '';
+    const groupName = ledger.group?.name || '';
+    const isCash = groupSlug === 'cash-in-hand' || groupName === 'Cash-in-Hand' || groupName === 'CASH A/C' || groupSlug === 'cash-a-c';
+    const isBank = groupSlug === 'bank-accounts' || groupName === 'Bank Accounts' || groupSlug === 'bank-od-a-c' || groupSlug === 'bank-od-accounts' || groupName === 'Bank OD A/c';
+    return isCash || isBank;
+  };
+
+  // Reset/clean parties, account, and entries when voucher type changes
   useEffect(() => {
     const isPaymentOrReceiptType = formData.voucherType === 'Payment' || formData.voucherType === 'Receipt' || formData.voucherType === 'Journal';
     const isContra = formData.voucherType === 'Contra';
 
-    if (isPaymentOrReceiptType && formData.parties.length === 0) {
-      // Initialize with one empty party
-      setFormData(prev => ({
-        ...prev,
-        parties: [{ partyId: '', partyType: '', partyName: '', amount: 0, currentBalance: 0, currentBalanceType: 'debit' }]
-      }));
-    } else if (isContra) {
-      // Enforce structure for Contra: exactly 2 entries (Dr, Cr)
-      setFormData(prev => ({
-        ...prev,
-        parties: [], // Clear parties
-        account: '', // Clear account
-        entries: [
-          { account: prev.entries[0]?.account || '', debitAmount: prev.entries[0]?.debitAmount || 0, creditAmount: 0, narration: prev.entries[0]?.narration || '', type: 'Dr' },
-          { account: prev.entries[1]?.account || '', debitAmount: 0, creditAmount: prev.entries[1]?.creditAmount || 0, narration: prev.entries[1]?.narration || '', type: 'Cr' }
-        ]
-      }));
-    }
-  }, [formData.voucherType, formData.parties.length]);
+    setFormData(prev => {
+      if (isPaymentOrReceiptType) {
+        let updatedAccount = prev.account;
+        if (prev.voucherType === 'Journal') {
+          // Journal Credit account must be non-cash/bank
+          const matchParty = allParties.find(p => p.id === updatedAccount || `${p.type}:${p.id}` === updatedAccount);
+          if (matchParty && matchParty.type === 'ledger' && isCashOrBankLedger(matchParty.data)) {
+            updatedAccount = '';
+          }
+        } else {
+          // Payment/Receipt Credit/Debit account must be cash or bank ledger
+          const matchCashBank = cashBankLedgers.find(l => (l.id || l._id) === updatedAccount);
+          if (!matchCashBank) {
+            updatedAccount = '';
+          }
+        }
+
+        // Clean parties array
+        const cleanedParties = prev.parties.filter(partyItem => {
+          if (!partyItem.partyId) return true;
+          const partyObj = allParties.find(p => p.id === partyItem.partyId && p.type === partyItem.partyType);
+          if (!partyObj) return false;
+          // Cash or Bank ledgers not allowed in Debit of Payment/Journal or Credit of Receipt
+          if (partyObj.type === 'ledger' && isCashOrBankLedger(partyObj.data)) return false;
+          // Vendors not allowed in Receipt
+          if (prev.voucherType === 'Receipt' && partyObj.type === 'vendor') return false;
+          return true;
+        });
+
+        const newParties = cleanedParties.length > 0 ? cleanedParties : [{ partyId: '', partyType: '', partyName: '', amount: 0, currentBalance: 0, currentBalanceType: 'debit' }];
+
+        return {
+          ...prev,
+          account: updatedAccount,
+          parties: newParties
+        };
+      } else if (isContra) {
+        const cashBankNames = cashBankLedgers.map(l => l.name);
+        const entry0Acc = cashBankNames.includes(prev.entries[0]?.account) ? prev.entries[0].account : '';
+        const entry1Acc = cashBankNames.includes(prev.entries[1]?.account) ? prev.entries[1].account : '';
+
+        return {
+          ...prev,
+          parties: [],
+          account: '',
+          entries: [
+            { account: entry0Acc, debitAmount: prev.entries[0]?.debitAmount || 0, creditAmount: 0, narration: prev.entries[0]?.narration || '', type: 'Dr' },
+            { account: entry1Acc, debitAmount: 0, creditAmount: prev.entries[1]?.creditAmount || 0, narration: prev.entries[1]?.narration || '', type: 'Cr' }
+          ]
+        };
+      }
+      return prev;
+    });
+  }, [formData.voucherType, cashBankLedgers.length, allParties.length]);
   const fetchNextVoucherNumber = async () => {
     try {
       const { data } = await api.get('/voucher/next-number');
@@ -116,18 +160,18 @@ const AddEditVoucher = () => {
       setLedgers(allLedgers);
       setDieselStations(allDieselStations);
 
-      // Filter Cash and Bank Accounts ledgers
-      const cashBankLedgersData = allLedgers.filter(ledger => {
+      // Helper to check if a ledger is Cash or Bank
+      const isCashOrBank = (ledger) => {
+        if (!ledger) return false;
         const groupSlug = ledger.group?.slug || '';
         const groupName = ledger.group?.name || '';
-
-        // Check by slug (primary) or name (fallback)
-        // Slugs: 'cash-in-hand', 'bank-accounts'
         const isCash = groupSlug === 'cash-in-hand' || groupName === 'Cash-in-Hand' || groupName === 'CASH A/C' || groupSlug === 'cash-a-c';
         const isBank = groupSlug === 'bank-accounts' || groupName === 'Bank Accounts' || groupSlug === 'bank-od-a-c' || groupSlug === 'bank-od-accounts' || groupName === 'Bank OD A/c';
-
         return isCash || isBank;
-      });
+      };
+
+      // Filter Cash and Bank Accounts ledgers
+      const cashBankLedgersData = allLedgers.filter(isCashOrBank);
       setCashBankLedgers(cashBankLedgersData);
 
       // Match customers with ledgers
@@ -653,19 +697,22 @@ const AddEditVoucher = () => {
           amount: p.amount
         }));
 
-        // Add account entry (credit for Payment, debit for Receipt)
-        const accountLedger = cashBankLedgers.find(l => l.id === formData.account);
-        if (accountLedger) {
-          if (formData.voucherType === 'Payment') {
+        // Add account entry (credit for Payment/Journal, debit for Receipt)
+        const accountLedger = cashBankLedgers.find(l => (l.id || l._id) === formData.account);
+        const partyAccount = allParties.find(p => p.id === formData.account);
+        const accountName = accountLedger ? accountLedger.name : (partyAccount ? partyAccount.name : '');
+
+        if (accountName) {
+          if (formData.voucherType === 'Payment' || formData.voucherType === 'Journal') {
             entries.push({
-              account: accountLedger.name,
+              account: accountName,
               debitAmount: 0,
               creditAmount: totalAmount,
               narration: ''
             });
           } else { // Receipt
             entries.push({
-              account: accountLedger.name,
+              account: accountName,
               debitAmount: totalAmount,
               creditAmount: 0,
               narration: ''
@@ -914,6 +961,13 @@ const AddEditVoucher = () => {
                             onChange={(selectedOption) => handlePartySelect(index, selectedOption ? selectedOption.value : '')}
                             options={allParties
                               .filter(partyItem => {
+                                if (partyItem.type === 'ledger') {
+                                  const gSlug = partyItem.data?.group?.slug || '';
+                                  const gName = partyItem.data?.group?.name || '';
+                                  const isCash = gSlug === 'cash-in-hand' || gName === 'Cash-in-Hand' || gName === 'CASH A/C' || gSlug === 'cash-a-c';
+                                  const isBank = gSlug === 'bank-accounts' || gName === 'Bank Accounts' || gSlug === 'bank-od-a-c' || gSlug === 'bank-od-accounts' || gName === 'Bank OD A/c';
+                                  if (isCash || isBank) return false;
+                                }
                                 if (formData.voucherType === 'Receipt' && partyItem.type === 'vendor') {
                                   return false;
                                 }
@@ -992,19 +1046,46 @@ const AddEditVoucher = () => {
               <div className="border border-gray-200 rounded-lg p-4">
                 <div className="grid grid-cols-[1fr_200px_40px] gap-4 items-start">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Account:</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {formData.voucherType === 'Journal' ? 'Party:' : 'Account:'}
+                    </label>
                     <Select
                       value={
                         formData.account
-                          ? { value: formData.account, label: cashBankLedgers.find(l => l.id === formData.account)?.name || 'Select Account (Cash or Bank)' }
+                          ? (() => {
+                            if (formData.voucherType === 'Journal') {
+                              const p = allParties.find(item => item.id === formData.account || `${item.type}:${item.id}` === formData.account);
+                              return p ? { value: p.id, label: p.name } : null;
+                            }
+                            const selectedLedger = cashBankLedgers.find(l => (l.id || l._id) === formData.account);
+                            return selectedLedger ? { value: selectedLedger.id || selectedLedger._id, label: selectedLedger.name } : null;
+                          })()
                           : null
                       }
                       onChange={(selectedOption) => handleInputChange('account', selectedOption ? selectedOption.value : '')}
-                      options={cashBankLedgers.map(ledger => ({
-                        value: ledger.id,
-                        label: ledger.name
-                      }))}
-                      placeholder="Select Account (Cash or Bank)"
+                      options={
+                        formData.voucherType === 'Journal'
+                          ? allParties
+                            .filter(partyItem => {
+                              if (partyItem.type === 'ledger') {
+                                const gSlug = partyItem.data?.group?.slug || '';
+                                const gName = partyItem.data?.group?.name || '';
+                                const isCash = gSlug === 'cash-in-hand' || gName === 'Cash-in-Hand' || gName === 'CASH A/C' || gSlug === 'cash-a-c';
+                                const isBank = gSlug === 'bank-accounts' || gName === 'Bank Accounts' || gSlug === 'bank-od-a-c' || gSlug === 'bank-od-accounts' || gName === 'Bank OD A/c';
+                                if (isCash || isBank) return false;
+                              }
+                              return true;
+                            })
+                            .map(partyItem => ({
+                              value: partyItem.id,
+                              label: partyItem.name
+                            }))
+                          : cashBankLedgers.map(ledger => ({
+                            value: ledger.id || ledger._id,
+                            label: ledger.name
+                          }))
+                      }
+                      placeholder={formData.voucherType === 'Journal' ? 'Select Party' : 'Select Account (Cash or Bank)'}
                       isClearable
                       className="text-sm react-select-container"
                       classNamePrefix="react-select"
@@ -1020,15 +1101,28 @@ const AddEditVoucher = () => {
                       }}
                     />
                     {formData.account && (() => {
-                      const selectedLedger = cashBankLedgers.find(l => l.id === formData.account);
-                      if (selectedLedger) {
-                        const balance = selectedLedger.outstandingBalance || selectedLedger.openingBalance || 0;
-                        const balanceType = selectedLedger.outstandingBalanceType || selectedLedger.openingBalanceType || 'debit';
-                        return (
-                          <p className="text-xs text-gray-500 mt-1">
-                            current balance: {formatAmount(balance)} {balanceType === 'credit' ? 'Cr' : 'Dr'}
-                          </p>
-                        );
+                      if (formData.voucherType === 'Journal') {
+                        const partyObj = allParties.find(p => p.id === formData.account);
+                        if (partyObj) {
+                          const balance = partyObj.data?.outstandingBalance || partyObj.data?.openingBalance || 0;
+                          const balanceType = partyObj.data?.outstandingBalanceType || partyObj.data?.openingBalanceType || 'debit';
+                          return (
+                            <p className="text-xs text-gray-500 mt-1">
+                              current balance: {formatAmount(balance)} {balanceType === 'credit' ? 'Cr' : 'Dr'}
+                            </p>
+                          );
+                        }
+                      } else {
+                        const selectedLedger = cashBankLedgers.find(l => (l.id || l._id) === formData.account);
+                        if (selectedLedger) {
+                          const balance = selectedLedger.outstandingBalance || selectedLedger.openingBalance || 0;
+                          const balanceType = selectedLedger.outstandingBalanceType || selectedLedger.openingBalanceType || 'debit';
+                          return (
+                            <p className="text-xs text-gray-500 mt-1">
+                              current balance: {formatAmount(balance)} {balanceType === 'credit' ? 'Cr' : 'Dr'}
+                            </p>
+                          );
+                        }
                       }
                       return null;
                     })()}

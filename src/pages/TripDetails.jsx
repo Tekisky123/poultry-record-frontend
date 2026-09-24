@@ -1613,95 +1613,174 @@ export default function TripDetails() {
             {/* Trip Metrics and Financial Summary */}
             <div className="border-t">
               <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Left Column - Financial Summary */}
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">FINANCIAL SUMMARY</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">TOTAL SALES:</span>
-                        <span className="font-semibold">₹{(trip.summary?.totalSalesAmount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">TOTAL PURCHASE:</span>
-                        <span className="font-semibold">₹{(trip.summary?.totalPurchaseAmount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">GROSS PROFIT:</span>
-                        <span className="font-semibold">₹{(trip.summary?.totalProfitMargin || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">TOTAL EXP:</span>
-                        <span className="font-semibold">₹{(trip.summary?.totalExpenses || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">GROSS RENT:</span>
-                        <span className="font-semibold">₹{(trip.vehicleReadings?.totalDistance ? (trip.vehicleReadings.totalDistance * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">MORTALITY & WEIGHT LOSS:</span>
-                        <span className="font-semibold">₹{mortalityAndWeightLossAmount.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between bg-gray-700 text-white px-3 py-2 rounded">
-                        <span className="text-sm font-semibold">BIRDS PROFIT:</span>
-                        <span className="font-semibold">₹{(trip.summary?.birdsProfit || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between bg-black text-white px-3 py-2 rounded">
-                        <span className="text-sm font-bold">MARGIN:</span>
-                        <span className="font-bold">
-                          ₹{(trip.summary?.profitPerKg || 0).toFixed(2)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+                    {(() => {
+                      const metricsRunningKm = (() => {
+                        if (!trip) return 0;
+                        if (trip.vehicleReadings?.totalDistance && Number(trip.vehicleReadings.totalDistance) > 0) {
+                          return Number(trip.vehicleReadings.totalDistance);
+                        }
+                        if (trip.totalKm && Number(trip.totalKm) > 0) {
+                          return Number(trip.totalKm);
+                        }
+                        const opening = Number(trip.vehicleReadings?.opening) || 0;
+                        const closing = Number(trip.vehicleReadings?.closing ?? trip.completionDetails?.closingOdometer) || 0;
+                        if (closing && opening && closing >= opening) {
+                          return closing - opening;
+                        }
+                        return 0;
+                      })();
 
-                  {/* Right Column - Trip Metrics */}
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3">TRIP METRICS</h4>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">TOTAL RUNNING KM:</span>
-                        <span className="font-semibold">{(trip.vehicleReadings?.totalDistance || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">TOTAL DIESEL VOL:</span>
-                        <span className="font-semibold">{(trip.diesel?.totalVolume || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">VEHICLE AVERAGE:</span>
-                        <span className="font-semibold">
-                          {trip.vehicleReadings?.totalDistance && trip.diesel?.totalVolume
-                            ? (trip.vehicleReadings.totalDistance / trip.diesel.totalVolume).toFixed(2)
-                            : '0.00'}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">RENT PER KM:</span>
-                        <span className="font-semibold">₹{(trip.rentPerKm || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">GROSS RENT:</span>
-                        <span className="font-semibold">₹{(trip.vehicleReadings?.totalDistance ? (trip.vehicleReadings.totalDistance * (trip.rentPerKm || 0)) : 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">LESS DIESEL COST:</span>
-                        <span className="font-semibold">₹{(trip.summary?.totalDieselAmount || 0).toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between bg-gray-700 text-white px-3 py-2 rounded">
-                        <span className="text-sm font-semibold">NETT RENT:</span>
-                        <span className="font-semibold">
-                          ₹{(trip.vehicleReadings?.totalDistance
-                            ? ((trip.vehicleReadings.totalDistance * (trip.rentPerKm || 0)) - (trip.summary?.totalDieselAmount || 0))
-                            : 0).toFixed(2)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between bg-black text-white px-3 py-2 rounded">
-                        <span className="text-sm font-bold">TRIP PROFIT:</span>
-                        <span className="font-bold">₹{(trip.summary?.tripProfit || 0).toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                      const metricsDieselVol = (() => {
+                        if (!trip) return 0;
+                        if (trip.diesel?.stations && trip.diesel.stations.length > 0) {
+                          const sum = trip.diesel.stations.reduce((acc, s) => acc + (Number(s.volume) || 0), 0);
+                          if (sum > 0) return sum;
+                        }
+                        return Number(trip.diesel?.totalVolume) || 0;
+                      })();
+
+                      const metricsVehicleAverage = (metricsDieselVol > 0 && metricsRunningKm > 0)
+                        ? (metricsRunningKm / metricsDieselVol)
+                        : 0;
+
+                      const metricsRentPerKm = (() => {
+                        if (!trip) return 0;
+                        if (trip.rentPerKm !== undefined && trip.rentPerKm !== null && Number(trip.rentPerKm) > 0) {
+                          return Number(trip.rentPerKm);
+                        }
+                        if (trip.vehicle?.rentPerKm !== undefined && trip.vehicle?.rentPerKm !== null && Number(trip.vehicle.rentPerKm) > 0) {
+                          return Number(trip.vehicle.rentPerKm);
+                        }
+                        return 0;
+                      })();
+
+                      const metricsGrossRent = metricsRunningKm * metricsRentPerKm;
+
+                      const metricsLessDieselCost = (() => {
+                        if (!trip) return 0;
+                        if (trip.diesel?.stations && trip.diesel.stations.length > 0) {
+                          const sum = trip.diesel.stations.reduce((acc, s) => {
+                            const vol = Number(s.volume) || 0;
+                            const rate = Number(s.rate) || 0;
+                            const amt = s.amount !== undefined && s.amount !== null && s.amount !== 0 ? Number(s.amount) : (vol * rate);
+                            return acc + amt;
+                          }, 0);
+                          if (sum > 0) return sum;
+                        }
+                        if (trip.summary?.totalDieselAmount !== undefined && trip.summary?.totalDieselAmount !== null && Number(trip.summary.totalDieselAmount) > 0) {
+                          return Number(trip.summary.totalDieselAmount);
+                        }
+                        return Number(trip.diesel?.totalAmount) || 0;
+                      })();
+
+                      const metricsNettRent = metricsGrossRent - metricsLessDieselCost;
+
+                      const metricsBirdsProfit = (() => {
+                        if (!trip) return 0;
+                        const sales = Number(trip.summary?.totalSalesAmount) || 0;
+                        const purchases = Number(trip.summary?.totalPurchaseAmount) || 0;
+                        const expenses = Number(trip.summary?.totalExpenses) || 0;
+                        return sales - purchases - expenses - metricsGrossRent;
+                      })();
+
+                      const metricsTripProfit = metricsNettRent + metricsBirdsProfit;
+
+                      const metricsMargin = (() => {
+                        const purchasedWeight = Number(trip?.summary?.totalWeightPurchased) || 0;
+                        if (purchasedWeight > 0) {
+                          return metricsTripProfit / purchasedWeight;
+                        }
+                        return 0;
+                      })();
+
+                      return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          {/* Left Column - Financial Summary */}
+                          <div>
+                            <h4 className="font-semibold text-gray-900 mb-3">FINANCIAL SUMMARY</h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">TOTAL SALES:</span>
+                                <span className="font-semibold">₹{(trip.summary?.totalSalesAmount || 0).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">TOTAL PURCHASE:</span>
+                                <span className="font-semibold">₹{(trip.summary?.totalPurchaseAmount || 0).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">GROSS PROFIT:</span>
+                                <span className="font-semibold">₹{(trip.summary?.totalProfitMargin || 0).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">TOTAL EXP:</span>
+                                <span className="font-semibold">₹{(trip.summary?.totalExpenses || 0).toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">GROSS RENT:</span>
+                                <span className="font-semibold">₹{metricsGrossRent.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">MORTALITY & WEIGHT LOSS:</span>
+                                <span className="font-semibold">₹{mortalityAndWeightLossAmount.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between bg-gray-700 text-white px-3 py-2 rounded">
+                                <span className="text-sm font-semibold">BIRDS PROFIT:</span>
+                                <span className="font-semibold">₹{metricsBirdsProfit.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between bg-black text-white px-3 py-2 rounded">
+                                <span className="text-sm font-bold">MARGIN:</span>
+                                <span className="font-bold">
+                                  ₹{metricsMargin.toFixed(2)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right Column - Trip Metrics */}
+                          <div>
+                            <h4 className="font-semibold text-gray-900 mb-3">TRIP METRICS</h4>
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">TOTAL RUNNING KM:</span>
+                                <span className="font-semibold">{metricsRunningKm.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">TOTAL DIESEL VOL:</span>
+                                <span className="font-semibold">{metricsDieselVol.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">VEHICLE AVERAGE:</span>
+                                <span className="font-semibold">
+                                  {metricsVehicleAverage.toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">RENT PER KM:</span>
+                                <span className="font-semibold">₹{metricsRentPerKm.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">GROSS RENT:</span>
+                                <span className="font-semibold">₹{metricsGrossRent.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-sm text-gray-600">LESS DIESEL COST:</span>
+                                <span className="font-semibold">₹{metricsLessDieselCost.toFixed(2)}</span>
+                              </div>
+                              <div className="flex justify-between bg-gray-700 text-white px-3 py-2 rounded">
+                                <span className="text-sm font-semibold">NETT RENT:</span>
+                                <span className="font-semibold">
+                                  ₹{metricsNettRent.toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between bg-black text-white px-3 py-2 rounded">
+                                <span className="text-sm font-bold">TRIP PROFIT:</span>
+                                <span className="font-bold">₹{metricsTripProfit.toFixed(2)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
               </div>
             </div>
           </div>

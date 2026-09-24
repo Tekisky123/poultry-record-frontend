@@ -14,7 +14,6 @@ import {
   Calendar,
   DollarSign,
   Eye,
-  Edit,
   Trash2,
   Loader2,
   X,
@@ -1240,15 +1239,6 @@ export default function Trips() {
                             title="Complete trip"
                           >
                             <CheckCircle size={16} />
-                          </button>
-                        )}
-                        {isAdmin && (
-                          <button
-                            onClick={() => handleEdit(trip)}
-                            className="p-1 text-gray-400 hover:text-green-600 transition-colors"
-                            title="Edit trip (Admin only)"
-                          >
-                            <Edit size={16} />
                           </button>
                         )}
                         {isSuperadmin && (
