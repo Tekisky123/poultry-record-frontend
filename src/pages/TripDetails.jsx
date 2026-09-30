@@ -1616,16 +1616,16 @@ export default function TripDetails() {
                     {(() => {
                       const metricsRunningKm = (() => {
                         if (!trip) return 0;
+                        const opening = Number(trip.vehicleReadings?.opening) || 0;
+                        const closing = Number(trip.vehicleReadings?.closing ?? trip.completionDetails?.closingOdometer) || 0;
+                        if (closing > 0 && closing >= opening) {
+                          return closing - opening;
+                        }
                         if (trip.vehicleReadings?.totalDistance && Number(trip.vehicleReadings.totalDistance) > 0) {
                           return Number(trip.vehicleReadings.totalDistance);
                         }
                         if (trip.totalKm && Number(trip.totalKm) > 0) {
                           return Number(trip.totalKm);
-                        }
-                        const opening = Number(trip.vehicleReadings?.opening) || 0;
-                        const closing = Number(trip.vehicleReadings?.closing ?? trip.completionDetails?.closingOdometer) || 0;
-                        if (closing && opening && closing >= opening) {
-                          return closing - opening;
                         }
                         return 0;
                       })();
@@ -1865,14 +1865,22 @@ export default function TripDetails() {
                       </div>
                     )}
 
-                    {trip.status === 'completed' && trip.vehicleReadings?.totalDistance && (
-                      <div className="flex items-center gap-3">
-                        <Truck className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                        <span className="text-sm text-gray-600 truncate">
-                          Total Running KM: {trip.vehicleReadings.totalDistance.toFixed(2)} km
-                        </span>
-                      </div>
-                    )}
+                    {(() => {
+                      const opening = Number(trip.vehicleReadings?.opening) || 0;
+                      const closing = Number(trip.vehicleReadings?.closing ?? trip.completionDetails?.closingOdometer) || 0;
+                      const runningKm = (closing > 0 && closing >= opening) ? (closing - opening) : (Number(trip.vehicleReadings?.totalDistance) || 0);
+                      if (runningKm > 0 || trip.status === 'completed') {
+                        return (
+                          <div className="flex items-center gap-3">
+                            <Truck className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                            <span className="text-sm text-gray-600 truncate">
+                              Total Running KM: {runningKm.toFixed(2)} km
+                            </span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
 
