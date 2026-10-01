@@ -26,7 +26,7 @@ const REPORT_COLUMNS = [
     label: 'Pur Amount',
     locked: true,
     defaultSelected: true,
-    render: (day) => day.totalPurchaseAmount > 0 ? `₹${day.totalPurchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'
+    render: (day) => day.totalPurchaseAmount > 0 ? `₹${day.totalPurchaseAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'
   },
   {
     key: 'salesWeight',
@@ -40,7 +40,7 @@ const REPORT_COLUMNS = [
     label: 'Sales Amount',
     locked: true,
     defaultSelected: true,
-    render: (day) => day.totalSaleAmount > 0 ? `₹${day.totalSaleAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-'
+    render: (day) => day.totalSaleAmount > 0 ? `₹${day.totalSaleAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'
   },
   {
     key: 'profit',
@@ -48,8 +48,14 @@ const REPORT_COLUMNS = [
     locked: true,
     defaultSelected: true,
     render: (day) => {
-      const profit = day.totalSaleAmount - day.totalPurchaseAmount;
-      return profit !== 0 ? `₹${profit.toLocaleString('en-IN', { minimumFractionDigits: 2 })}` : '-';
+      const sales = day.totalSaleAmount || 0;
+      const purchases = day.totalPurchaseAmount || 0;
+      if (sales === 0 && purchases === 0) return '-';
+      if (sales === 0 && purchases > 0) return '₹0.00';
+      const profit = sales - purchases;
+      if (profit === 0) return '₹0.00';
+      const formatted = Math.abs(profit).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      return profit < 0 ? `-₹${formatted}` : `₹${formatted}`;
     }
   },
   {
@@ -65,7 +71,7 @@ const REPORT_COLUMNS = [
   {
     key: 'mortalityAmount',
     label: 'Birds Mortality Amount',
-    render: (day) => `₹${Number(day.totalMortalityAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+    render: (day) => `₹${Number(day.totalMortalityAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   },
   {
     key: 'actualWeightlossWeight',
@@ -75,7 +81,7 @@ const REPORT_COLUMNS = [
   {
     key: 'actualWeightlossAmount',
     label: 'Actual Weightloss Amount',
-    render: (day) => `₹${Number(day.totalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+    render: (day) => `₹${Number(day.totalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   },
   {
     key: 'naturalWeightlossWeight',
@@ -85,7 +91,7 @@ const REPORT_COLUMNS = [
   {
     key: 'naturalWeightlossAmount',
     label: 'Natural Weightloss Amount',
-    render: (day) => `₹${Number(day.totalNaturalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+    render: (day) => `₹${Number(day.totalNaturalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   },
   {
     key: 'feedConsumeQty',
@@ -95,7 +101,7 @@ const REPORT_COLUMNS = [
   {
     key: 'feedConsumeAmount',
     label: 'Feed Consume Amount',
-    render: (day) => `₹${Number(day.totalFeedConsumeAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+    render: (day) => `₹${Number(day.totalFeedConsumeAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 ];
 
@@ -278,23 +284,34 @@ export default function StockDailySummary() {
     const handleExportToExcel = () => {
         if (!fullDays.length) return;
 
-        const exportData = fullDays.map(day => ({
-            DATE: day.formattedDate,
-            'PURCHASE WEIGHT': day.totalPurchaseWeight || 0,
-            'PUR AMOUNT': day.totalPurchaseAmount || 0,
-            'SALES WEIGHT': day.totalSaleWeight || 0,
-            'SALES AMOUNT': day.totalSaleAmount || 0,
-            PROFIT: (day.totalSaleAmount || 0) - (day.totalPurchaseAmount || 0)
-        }));
+        const exportData = fullDays.map(day => {
+            const sales = day.totalSaleAmount || 0;
+            const purchases = day.totalPurchaseAmount || 0;
+            let profitVal = 0;
+            if (sales > 0) {
+                profitVal = sales - purchases;
+            }
+            return {
+                DATE: day.formattedDate,
+                'PURCHASE WEIGHT': day.totalPurchaseWeight || 0,
+                'PUR AMOUNT': day.totalPurchaseAmount || 0,
+                'SALES WEIGHT': day.totalSaleWeight || 0,
+                'SALES AMOUNT': day.totalSaleAmount || 0,
+                PROFIT: profitVal
+            };
+        });
 
         // Add Totals Row
+        const totSales = Number(data.totals.totalSaleAmount || 0);
+        const totPurch = Number(data.totals.totalPurchaseAmount || 0);
+        const totProfit = totSales > 0 ? (totSales - totPurch) : 0;
         exportData.push({
             DATE: 'Grand Total',
             'PURCHASE WEIGHT': data.totals.totalPurchaseWeight,
             'PUR AMOUNT': data.totals.totalPurchaseAmount,
             'SALES WEIGHT': data.totals.totalSaleWeight,
             'SALES AMOUNT': data.totals.totalSaleAmount,
-            PROFIT: data.totals.totalSaleAmount - data.totals.totalPurchaseAmount
+            PROFIT: totProfit
         });
 
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -487,7 +504,10 @@ export default function StockDailySummary() {
                                             ? 'text-right'
                                             : 'text-left'
                                         } ${
-                                            column.key === 'profit' ? (day.totalSaleAmount - day.totalPurchaseAmount >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold') : ''
+                                            column.key === 'profit' ? (
+                                                (day.totalSaleAmount || 0) === 0 ? 'text-gray-500 font-semibold' :
+                                                ((day.totalSaleAmount || 0) - (day.totalPurchaseAmount || 0) >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold')
+                                            ) : ''
                                         } ${
                                             ['mortalityAmount', 'actualWeightlossAmount', 'naturalWeightlossAmount'].includes(column.key) ? 'text-red-600 font-medium' : ''
                                         } ${
@@ -513,19 +533,28 @@ export default function StockDailySummary() {
                                 >
                                     {column.key === 'date' ? 'Grand Total' : (
                                         column.key === 'purchaseWeight' ? `${Number(data.totals.totalPurchaseWeight || 0).toLocaleString('en-IN')} Kg` :
-                                        column.key === 'purchaseAmount' ? `₹${Number(data.totals.totalPurchaseAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        column.key === 'purchaseAmount' ? `₹${Number(data.totals.totalPurchaseAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` :
                                         column.key === 'salesWeight' ? `${Number(data.totals.totalSaleWeight || 0).toLocaleString('en-IN')} Kg` :
-                                        column.key === 'salesAmount' ? `₹${Number(data.totals.totalSaleAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
-                                        column.key === 'profit' ? `₹${Number(Number(data.totals.totalSaleAmount || 0) - Number(data.totals.totalPurchaseAmount || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        column.key === 'salesAmount' ? `₹${Number(data.totals.totalSaleAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` :
+                                        column.key === 'profit' ? (() => {
+                                            const totSales = Number(data.totals.totalSaleAmount || 0);
+                                            const totPurch = Number(data.totals.totalPurchaseAmount || 0);
+                                            if (totSales === 0 && totPurch === 0) return '-';
+                                            if (totSales === 0 && totPurch > 0) return '₹0.00';
+                                            const p = totSales - totPurch;
+                                            if (p === 0) return '₹0.00';
+                                            const fmt = Math.abs(p).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                            return p < 0 ? `-₹${fmt}` : `₹${fmt}`;
+                                        })() :
                                         column.key === 'mortalityBirds' ? `${Number(data.totals.totalMortalityBirds || 0).toLocaleString('en-IN')} Birds` :
                                         column.key === 'mortalityWeight' ? `${Number(data.totals.totalMortalityWeight || 0).toLocaleString('en-IN')} Kg` :
-                                        column.key === 'mortalityAmount' ? `₹${Number(data.totals.totalMortalityAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        column.key === 'mortalityAmount' ? `₹${Number(data.totals.totalMortalityAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` :
                                         column.key === 'actualWeightlossWeight' ? `${Number(data.totals.totalWeightLossWeight || 0).toLocaleString('en-IN')} Kg` :
-                                        column.key === 'actualWeightlossAmount' ? `₹${Number(data.totals.totalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        column.key === 'actualWeightlossAmount' ? `₹${Number(data.totals.totalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` :
                                         column.key === 'naturalWeightlossWeight' ? `${Number(data.totals.totalNaturalWeightLossWeight || 0).toLocaleString('en-IN')} Kg` :
-                                        column.key === 'naturalWeightlossAmount' ? `₹${Number(data.totals.totalNaturalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        column.key === 'naturalWeightlossAmount' ? `₹${Number(data.totals.totalNaturalWeightLossAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` :
                                         column.key === 'feedConsumeQty' ? `${Number(data.totals.totalFeedConsumeQty || 0).toLocaleString('en-IN')} bags` :
-                                        column.key === 'feedConsumeAmount' ? `₹${Number(data.totals.totalFeedConsumeAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2 })}` :
+                                        column.key === 'feedConsumeAmount' ? `₹${Number(data.totals.totalFeedConsumeAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` :
                                         ''
                                     )}
                                 </td>
