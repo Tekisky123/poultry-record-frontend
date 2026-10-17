@@ -1,4 +1,11 @@
 import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
+
+const getDieselStationName = (station) => {
+    if (!station) return 'N/A';
+    if (typeof station === 'string') return station;
+    return station.stationName || station.name || station.dieselStation?.name || 'N/A';
+};
 
 export default function downloadTripExcel(trip) {
     if (!trip) return;

@@ -180,7 +180,7 @@ export default function FeedStockPurchase() {
                 invRes.data.data.forEach(stock => {
                     if (stock.inventoryType !== 'feed') return;
 
-                    const vendorName = stock.vendorId?.vendorName || stock.vendorId?.companyName || stock.vendorId?.name || 'N/A';
+                    const vendorName = stock.vendorId?.companyName || stock.vendorId?.vendorName || stock.vendorId?.name || 'N/A';
                     
                     let typeLabel = 'feed stock purchase';
 

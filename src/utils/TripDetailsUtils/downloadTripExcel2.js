@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import extractExcelData from './extractExcelData';
-import { X } from 'lucide-react';
+import { saveAs } from 'file-saver';
 
 export default function downloadTripExcel2(trip) {
     try {

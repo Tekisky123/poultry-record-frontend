@@ -72,7 +72,7 @@ export const downloadIndirectSaleReport = (record) => {
     row += 1;
 
     const particulars = [
-      ['DATE', dayjs(record.date).format('DD/MM/YYYY'), 'CUSTOMER NAME', record.customer?.shopName || 'N/A', 'VENDOR NAME', record.vendor?.vendorName || 'N/A'],
+      ['DATE', dayjs(record.date).format('DD/MM/YYYY'), 'CUSTOMER NAME', record.customer?.shopName || 'N/A', 'VENDOR NAME', record.vendor?.companyName || record.vendor?.vendorName || 'N/A'],
       ['PLACE', record.place || '—', 'VEHICLE NO', record.vehicleNumber || '—', 'DRIVER', record.driver || '—']
     ];
 

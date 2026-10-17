@@ -239,7 +239,7 @@ export default function LivePoultryPurchase() {
             if (invRes.data.success && invRes.data.data) {
                 invRes.data.data.forEach(stock => {
                     const vendor = stock.vendorId;
-                    const vendorName = vendor?.vendorName || vendor?.companyName || vendor?.name || stock.vendorName || 'N/A';
+                    const vendorName = vendor?.companyName || vendor?.vendorName || vendor?.name || stock.vendorName || 'N/A';
                     const rawGst = vendor?.gstNumber || stock.gstNo || stock.gstNumber || '';
                     const rawPan = vendor?.panNumber || stock.panNo || stock.panNumber || extractPanFromGst(rawGst);
                     const gstNo = rawGst || '-';
@@ -282,7 +282,7 @@ export default function LivePoultryPurchase() {
             // B. Process Indirect Purchases
             indirectSalesList.forEach(indSale => {
                 const vendor = indSale.vendor;
-                const vendorName = vendor?.vendorName || vendor?.companyName || vendor?.name || indSale.vendorName || 'N/A';
+                const vendorName = vendor?.companyName || vendor?.vendorName || vendor?.name || indSale.vendorName || 'N/A';
                 const rawGst = vendor?.gstNumber || indSale.gstNo || indSale.gstNumber || '';
                 const rawPan = vendor?.panNumber || indSale.panNo || indSale.panNumber || extractPanFromGst(rawGst);
                 const gstNo = rawGst || '-';
@@ -321,7 +321,7 @@ export default function LivePoultryPurchase() {
                 if (trip.purchases && Array.isArray(trip.purchases)) {
                     trip.purchases.forEach(p => {
                         const supplier = p.supplier;
-                        const vendorName = supplier?.vendorName || supplier?.companyName || supplier?.name || p.vendorName || p.supplierName || 'N/A';
+                        const vendorName = supplier?.companyName || supplier?.vendorName || supplier?.name || p.vendorName || p.supplierName || 'N/A';
                         const rawGst = supplier?.gstNumber || p.gstNo || p.gstNumber || trip.gstNo || '';
                         const rawPan = supplier?.panNumber || p.panNo || p.panNumber || trip.panNo || extractPanFromGst(rawGst);
                         const gstNo = rawGst || '-';

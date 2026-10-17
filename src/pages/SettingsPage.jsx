@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, Loader2, MessageSquare, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Settings, Loader2, MessageSquare, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import api from '../lib/axios'
+import api from '../lib/axios';
 
 export default function SettingsPage() {
     const { user } = useAuth();
@@ -132,12 +132,14 @@ export default function SettingsPage() {
                                 <button
                                     onClick={() => updateSetting('SMS_ENABLED', !settings.SMS_ENABLED)}
                                     disabled={updating === 'SMS_ENABLED'}
-                                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${settings.SMS_ENABLED ? 'bg-blue-600' : 'bg-gray-200'
-                                        }`}
+                                    className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                                        settings.SMS_ENABLED ? 'bg-blue-600' : 'bg-gray-200'
+                                    }`}
                                 >
                                     <span
-                                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-sm ${settings.SMS_ENABLED ? 'translate-x-6' : 'translate-x-1'
-                                            }`}
+                                        className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-sm ${
+                                            settings.SMS_ENABLED ? 'translate-x-6' : 'translate-x-1'
+                                        }`}
                                     />
                                     {updating === 'SMS_ENABLED' && (
                                         <div className="absolute inset-0 flex items-center justify-center">
@@ -153,12 +155,6 @@ export default function SettingsPage() {
                         <span>Changes take effect immediately for all users.</span>
                     </div>
                 </div>
-
-                {/* Placeholder for future settings */}
-                {/* <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 opacity-50 cursor-not-allowed">
-           <h3 className="text-lg font-semibold mb-2">General Settings</h3>
-           <p>More configuration options coming soon...</p>
-        </div> */}
             </div>
         </div>
     );

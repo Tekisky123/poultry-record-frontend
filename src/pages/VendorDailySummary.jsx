@@ -64,7 +64,8 @@ export default function VendorDailySummary() {
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Daily Summary");
-        XLSX.writeFile(wb, `${data.subject.name}_Daily_Summary_${month}_${year}.xlsx`);
+        const displayName = data.subject.companyName || data.subject.name;
+        XLSX.writeFile(wb, `${displayName}_Daily_Summary_${month}_${year}.xlsx`);
     };
 
     const monthOptions = [
@@ -112,7 +113,7 @@ export default function VendorDailySummary() {
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">{data?.subject?.name} - Daily Breakdown</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">{data?.subject?.companyName || data?.subject?.name} - Daily Breakdown</h1>
                         <p className="text-gray-600">
                             {monthOptions.find(m => m.value === month)?.label} {year}
                         </p>

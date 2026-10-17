@@ -54,7 +54,7 @@ const VendorDetails = () => {
             if (response.data.success) {
                 const fullLedger = response.data.data.ledger;
                 const isFeedCreditor = vendor?.group?.slug === 'feed-creditors' || vendor?.group?.name === 'Feed Creditors';
-                await downloadVendorLedgerExcel(fullLedger, vendor.vendorName, isFeedCreditor);
+                await downloadVendorLedgerExcel(fullLedger, vendor.companyName || vendor.vendorName, isFeedCreditor);
             }
         } catch (error) {
             console.error('Error downloading Excel:', error);
@@ -283,8 +283,10 @@ const VendorDetails = () => {
                         <ArrowLeft size={20} className="text-gray-600" />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">{vendor.vendorName}</h1>
-                        <p className="text-gray-600">{vendor.companyName}</p>
+                        <h1 className="text-2xl font-bold text-gray-900">{vendor.companyName || vendor.vendorName}</h1>
+                        {vendor.companyName && vendor.vendorName && vendor.companyName !== vendor.vendorName && (
+                            <p className="text-gray-600">{vendor.vendorName}</p>
+                        )}
                     </div>
                 </div>
                 <div className="flex items-center gap-2">

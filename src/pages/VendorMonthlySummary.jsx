@@ -66,7 +66,8 @@ export default function VendorMonthlySummary() {
         const ws = XLSX.utils.json_to_sheet(exportData);
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Monthly Summary");
-        XLSX.writeFile(wb, `${data.subject.name}_Monthly_Summary_${year}.xlsx`);
+        const displayName = data.subject.companyName || data.subject.name;
+        XLSX.writeFile(wb, `${displayName}_Monthly_Summary_${year}.xlsx`);
     };
 
     const yearOptions = [];
@@ -99,7 +100,7 @@ export default function VendorMonthlySummary() {
                         <ArrowLeft size={20} />
                     </button>
                     <div>
-                        <h1 className="text-2xl font-bold text-gray-900">{data?.subject?.name} - Monthly Summary</h1>
+                        <h1 className="text-2xl font-bold text-gray-900">{data?.subject?.companyName || data?.subject?.name} - Monthly Summary</h1>
                         <p className="text-gray-600">
                             Opening Balance: ₹{Number(data?.openingBalance).toLocaleString('en-IN', { minimumFractionDigits: 2 })} {data?.openingBalanceType?.toUpperCase()}
                         </p>

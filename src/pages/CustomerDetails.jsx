@@ -119,11 +119,11 @@ const CustomerDetails = () => {
 
   // Re-fetch purchase ledger when customer data is loaded
   useEffect(() => {
-    if (customer?.user?._id) {
+    if (customer?._id || customer?.id || id) {
       fetchPurchaseLedger(1); // Always start from page 1 when customer loads
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customer]);
+  }, [customer, id]);
 
   const fetchCustomerDetails = async () => {
     try {
@@ -150,7 +150,8 @@ const CustomerDetails = () => {
         setIsFetchingMore(true);
       }
 
-      if (!customer?.user?._id) return;
+      const targetId = customer?._id || customer?.id || id;
+      if (!targetId) return;
 
       const itemsPerPage = ledgerPagination.itemsPerPage || 10;
 
@@ -158,7 +159,7 @@ const CustomerDetails = () => {
       const limit = (dateFilter.startDate || dateFilter.endDate) ? 10000 : itemsPerPage;
 
       // Fetch purchase ledger data
-      const ledgerResponse = await api.get(`/customer/panel/${customer.user._id}/purchase-ledger?page=${page}&limit=${limit}`);
+      const ledgerResponse = await api.get(`/customer/panel/${targetId}/purchase-ledger?page=${page}&limit=${limit}`);
       if (ledgerResponse.data.success) {
         const ledgerData = ledgerResponse.data.data;
         const newEntries = ledgerData.ledger || [];
@@ -228,7 +229,8 @@ const CustomerDetails = () => {
       return;
     }
 
-    if (!customer?.user?._id) {
+    const targetId = customer?._id || customer?.id || id;
+    if (!targetId) {
       alert('Unable to identify customer. Please try again.');
       setShowDownloadOptions(false);
       return;
@@ -238,7 +240,7 @@ const CustomerDetails = () => {
     try {
       const totalItems = ledgerPagination.totalItems || purchaseLedger.length;
       const limit = Math.max(totalItems, ledgerPagination.itemsPerPage || totalItems || 10);
-      const response = await api.get(`/customer/panel/${customer.user._id}/purchase-ledger?page=1&limit=${limit}`);
+      const response = await api.get(`/customer/panel/${targetId}/purchase-ledger?page=1&limit=${limit}`);
 
       if (!response.data.success) {
         throw new Error('Failed to fetch ledger records for download.');
@@ -328,6 +330,7 @@ const CustomerDetails = () => {
 
       if (filter.startDate) {
         const start = new Date(filter.startDate);
+        start.setHours(0, 0, 0, 0);
         if (entryDate < start) {
           return false;
         }
@@ -367,7 +370,7 @@ const CustomerDetails = () => {
 
   // Effect to refetch when dateFilter changes
   useEffect(() => {
-    if (customer?.user?._id) {
+    if (customer?._id || customer?.id || id) {
       fetchPurchaseLedger(1, true); // Refresh list
     }
   }, [dateFilter]);
@@ -413,10 +416,40 @@ const CustomerDetails = () => {
   }
 
   // Calculate statistics from ledger totals
-  const totalSales = ledgerTotals.totalAmount || 0;
-  const totalBirds = ledgerTotals.totalBirds || 0;
-  const totalWeight = ledgerTotals.totalWeight || 0;
-  const totalReceipt = ledgerTotals.totalReceipt || 0;
+  const totalSales = isDateFilterActive
+    ? displayedPurchaseLedger.reduce((sum, entry) => {
+        const p = displayParticulars(entry);
+        if (['SALES', 'STOCK_SALE', 'INDIRECT_SALES', 'PAYMENT', 'INDIRECT_PURCHASE', 'STOCK_PURCHASE'].includes(p)) {
+          return sum + (entry.amount || 0);
+        }
+        return sum;
+      }, 0)
+    : (ledgerTotals.totalAmount || 0);
+
+  const totalBirds = isDateFilterActive
+    ? displayedPurchaseLedger.reduce((sum, entry) => {
+        const p = displayParticulars(entry);
+        if (['SALES', 'STOCK_SALE', 'INDIRECT_SALES', 'PAYMENT', 'INDIRECT_PURCHASE', 'STOCK_PURCHASE'].includes(p)) {
+          return sum + (entry.birds || 0);
+        }
+        return sum;
+      }, 0)
+    : (ledgerTotals.totalBirds || 0);
+
+  const totalWeight = isDateFilterActive
+    ? displayedPurchaseLedger.reduce((sum, entry) => sum + (entry.weight || 0), 0)
+    : (ledgerTotals.totalWeight || 0);
+
+  const totalReceipt = isDateFilterActive
+    ? displayedPurchaseLedger.reduce((sum, entry) => {
+        const p = displayParticulars(entry);
+        if (['RECEIPT', 'BY CASH RECEIPT', 'BY BANK RECEIPT', 'DISCOUNT'].includes(p)) {
+          return sum + (entry.amount || 0);
+        }
+        return sum;
+      }, 0)
+    : (ledgerTotals.totalReceipt || 0);
+
   const totalDiscountAndOther = ledgerTotals.totalDiscountAndOther || 0;
 
   return (
