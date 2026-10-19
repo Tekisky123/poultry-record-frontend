@@ -1078,7 +1078,7 @@ export default function TripDetails() {
           )}
 
           {/* Supervisor-only buttons */}
-          {isSupervisor && trip.status !== 'completed' && (
+          {isSupervisor && (
             <>
               {/* Only show Add Purchase button for non-transferred trips */}
               {trip.type !== 'transferred' && (
@@ -1821,16 +1821,13 @@ export default function TripDetails() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-gray-900">Trip Details</h3>
-                    {/* Edit button - only show for completed trips */}
-                    {trip.status === 'completed' && (
-                      <button
-                        onClick={() => setShowEditTripModal(true)}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                      >
-                        <Edit size={16} />
-                        Edit
-                      </button>
-                    )}
+                    <button
+                      onClick={() => setShowEditTripModal(true)}
+                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    >
+                      <Edit size={16} />
+                      Edit
+                    </button>
                   </div>
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
@@ -1938,7 +1935,7 @@ export default function TripDetails() {
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Purchases</h3>
                 {/* Only show Add Purchase button for non-transferred trips */}
-                {trip.status !== 'completed' && trip.type !== 'transferred' && (
+                {trip.type !== 'transferred' && (
                   <button
                     onClick={() => setShowPurchaseModal(true)}
                     className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
@@ -2043,7 +2040,7 @@ export default function TripDetails() {
                 <h3 className="text-lg font-semibold text-gray-900">
                   {isAdmin ? 'Delivery Details' : 'Sales'}
                 </h3>
-                {isSupervisor && trip.status !== 'completed' && (
+                {isSupervisor && (
                   <button
                     onClick={() => {
                       setSaleData({
@@ -2432,15 +2429,13 @@ export default function TripDetails() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Expenses</h3>
-                {trip.status !== 'completed' && (
-                  <button
-                    onClick={() => setShowExpenseModal(true)}
-                    className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                  >
-                    <Plus size={16} />
-                    Add Expense
-                  </button>
-                )}
+                <button
+                  onClick={() => setShowExpenseModal(true)}
+                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                >
+                  <Plus size={16} />
+                  Add Expense
+                </button>
               </div>
               {trip.expenses && trip.expenses.length > 0 ? (
                 <div className="space-y-3">

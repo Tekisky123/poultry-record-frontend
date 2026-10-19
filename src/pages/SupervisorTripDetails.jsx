@@ -16,7 +16,6 @@ import {
   Fuel,
   TrendingUp,
   CheckCircle,
-  Lock,
   RefreshCw,
   Edit,
   Trash2,
@@ -1600,9 +1599,7 @@ const SupervisorTripDetails = () => {
 
       {/* Action Buttons */}
       <div className="mt-4 py-3">
-        <div className="flex overflow-x-auto scrollbar-thin gap-2 pb-2">
-          {trip.status !== 'completed' ? (
-            <>
+        <div className="flex gap-2 overflow-x-auto pb-2">
               {/* Only show Add Purchase button for non-transferred trips */}
               {trip.type !== 'transferred' && (
                 <button
@@ -1707,13 +1704,6 @@ const SupervisorTripDetails = () => {
                   </button>
                 ) : null;
               })()}
-            </>
-          ) : (
-            <div className="flex items-center px-4 py-2 bg-gray-100 text-gray-500 rounded-lg">
-              <Lock size={16} />
-              <span className="ml-2 text-sm font-medium">Trip Completed - No modifications allowed</span>
-            </div>
-          )}
 
         </div>
       </div>
@@ -2019,7 +2009,7 @@ const SupervisorTripDetails = () => {
                               <div className="text-sm text-gray-500">₹{(purchase.rate || 0).toFixed(2)}/kg</div>
                             </div>
                             {/* Only show edit button for non-transferred trips */}
-                            {trip.status !== 'completed' && trip.type !== 'transferred' && (
+                            {trip.type !== 'transferred' && (
                               <div className="flex items-center gap-2">
                                 <button
                                   onClick={() => {
@@ -2174,99 +2164,95 @@ const SupervisorTripDetails = () => {
                                     </div> */}
                                   </div>
                                   <div className="flex space-x-2">
-                                    {trip.status !== 'completed' && (
-                                      <button
-                                        onClick={() => {
-                                          if (sale.isReceipt) {
-                                            const cashAcId = getCashAcLedgerId();
-                                            const defaultCashLedger = (sale.cashLedger || (sale.cashPaid > 0 ? cashAcId : '')) || '';
-                                            setSaleData({
-                                              client: sale.client?._id || sale.client?.id || sale.client?.user?.customer?.id || '',
-                                              billNumber: sale.billNumber || '',
-                                              birds: 0,
-                                              weight: 0,
-                                              avgWeight: 0,
-                                              rate: 0,
-                                              amount: 0,
-                                              receivedAmount: sale.receivedAmount || 0,
-                                              discount: sale.discount || 0,
-                                              balance: sale.balance || 0,
-                                              cashPaid: sale.cashPaid || 0,
-                                              onlinePaid: sale.onlinePaid || 0,
-                                              cashLedger: defaultCashLedger,
-                                              onlineLedger: sale.onlineLedger || '',
-                                              narration: sale.narration || '',
-                                              isReceipt: true
-                                            });
-                                            setSelectedCustomer(sale.client);
+                                    <button
+                                      onClick={() => {
+                                        if (sale.isReceipt) {
+                                          const cashAcId = getCashAcLedgerId();
+                                          const defaultCashLedger = (sale.cashLedger || (sale.cashPaid > 0 ? cashAcId : '')) || '';
+                                          setSaleData({
+                                            client: sale.client?._id || sale.client?.id || sale.client?.user?.customer?.id || '',
+                                            billNumber: sale.billNumber || '',
+                                            birds: 0,
+                                            weight: 0,
+                                            avgWeight: 0,
+                                            rate: 0,
+                                            amount: 0,
+                                            receivedAmount: sale.receivedAmount || 0,
+                                            discount: sale.discount || 0,
+                                            balance: sale.balance || 0,
+                                            cashPaid: sale.cashPaid || 0,
+                                            onlinePaid: sale.onlinePaid || 0,
+                                            cashLedger: defaultCashLedger,
+                                            onlineLedger: sale.onlineLedger || '',
+                                            narration: sale.narration || '',
+                                            isReceipt: true
+                                          });
+                                          setSelectedCustomer(sale.client);
 
-                                            setCustomerSearchTerm(sale.client ? `${sale.client.shopName} - ${sale.client.ownerName || 'N/A'}` : '');
-                                            // When editing, use saleOutBalance from the sale record (balance at creation time)
-                                            if (sale.saleOutBalance !== undefined && sale.saleOutBalance !== null) {
-                                              // saleOutBalance is stored as signed value, convert to display value
-                                              setCustomerBalance(sale.saleOutBalance);
-                                            } else if (sale.client) {
-                                              // Fallback: if saleOutBalance doesn't exist (old sales), fetch current balance
-                                              fetchCustomerBalance(sale.client);
-                                            } else {
-                                              setCustomerBalance(null);
-                                            }
-                                            setEditingSaleIndex(trip.sales.findIndex(s => s._id === sale._id));
-                                            setShowReceiptModal(true);
+                                          setCustomerSearchTerm(sale.client ? `${sale.client.shopName} - ${sale.client.ownerName || 'N/A'}` : '');
+                                          // When editing, use saleOutBalance from the sale record (balance at creation time)
+                                          if (sale.saleOutBalance !== undefined && sale.saleOutBalance !== null) {
+                                            // saleOutBalance is stored as signed value, convert to display value
+                                            setCustomerBalance(sale.saleOutBalance);
+                                          } else if (sale.client) {
+                                            // Fallback: if saleOutBalance doesn't exist (old sales), fetch current balance
+                                            fetchCustomerBalance(sale.client);
                                           } else {
-                                            const cashAcId = getCashAcLedgerId();
-                                            const defaultCashLedger = (sale.cashLedger || (sale.cashPaid > 0 ? cashAcId : '')) || '';
-                                            setSaleData({
-                                              client: sale.client?._id || sale.client?.id || sale.client?.user?.customer?.id || '',
-                                              billNumber: sale.billNumber || '',
-                                              birds: sale.birds || 0,
-                                              weight: sale.weight || 0,
-                                              avgWeight: sale.avgWeight || 0,
-                                              rate: sale.rate || 0,
-                                              amount: sale.amount || 0,
-                                              // paymentMode: sale.paymentMode || 'cash',
-                                              // paymentStatus: sale.paymentStatus || 'pending',
-                                              receivedAmount: sale.receivedAmount || 0,
-                                              discount: sale.discount || 0,
-                                              outstandingBalance: sale.outstandingBalance || 0,
-                                              cashPaid: sale.cashPaid || 0,
-                                              onlinePaid: sale.onlinePaid || 0,
-                                              cashLedger: defaultCashLedger,
-                                              onlineLedger: sale.onlineLedger || '',
-                                              narration: sale.narration || ''
-                                            });
-                                            setSelectedCustomer(sale.client);
-                                            setCustomerSearchTerm(sale.client ? `${sale.client.shopName} - ${sale.client.ownerName || 'N/A'}` : '');
-                                            // When editing, use saleOutBalance from the sale record (balance at creation time)
-                                            if (sale.saleOutBalance !== undefined && sale.saleOutBalance !== null) {
-                                              // saleOutBalance is stored as signed value, convert to display value
-                                              setCustomerBalance(sale.saleOutBalance);
-                                              console.log("sssssSale", sale)
-                                            } else if (sale.client) {
-                                              // Fallback: if saleOutBalance doesn't exist (old sales), fetch current balance
-                                              fetchCustomerBalance(sale.client);
-                                            } else {
-                                              setCustomerBalance(null);
-                                            }
-                                            setEditingSaleIndex(trip.sales.findIndex(s => s._id === sale._id));
-                                            setShowSaleModal(true);
+                                            setCustomerBalance(null);
                                           }
-                                        }}
-                                        className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 flex items-center gap-1"
-                                      >
-                                        <Save size={12} />
-                                        Edit
-                                      </button>
-                                    )}
-                                    {trip.status !== 'completed' && (
-                                      <button
-                                        onClick={() => handleDeleteSubItem('sale', trip.sales.findIndex(s => s._id === sale._id))}
-                                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded flex items-center gap-1 transition-colors"
-                                      >
-                                        <Trash2 size={12} />
-                                        Delete
-                                      </button>
-                                    )}
+                                          setEditingSaleIndex(trip.sales.findIndex(s => s._id === sale._id));
+                                          setShowReceiptModal(true);
+                                        } else {
+                                          const cashAcId = getCashAcLedgerId();
+                                          const defaultCashLedger = (sale.cashLedger || (sale.cashPaid > 0 ? cashAcId : '')) || '';
+                                          setSaleData({
+                                            client: sale.client?._id || sale.client?.id || sale.client?.user?.customer?.id || '',
+                                            billNumber: sale.billNumber || '',
+                                            birds: sale.birds || 0,
+                                            weight: sale.weight || 0,
+                                            avgWeight: sale.avgWeight || 0,
+                                            rate: sale.rate || 0,
+                                            amount: sale.amount || 0,
+                                            // paymentMode: sale.paymentMode || 'cash',
+                                            // paymentStatus: sale.paymentStatus || 'pending',
+                                            receivedAmount: sale.receivedAmount || 0,
+                                            discount: sale.discount || 0,
+                                            outstandingBalance: sale.outstandingBalance || 0,
+                                            cashPaid: sale.cashPaid || 0,
+                                            onlinePaid: sale.onlinePaid || 0,
+                                            cashLedger: defaultCashLedger,
+                                            onlineLedger: sale.onlineLedger || '',
+                                            narration: sale.narration || ''
+                                          });
+                                          setSelectedCustomer(sale.client);
+                                          setCustomerSearchTerm(sale.client ? `${sale.client.shopName} - ${sale.client.ownerName || 'N/A'}` : '');
+                                          // When editing, use saleOutBalance from the sale record (balance at creation time)
+                                          if (sale.saleOutBalance !== undefined && sale.saleOutBalance !== null) {
+                                            // saleOutBalance is stored as signed value, convert to display value
+                                            setCustomerBalance(sale.saleOutBalance);
+                                            console.log("sssssSale", sale)
+                                          } else if (sale.client) {
+                                            // Fallback: if saleOutBalance doesn't exist (old sales), fetch current balance
+                                            fetchCustomerBalance(sale.client);
+                                          } else {
+                                            setCustomerBalance(null);
+                                          }
+                                          setEditingSaleIndex(trip.sales.findIndex(s => s._id === sale._id));
+                                          setShowSaleModal(true);
+                                        }
+                                      }}
+                                      className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 flex items-center gap-1"
+                                    >
+                                      <Save size={12} />
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSubItem('sale', trip.sales.findIndex(s => s._id === sale._id))}
+                                      className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded flex items-center gap-1 transition-colors"
+                                    >
+                                      <Trash2 size={12} />
+                                      Delete
+                                    </button>
                                     <button
                                       onClick={() => handleDownloadInvoice(sale)}
                                       className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
@@ -2350,26 +2336,24 @@ const SupervisorTripDetails = () => {
                                 <div className="text-sm text-gray-500">₹{(stock.rate || 0).toFixed(2)}/kg</div>
                               </div>
                               <div className="flex space-x-2">
-                                {trip.status !== 'completed' && (
-                                  <button
-                                    onClick={() => {
-                                      setEditingStockIndex(index);
-                                      setStockData({
-                                        birds: stock.birds,
-                                        weight: stock.weight,
-                                        avgWeight: stock.avgWeight,
-                                        rate: stock.rate,
-                                        value: stock.value,
-                                        notes: stock.notes || ''
-                                      });
-                                      setShowStockModal(true);
-                                    }}
-                                    className="px-3 py-1 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 flex items-center gap-1"
-                                  >
-                                    <Edit size={12} />
-                                    Edit
-                                  </button>
-                                )}
+                                <button
+                                  onClick={() => {
+                                    setEditingStockIndex(index);
+                                    setStockData({
+                                      birds: stock.birds,
+                                      weight: stock.weight,
+                                      avgWeight: stock.avgWeight,
+                                      rate: stock.rate,
+                                      value: stock.value,
+                                      notes: stock.notes || ''
+                                    });
+                                    setShowStockModal(true);
+                                  }}
+                                  className="px-3 py-1 bg-cyan-600 text-white text-xs rounded hover:bg-cyan-700 flex items-center gap-1"
+                                >
+                                  <Edit size={12} />
+                                  Edit
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -2490,48 +2474,44 @@ const SupervisorTripDetails = () => {
                                       <div className="text-xs text-gray-500">Total Received</div>
                                     </div>
                                     <div className="flex space-x-2">
-                                      {trip.status !== 'completed' && (
-                                        <button
-                                          onClick={() => {
-                                            const cashAcId = getCashAcLedgerId();
-                                            const defaultCashLedger = (receipt.cashLedger || (receipt.cashPaid > 0 ? cashAcId : '')) || '';
-                                            setSaleData({
-                                              client: receipt.client?._id || '',
-                                              billNumber: receipt.billNumber || '',
-                                              birds: 0,
-                                              weight: 0,
-                                              avgWeight: 0,
-                                              rate: 0,
-                                              amount: 0,
-                                              receivedAmount: receipt.receivedAmount || 0,
-                                              discount: receipt.discount || 0,
-                                              balance: receipt.balance || 0,
-                                              cashPaid: receipt.cashPaid || 0,
-                                              onlinePaid: receipt.onlinePaid || 0,
-                                              cashLedger: defaultCashLedger,
-                                              onlineLedger: receipt.onlineLedger || '',
-                                              narration: receipt.narration || '',
-                                              isReceipt: true
-                                            });
-                                            setSelectedCustomer(receipt.client);
-                                            setEditingSaleIndex(trip.sales.findIndex(s => s._id === receipt._id));
-                                            setShowReceiptModal(true);
-                                          }}
-                                          className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 flex items-center gap-1"
-                                        >
-                                          <Edit size={12} />
-                                          Edit
-                                        </button>
-                                      )}
-                                      {trip.status !== 'completed' && (
-                                        <button
-                                          onClick={() => handleDeleteSubItem('receipt', trip.sales.findIndex(s => s._id === receipt._id))}
-                                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded flex items-center gap-1 transition-colors"
-                                        >
-                                          <Trash2 size={12} />
-                                          Delete
-                                        </button>
-                                      )}
+                                      <button
+                                        onClick={() => {
+                                          const cashAcId = getCashAcLedgerId();
+                                          const defaultCashLedger = (receipt.cashLedger || (receipt.cashPaid > 0 ? cashAcId : '')) || '';
+                                          setSaleData({
+                                            client: receipt.client?._id || '',
+                                            billNumber: receipt.billNumber || '',
+                                            birds: 0,
+                                            weight: 0,
+                                            avgWeight: 0,
+                                            rate: 0,
+                                            amount: 0,
+                                            receivedAmount: receipt.receivedAmount || 0,
+                                            discount: receipt.discount || 0,
+                                            balance: receipt.balance || 0,
+                                            cashPaid: receipt.cashPaid || 0,
+                                            onlinePaid: receipt.onlinePaid || 0,
+                                            cashLedger: defaultCashLedger,
+                                            onlineLedger: receipt.onlineLedger || '',
+                                            narration: receipt.narration || '',
+                                            isReceipt: true
+                                          });
+                                          setSelectedCustomer(receipt.client);
+                                          setEditingSaleIndex(trip.sales.findIndex(s => s._id === receipt._id));
+                                          setShowReceiptModal(true);
+                                        }}
+                                        className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 flex items-center gap-1"
+                                      >
+                                        <Edit size={12} />
+                                        Edit
+                                      </button>
+                                      <button
+                                        onClick={() => handleDeleteSubItem('receipt', trip.sales.findIndex(s => s._id === receipt._id))}
+                                        className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded flex items-center gap-1 transition-colors"
+                                      >
+                                        <Trash2 size={12} />
+                                        Delete
+                                      </button>
                                       <button
                                         onClick={() => handleDownloadInvoice(receipt)}
                                         className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 flex items-center gap-1"
@@ -2563,31 +2543,24 @@ const SupervisorTripDetails = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="text-lg font-semibold text-gray-900">Stock Management</h3>
-                {trip.status !== 'completed' ? (
-                  <button
-                    onClick={() => {
-                      setEditingStockIndex(null);
-                      setStockData({
-                        birds: '',
-                        weight: '',
-                        avgWeight: 0,
-                        rate: trip.summary?.avgPurchaseRate || '',
-                        value: 0,
-                        notes: ''
-                      });
-                      setShowStockModal(true);
-                    }}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                  >
-                    <Plus size={16} />
-                    Add to Stock
-                  </button>
-                ) : (
-                  <div className="flex items-center px-3 py-2 bg-gray-100 text-gray-500 rounded-lg text-sm">
-                    <Lock size={14} />
-                    <span className="ml-1">No modifications allowed</span>
-                  </div>
-                )}
+                <button
+                  onClick={() => {
+                    setEditingStockIndex(null);
+                    setStockData({
+                      birds: '',
+                      weight: '',
+                      avgWeight: 0,
+                      rate: trip.summary?.avgPurchaseRate || '',
+                      value: 0,
+                      notes: ''
+                    });
+                    setShowStockModal(true);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                >
+                  <Plus size={16} />
+                  Add to Stock
+                </button>
               </div>
 
               {/* Stock Summary */}
@@ -2626,7 +2599,6 @@ const SupervisorTripDetails = () => {
                             Added: {new Date(stock.addedAt).toLocaleDateString()}
                           </p>
                         </div>
-                        {trip.status !== 'completed' && (
                           <div className="flex gap-2">
                             <button
                               onClick={() => {
@@ -2652,7 +2624,6 @@ const SupervisorTripDetails = () => {
                               Delete
                             </button>
                           </div>
-                        )}
                       </div>
 
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
@@ -2749,7 +2720,6 @@ const SupervisorTripDetails = () => {
                         </div>
                         <div className="flex flex-col items-end space-y-2">
                           <div className="font-medium text-red-600">₹{expense.amount?.toLocaleString()}</div>
-                          {trip.status !== 'completed' && (
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => {
@@ -2774,7 +2744,6 @@ const SupervisorTripDetails = () => {
                                 Delete
                               </button>
                             </div>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -2849,7 +2818,6 @@ const SupervisorTripDetails = () => {
                           <div className="text-right">
                             <div className="font-medium">₹{(station.amount || 0).toFixed(2)}</div>
                           </div>
-                          {trip.status !== 'completed' && (
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => {
@@ -2880,7 +2848,6 @@ const SupervisorTripDetails = () => {
                                 Delete
                               </button>
                             </div>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -3238,7 +3205,6 @@ const SupervisorTripDetails = () => {
                   <div className="space-y-3">
                     {trip.transferHistory.map((transfer, index) => (
                       <div key={index} className="bg-white p-4 rounded-lg border border-orange-200 relative">
-                        {trip.status !== 'completed' && (
                           <div className="absolute top-4 right-4 flex items-center gap-2">
                             <button
                               onClick={() => setEditingTransfer({ transfer, index })}
@@ -3255,7 +3221,6 @@ const SupervisorTripDetails = () => {
                               <Trash2 size={16} />
                             </button>
                           </div>
-                        )}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <div className="mb-2">
@@ -3389,7 +3354,7 @@ const SupervisorTripDetails = () => {
                       (trip.stocks?.reduce((sum, stock) => sum + (stock.birds || 0), 0) || 0) -
                       (trip.summary?.totalBirdsLost || 0) -
                       (trip.summary?.birdsTransferred || 0);
-                    return remainingBirds > 0 && trip.status !== 'completed' ? (
+                    return remainingBirds > 0 ? (
                       <div className="mt-4">
                         <button
                           onClick={() => setShowTransferModal(true)}

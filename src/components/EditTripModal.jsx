@@ -4,6 +4,7 @@ import api from '../lib/axios';
 
 const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
   const [formData, setFormData] = useState({
+    vehicle: '',
     date: '',
     place: '',
     driver: '',
@@ -18,12 +19,33 @@ const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
       closing: 0
     }
   });
+  const [vehicles, setVehicles] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        const { data } = await api.get('/vehicle');
+        setVehicles(data.data || []);
+      } catch (err) {
+        console.error('Failed to fetch vehicles:', err);
+      }
+    };
+    if (isOpen) {
+      fetchVehicles();
+    }
+  }, [isOpen]);
+
+  useEffect(() => {
     if (trip && isOpen) {
+      const vehicleId = trip.vehicle?._id || trip.vehicle?.id || (typeof trip.vehicle === 'string' ? trip.vehicle : '');
+      const closingVal = trip.vehicleReadings?.closing !== undefined && trip.vehicleReadings?.closing !== null
+        ? trip.vehicleReadings.closing
+        : (trip.completionDetails?.closingOdometer ?? '');
+
       setFormData({
+        vehicle: vehicleId,
         date: trip.date ? new Date(trip.date).toISOString().split('T')[0] : '',
         place: trip.place || '',
         driver: trip.driver || '',
@@ -35,7 +57,7 @@ const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
         },
         vehicleReadings: {
           opening: trip.vehicleReadings?.opening || 0,
-          closing: trip.vehicleReadings?.closing || 0
+          closing: closingVal
         }
       });
     }
@@ -67,6 +89,7 @@ const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
     setError('');
 
     try {
+      const tripId = trip?.id || trip?._id;
       const updateData = {
         ...formData,
         date: new Date(formData.date),
@@ -81,7 +104,7 @@ const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
         }
       };
       
-      await api.put(`/trip/${trip.id}`, updateData);
+      await api.put(`/trip/${tripId}`, updateData);
       
       onSuccess();
       onClose();
@@ -121,6 +144,31 @@ const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
             <h3 className="text-lg font-medium text-gray-900">Basic Information</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Vehicle *
+                </label>
+                <select
+                  name="vehicle"
+                  value={formData.vehicle}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select vehicle</option>
+                  {trip?.vehicle && !vehicles.some(v => (v._id || v.id) === (trip.vehicle?._id || trip.vehicle?.id || trip.vehicle)) && (
+                    <option value={trip.vehicle?._id || trip.vehicle?.id || trip.vehicle}>
+                      {trip.vehicle?.vehicleNumber || 'Current Vehicle'} {trip.vehicle?.type ? `(${trip.vehicle.type})` : ''}
+                    </option>
+                  )}
+                  {vehicles.map(v => (
+                    <option key={v._id || v.id} value={v._id || v.id}>
+                      {v.vehicleNumber} {v.type ? `(${v.type})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Trip Date *
