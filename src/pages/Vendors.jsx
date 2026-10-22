@@ -196,12 +196,12 @@ export default function Vendors() {
     try {
       setIsLoading(true);
       console.log('Fetching vendors...');
-      const { data } = await api.get('/vendor');
-      setVendors(data.data || []);
-
-      // Fetch groups
-      const groupsRes = await api.get('/group');
-      const groupsData = groupsRes.data.data || [];
+      const [vendorsRes, groupsRes] = await Promise.all([
+        api.get('/vendor'),
+        api.get('/group')
+      ]);
+      setVendors(vendorsRes.data?.data || []);
+      const groupsData = groupsRes.data?.data || [];
       setGroups(groupsData);
 
       // Filter groups to show only "Sundry Creditors" and its descendants
@@ -343,7 +343,7 @@ export default function Vendors() {
   };
 
   const handleDelete = async (vendor) => {
-    if (window.confirm(`Are you sure you want to delete ${vendor.vendorName}?`)) {
+    if (window.confirm(`Are you sure you want to delete ${vendor.companyName || vendor.vendorName}?`)) {
       await deleteVendor(vendor.id);
     }
   };
@@ -554,9 +554,9 @@ export default function Vendors() {
                               <Users className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
-                              <div className="text-sm font-medium text-gray-900">{vendor.vendorName}</div>
+                              <div className="text-sm font-medium text-gray-900">{vendor.companyName || vendor.vendorName}</div>
                               {vendor.companyName && (
-                                <div className="text-xs text-gray-500">{vendor.companyName}</div>
+                                <div className="text-xs text-gray-500">{vendor.vendorName}</div>
                               )}
                             </div>
                           </div>
@@ -623,9 +623,9 @@ export default function Vendors() {
                         <Users className="w-4 h-4 text-blue-600" />
                       </div>
                       <div className="overflow-hidden">
-                        <h3 className="text-sm font-semibold text-gray-900 truncate">{vendor.vendorName}</h3>
+                        <h3 className="text-sm font-semibold text-gray-900 truncate">{vendor.companyName || vendor.vendorName}</h3>
                         {vendor.companyName && (
-                          <p className="text-xs text-gray-500 truncate">{vendor.companyName}</p>
+                          <p className="text-xs text-gray-500 truncate">{vendor.vendorName}</p>
                         )}
                       </div>
                     </div>
@@ -685,9 +685,9 @@ export default function Vendors() {
                         <Users className="w-6 h-6 text-blue-600" />
                       </div>
                       <div>
-                        <h3 className="text-lg font-semibold text-gray-900">{vendor.vendorName}</h3>
+                        <h3 className="text-lg font-semibold text-gray-900">{vendor.companyName || vendor.vendorName}</h3>
                         {vendor.companyName && (
-                          <p className="text-sm text-gray-500">{vendor.companyName}</p>
+                          <p className="text-sm text-gray-500">{vendor.vendorName}</p>
                         )}
                       </div>
                     </div>

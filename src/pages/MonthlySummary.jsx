@@ -184,10 +184,8 @@ export default function MonthlySummary() {
             navigate(`/customers/${id}?startDate=${startStr}&endDate=${endStr}`);
         } else if (type === 'vendor') {
             navigate(`/vendors/${id}?startDate=${startStr}&endDate=${endStr}`);
-        } else if (type === 'ledger') {
+        } else if (type === 'ledger' || type === 'dieselStation') {
             navigate(`/ledgers/${id}?startDate=${startStr}&endDate=${endStr}`);
-        } else if (type === 'dieselStation') {
-            navigate(`/diesel-stations/${id}?startDate=${startStr}&endDate=${endStr}`);
         }
     };
 

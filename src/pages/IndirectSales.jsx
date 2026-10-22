@@ -370,7 +370,7 @@ export default function IndirectSales() {
   const vendorOptions = useMemo(() => {
     return vendors.map(v => ({
       value: v.id || v._id,
-      label: `${v.vendorName}${v.companyName ? ` — ${v.companyName}` : ''}`
+      label: v.companyName ? `${v.companyName}${v.vendorName && v.vendorName !== v.companyName ? ` — ${v.vendorName}` : ''}` : v.vendorName
     }));
   }, [vendors]);
 

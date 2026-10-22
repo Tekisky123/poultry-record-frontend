@@ -270,33 +270,44 @@ export default function ProfitAndLoss() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (hasAdminAccess) {
-      fetchProfitAndLoss();
-    }
-  }, [dateFilter, hasAdminAccess]);
+    if (!hasAdminAccess) return;
 
-  const fetchProfitAndLoss = async () => {
-    try {
-      setIsLoading(true);
-      setIsError(false);
+    const controller = new AbortController();
 
-      const response = await api.get('/dashboard/profit-loss', {
-        params: {
-          startDate: dateFilter.startDate,
-          endDate: dateFilter.endDate
+    const fetchProfitAndLoss = async () => {
+      try {
+        setIsLoading(true);
+        setIsError(false);
+
+        const response = await api.get('/dashboard/profit-loss', {
+          params: {
+            startDate: dateFilter.startDate,
+            endDate: dateFilter.endDate
+          },
+          signal: controller.signal
+        });
+
+        setProfitAndLoss(response.data.data);
+      } catch (err) {
+        if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+          return;
         }
-      });
+        console.error('Error fetching dashboard data:', err);
+        setIsError(true);
+        setError(err.response?.data?.message || err.message || 'Failed to fetch dashboard data');
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    };
 
-      setProfitAndLoss(response.data.data);
+    fetchProfitAndLoss();
 
-    } catch (err) {
-      console.error('Error fetching dashboard data:', err);
-      setIsError(true);
-      setError(err.response?.data?.message || err.message || 'Failed to fetch dashboard data');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    return () => {
+      controller.abort();
+    };
+  }, [dateFilter.startDate, dateFilter.endDate, hasAdminAccess]);
 
   const openDateFilterModal = () => {
     setTempDateFilter(dateFilter);

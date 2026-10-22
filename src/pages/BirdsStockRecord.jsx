@@ -145,7 +145,7 @@ export default function BirdsStockRecord() {
 
         // Purchases
         calculatedData.purchases.forEach(s => {
-            const particular = s.vendorId?.vendorName || s.vendorId?.name || s.vendorId?.companyName || s.customerId?.shopName || s.customerId?.ownerName || '-';
+            const particular = s.vendorId?.companyName || s.vendorId?.vendorName || s.vendorId?.name || s.customerId?.shopName || s.customerId?.ownerName || '-';
             exportData.push({
                 Date: new Date(s.date).toLocaleDateString('en-GB'),
                 Particular: particular,
@@ -253,7 +253,7 @@ export default function BirdsStockRecord() {
 
                             {/* PURCHASES */}
                             {calculatedData.purchases.map((s, i) => {
-                                const particular = s.vendorId?.vendorName || s.vendorId?.name || s.vendorId?.companyName || s.customerId?.shopName || s.customerId?.ownerName || '-';
+                                const particular = s.vendorId?.companyName || s.vendorId?.vendorName || s.vendorId?.name || s.customerId?.shopName || s.customerId?.ownerName || '-';
                                 return (
                                 <tr key={s._id || i} className="hover:bg-gray-50">
                                     <td className="py-3 px-4 border-r border-gray-300 border-dashed whitespace-nowrap">{new Date(s.date).toLocaleDateString('en-GB')}</td>

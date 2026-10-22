@@ -104,8 +104,11 @@ export default function Ledgers() {
     try {
       setIsLoading(true);
 
-      // Fetch groups
-      const groupsRes = await api.get('/group');
+      const [groupsRes, ledgersRes] = await Promise.all([
+        api.get('/group'),
+        api.get('/ledger')
+      ]);
+
       const groupsData = groupsRes.data.data || [];
       setGroups(groupsData);
 
@@ -127,9 +130,7 @@ export default function Ledgers() {
       const treeGroups = buildTree(groupsData);
       setFlatGroups(flattenGroups(treeGroups));
 
-      // Fetch ledgers
-      const ledgersRes = await api.get('/ledger');
-      setLedgers(ledgersRes.data.data || []);
+      setLedgers(ledgersRes.data?.data || []);
 
       setIsError(false);
     } catch (err) {
@@ -359,7 +360,12 @@ export default function Ledgers() {
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
                         <BookOpen size={16} className="text-blue-600 mr-2" />
-                        <span className="font-medium text-gray-900">{ledger.name}</span>
+                        <Link
+                          to={`/ledgers/${ledger.id || ledger._id}`}
+                          className="font-medium text-gray-900 hover:text-blue-600 transition-colors"
+                        >
+                          {ledger.name}
+                        </Link>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -381,9 +387,9 @@ export default function Ledgers() {
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">
                         <Link
-                          to={`/ledgers/${ledger.id}/monthly`}
+                          to={`/ledgers/${ledger.id || ledger._id}`}
                           className="text-blue-600 hover:text-blue-900"
-                          title="View Transactions"
+                          title="View Ledger Details"
                         >
                           <Eye size={16} />
                         </Link>

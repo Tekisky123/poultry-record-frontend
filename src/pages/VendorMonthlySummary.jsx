@@ -13,25 +13,40 @@ export default function VendorMonthlySummary() {
     const [year, setYear] = useState(new Date().getMonth() >= 3 ? new Date().getFullYear() : new Date().getFullYear() - 1);
 
     useEffect(() => {
-        fetchMonthlySummary();
-    }, [id, year]);
+        if (!id) return;
+        const controller = new AbortController();
 
-    const fetchMonthlySummary = async () => {
-        try {
-            setLoading(true);
-            setError('');
-            // Use ledger controller endpoint which handles vendors too
-            const response = await api.get(`/ledger/${id}/monthly-summary`, { params: { year, type: 'vendor' } });
-            if (response.data.success) {
-                setData(response.data.data);
+        const fetchMonthlySummary = async () => {
+            try {
+                setLoading(true);
+                setError('');
+                // Use ledger controller endpoint which handles vendors too
+                const response = await api.get(`/ledger/${id}/monthly-summary`, {
+                    params: { year, type: 'vendor' },
+                    signal: controller.signal
+                });
+                if (response.data.success) {
+                    setData(response.data.data);
+                }
+            } catch (err) {
+                if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+                    return;
+                }
+                console.error('Error fetching monthly summary:', err);
+                setError(err.response?.data?.message || 'Failed to fetch monthly summary');
+            } finally {
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                }
             }
-        } catch (err) {
-            console.error('Error fetching monthly summary:', err);
-            setError(err.response?.data?.message || 'Failed to fetch monthly summary');
-        } finally {
-            setLoading(false);
-        }
-    };
+        };
+
+        fetchMonthlySummary();
+
+        return () => {
+            controller.abort();
+        };
+    }, [id, year]);
 
     const handleMonthClick = (monthData) => {
         const d = new Date(monthData.startDate);

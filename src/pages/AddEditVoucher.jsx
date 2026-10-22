@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams, useLocation } from 'react-router-dom';
 import {
   ArrowLeft,
   Plus,
@@ -15,12 +15,25 @@ import {
 import api from '../lib/axios';
 import Select from 'react-select';
 
+const ALL_VOUCHER_TYPES = ['Payment', 'Receipt', 'Contra', 'Journal', 'Purchase', 'Sales'];
 const ALLOWED_VOUCHER_TYPES = ['Payment', 'Receipt', 'Contra', 'Journal'];
 
 const AddEditVoucher = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
   const isEdit = Boolean(id);
+
+  const getApplicableVoucherType = () => {
+    const rawType = searchParams.get('type') || searchParams.get('voucherType') || location.state?.voucherType || location.state?.type;
+    if (rawType) {
+      const matched = ALL_VOUCHER_TYPES.find(t => t.toLowerCase() === rawType.trim().toLowerCase());
+      if (matched) return matched;
+      return rawType;
+    }
+    return 'Payment';
+  };
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -34,7 +47,7 @@ const AddEditVoucher = () => {
   const [partyBalanceLabel, setPartyBalanceLabel] = useState('');
 
   const [formData, setFormData] = useState({
-    voucherType: ALLOWED_VOUCHER_TYPES[0],
+    voucherType: getApplicableVoucherType(),
     voucherNumber: '',
     date: new Date().toISOString().split('T')[0],
     party: '',
@@ -47,6 +60,18 @@ const AddEditVoucher = () => {
     ],
     narration: ''
   });
+
+  useEffect(() => {
+    if (!isEdit) {
+      const applicableType = getApplicableVoucherType();
+      if (applicableType && applicableType !== formData.voucherType) {
+        setFormData(prev => ({
+          ...prev,
+          voucherType: applicableType
+        }));
+      }
+    }
+  }, [searchParams, location.state]);
 
   useEffect(() => {
     fetchMasterData();
@@ -252,46 +277,72 @@ const AddEditVoucher = () => {
               // Handle populated partyId
               const actualPartyId = partyItem.partyId?._id || partyItem.partyId?.id || partyItem.partyId;
               const partyType = partyItem.partyType || 'customer'; // Default to customer for backward compatibility
-              let partyName = '';
+              const pidStr = (actualPartyId?._id || actualPartyId?.id || actualPartyId || '').toString();
+
+              let partyName = partyItem.partyName || '';
               let balance = 0;
               let balanceType = 'debit';
 
-              try {
+              // Check pre-loaded master data first
+              let partyDoc = null;
+              if (partyType === 'customer') {
+                partyDoc = (customers || []).find(c => (c._id || c.id || '').toString() === pidStr);
+              } else if (partyType === 'ledger') {
+                partyDoc = (ledgers || []).find(l => (l._id || l.id || '').toString() === pidStr);
+              } else if (partyType === 'vendor') {
+                partyDoc = (vendors || []).find(v => (v._id || v.id || '').toString() === pidStr);
+              } else if (partyType === 'dieselStation') {
+                partyDoc = (dieselStations || []).find(d => (d._id || d.id || '').toString() === pidStr);
+              }
+
+              if (partyDoc) {
                 if (partyType === 'customer') {
-                  const customerRes = await api.get(`/customer/${actualPartyId}`);
-                  if (customerRes.data.success) {
-                    const customer = customerRes.data.data;
-                    partyName = customer.shopName || customer.ownerName || 'N/A';
-                    balance = customer.outstandingBalance || customer.openingBalance || 0;
-                    balanceType = customer.outstandingBalanceType || customer.openingBalanceType || 'debit';
-                  }
-                } else if (partyType === 'ledger') {
-                  const ledgerRes = await api.get(`/ledger/${actualPartyId}`);
-                  if (ledgerRes.data.success) {
-                    const ledger = ledgerRes.data.data;
-                    partyName = ledger.name || 'N/A';
-                    balance = ledger.outstandingBalance || ledger.openingBalance || 0;
-                    balanceType = ledger.outstandingBalanceType || ledger.openingBalanceType || 'debit';
-                  }
+                  partyName = partyName || partyDoc.shopName || partyDoc.ownerName || 'N/A';
+                } else if (partyType === 'ledger' || partyType === 'dieselStation') {
+                  partyName = partyName || partyDoc.name || 'N/A';
                 } else if (partyType === 'vendor') {
-                  const vendorRes = await api.get(`/vendor/${actualPartyId}`);
-                  if (vendorRes.data.success) {
-                    const vendor = vendorRes.data.data;
-                    partyName = vendor.vendorName || 'N/A';
-                    balance = vendor.outstandingBalance || vendor.openingBalance || 0;
-                    balanceType = vendor.outstandingBalanceType || vendor.openingBalanceType || 'debit';
-                  }
-                } else if (partyType === 'dieselStation') {
-                  const stationRes = await api.get(`/diesel-stations/${actualPartyId}`);
-                  if (stationRes.data.success) {
-                    const station = stationRes.data.data;
-                    partyName = station.name || 'N/A';
-                    balance = station.outstandingBalance || station.openingBalance || 0;
-                    balanceType = station.outstandingBalanceType || station.openingBalanceType || 'debit';
-                  }
+                  partyName = partyName || partyDoc.vendorName || partyDoc.companyName || 'N/A';
                 }
-              } catch (err) {
-                console.error(`Error fetching ${partyType} ${actualPartyId}:`, err);
+                balance = partyDoc.outstandingBalance ?? partyDoc.openingBalance ?? 0;
+                balanceType = partyDoc.outstandingBalanceType || partyDoc.openingBalanceType || 'debit';
+              } else {
+                try {
+                  if (partyType === 'customer') {
+                    const customerRes = await api.get(`/customer/${actualPartyId}`);
+                    if (customerRes.data.success) {
+                      const customer = customerRes.data.data;
+                      partyName = customer.shopName || customer.ownerName || 'N/A';
+                      balance = customer.outstandingBalance || customer.openingBalance || 0;
+                      balanceType = customer.outstandingBalanceType || customer.openingBalanceType || 'debit';
+                    }
+                  } else if (partyType === 'ledger') {
+                    const ledgerRes = await api.get(`/ledger/${actualPartyId}`);
+                    if (ledgerRes.data.success) {
+                      const ledger = ledgerRes.data.data;
+                      partyName = ledger.name || 'N/A';
+                      balance = ledger.outstandingBalance || ledger.openingBalance || 0;
+                      balanceType = ledger.outstandingBalanceType || ledger.openingBalanceType || 'debit';
+                    }
+                  } else if (partyType === 'vendor') {
+                    const vendorRes = await api.get(`/vendor/${actualPartyId}`);
+                    if (vendorRes.data.success) {
+                      const vendor = vendorRes.data.data;
+                      partyName = vendor.vendorName || 'N/A';
+                      balance = vendor.outstandingBalance || vendor.openingBalance || 0;
+                      balanceType = vendor.outstandingBalanceType || vendor.openingBalanceType || 'debit';
+                    }
+                  } else if (partyType === 'dieselStation') {
+                    const stationRes = await api.get(`/diesel-stations/${actualPartyId}`);
+                    if (stationRes.data.success) {
+                      const station = stationRes.data.data;
+                      partyName = station.name || 'N/A';
+                      balance = station.outstandingBalance || station.openingBalance || 0;
+                      balanceType = station.outstandingBalanceType || station.openingBalanceType || 'debit';
+                    }
+                  }
+                } catch (err) {
+                  console.error(`Error fetching ${partyType} ${actualPartyId}:`, err);
+                }
               }
 
               return {
@@ -473,38 +524,62 @@ const AddEditVoucher = () => {
     let balanceType = 'debit';
 
     try {
+      // Check pre-loaded master data first
+      let partyDoc = null;
+      const pidStr = (partyId?._id || partyId?.id || partyId || '').toString();
       if (partyType === 'customer') {
-        const customerRes = await api.get(`/customer/${partyId}`);
-        if (customerRes.data.success) {
-          const customerData = customerRes.data.data;
-          partyName = customerData.shopName || customerData.ownerName || 'N/A';
-          balance = customerData.outstandingBalance || customerData.openingBalance || 0;
-          balanceType = customerData.outstandingBalanceType || customerData.openingBalanceType || 'debit';
-        }
+        partyDoc = (customers || []).find(c => (c._id || c.id || '').toString() === pidStr);
       } else if (partyType === 'ledger') {
-        const ledgerRes = await api.get(`/ledger/${partyId}`);
-        if (ledgerRes.data.success) {
-          const ledgerData = ledgerRes.data.data;
-          partyName = ledgerData.name || 'N/A';
-          balance = ledgerData.outstandingBalance || ledgerData.openingBalance || 0;
-          balanceType = ledgerData.outstandingBalanceType || ledgerData.openingBalanceType || 'debit';
-        }
+        partyDoc = (ledgers || []).find(l => (l._id || l.id || '').toString() === pidStr);
       } else if (partyType === 'vendor') {
-        const vendorRes = await api.get(`/vendor/${partyId}`);
-        if (vendorRes.data.success) {
-          const vendorData = vendorRes.data.data;
-          partyName = vendorData.vendorName || 'N/A';
-          // Vendors might not have outstanding balance, use 0 or check if they have a ledger
-          balance = vendorData.outstandingBalance || vendorData.openingBalance || 0;
-          balanceType = vendorData.outstandingBalanceType || vendorData.openingBalanceType || 'debit';
-        }
+        partyDoc = (vendors || []).find(v => (v._id || v.id || '').toString() === pidStr);
       } else if (partyType === 'dieselStation') {
-        const stationRes = await api.get(`/diesel-stations/${partyId}`);
-        if (stationRes.data.success) {
-          const stationData = stationRes.data.data;
-          partyName = stationData.name || 'N/A';
-          balance = stationData.outstandingBalance || stationData.openingBalance || 0;
-          balanceType = stationData.outstandingBalanceType || stationData.openingBalanceType || 'debit';
+        partyDoc = (dieselStations || []).find(d => (d._id || d.id || '').toString() === pidStr);
+      }
+
+      if (partyDoc) {
+        if (partyType === 'customer') {
+          partyName = partyDoc.shopName || partyDoc.ownerName || 'N/A';
+        } else if (partyType === 'ledger' || partyType === 'dieselStation') {
+          partyName = partyDoc.name || 'N/A';
+        } else if (partyType === 'vendor') {
+          partyName = partyDoc.vendorName || partyDoc.companyName || 'N/A';
+        }
+        balance = partyDoc.outstandingBalance ?? partyDoc.openingBalance ?? 0;
+        balanceType = partyDoc.outstandingBalanceType || partyDoc.openingBalanceType || 'debit';
+      } else {
+        if (partyType === 'customer') {
+          const customerRes = await api.get(`/customer/${partyId}`);
+          if (customerRes.data.success) {
+            const customerData = customerRes.data.data;
+            partyName = customerData.shopName || customerData.ownerName || 'N/A';
+            balance = customerData.outstandingBalance || customerData.openingBalance || 0;
+            balanceType = customerData.outstandingBalanceType || customerData.openingBalanceType || 'debit';
+          }
+        } else if (partyType === 'ledger') {
+          const ledgerRes = await api.get(`/ledger/${partyId}`);
+          if (ledgerRes.data.success) {
+            const ledgerData = ledgerRes.data.data;
+            partyName = ledgerData.name || 'N/A';
+            balance = ledgerData.outstandingBalance || ledgerData.openingBalance || 0;
+            balanceType = ledgerData.outstandingBalanceType || ledgerData.openingBalanceType || 'debit';
+          }
+        } else if (partyType === 'vendor') {
+          const vendorRes = await api.get(`/vendor/${partyId}`);
+          if (vendorRes.data.success) {
+            const vendorData = vendorRes.data.data;
+            partyName = vendorData.vendorName || 'N/A';
+            balance = vendorData.outstandingBalance || vendorData.openingBalance || 0;
+            balanceType = vendorData.outstandingBalanceType || vendorData.openingBalanceType || 'debit';
+          }
+        } else if (partyType === 'dieselStation') {
+          const stationRes = await api.get(`/diesel-stations/${partyId}`);
+          if (stationRes.data.success) {
+            const stationData = stationRes.data.data;
+            partyName = stationData.name || 'N/A';
+            balance = stationData.outstandingBalance || stationData.openingBalance || 0;
+            balanceType = stationData.outstandingBalanceType || stationData.openingBalanceType || 'debit';
+          }
         }
       }
 
@@ -530,17 +605,17 @@ const AddEditVoucher = () => {
       if (partyFromList) {
         partyName = partyFromList.name;
         if (partyType === 'customer') {
-          balance = partyFromList.data.outstandingBalance || partyFromList.data.openingBalance || 0;
-          balanceType = partyFromList.data.outstandingBalanceType || partyFromList.data.openingBalanceType || 'debit';
+          balance = partyFromList.data?.outstandingBalance || partyFromList.data?.openingBalance || 0;
+          balanceType = partyFromList.data?.outstandingBalanceType || partyFromList.data?.openingBalanceType || 'debit';
         } else if (partyType === 'ledger') {
-          balance = partyFromList.data.outstandingBalance || partyFromList.data.openingBalance || 0;
-          balanceType = partyFromList.data.outstandingBalanceType || partyFromList.data.openingBalanceType || 'debit';
+          balance = partyFromList.data?.outstandingBalance || partyFromList.data?.openingBalance || 0;
+          balanceType = partyFromList.data?.outstandingBalanceType || partyFromList.data?.openingBalanceType || 'debit';
         } else if (partyType === 'vendor') {
-          balance = partyFromList.data.outstandingBalance || partyFromList.data.openingBalance || 0;
-          balanceType = partyFromList.data.outstandingBalanceType || partyFromList.data.openingBalanceType || 'debit';
+          balance = partyFromList.data?.outstandingBalance || partyFromList.data?.openingBalance || 0;
+          balanceType = partyFromList.data?.outstandingBalanceType || partyFromList.data?.openingBalanceType || 'debit';
         } else if (partyType === 'dieselStation') {
-          balance = partyFromList.data.outstandingBalance || partyFromList.data.openingBalance || 0;
-          balanceType = partyFromList.data.outstandingBalanceType || partyFromList.data.openingBalanceType || 'debit';
+          balance = partyFromList.data?.outstandingBalance || partyFromList.data?.openingBalance || 0;
+          balanceType = partyFromList.data?.outstandingBalanceType || partyFromList.data?.openingBalanceType || 'debit';
         }
 
         setFormData(prev => ({
@@ -722,6 +797,9 @@ const AddEditVoucher = () => {
 
         submitData = {
           voucherType: formData.voucherType,
+          voucherNumber: formData.voucherNumber !== '' && formData.voucherNumber !== undefined && formData.voucherNumber !== null
+            ? Number(formData.voucherNumber)
+            : undefined,
           date: formData.date,
           parties: partiesData,
           account: formData.account,
@@ -731,13 +809,14 @@ const AddEditVoucher = () => {
       } else {
         submitData = {
           ...formData,
+          voucherNumber: formData.voucherNumber !== '' && formData.voucherNumber !== undefined && formData.voucherNumber !== null
+            ? Number(formData.voucherNumber)
+            : undefined,
           entries: formData.entries
             .filter(entry => entry.account.trim() !== '')
             .map(({ type, ...rest }) => rest)
         };
       }
-
-      delete submitData.voucherNumber;
 
       let response;
       if (isEdit) {
@@ -889,35 +968,52 @@ const AddEditVoucher = () => {
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Information */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="border-b border-gray-200 px-6 py-4 flex flex-wrap gap-6 items-center">
-            <div>
-              <label className="text-xs uppercase tracking-wide text-gray-500 block mb-1">Voucher Type</label>
-              <select
-                value={formData.voucherType}
-                onChange={(e) => handleInputChange('voucherType', e.target.value)}
-                className="text-lg font-semibold border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                required
-              >
-                {ALLOWED_VOUCHER_TYPES.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <span className="text-xs uppercase tracking-wide text-gray-500">Voucher No.</span>
-              <div className="mt-1 text-lg font-semibold text-gray-900 px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 min-w-[140px]">
-                {formData.voucherNumber ? `${formData.voucherNumber}` : 'Generating...'}
+          <div className="border-b border-gray-200 px-6 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-6">
+              <div>
+                <label className="text-xs uppercase tracking-wide text-gray-500 block mb-1">Voucher No.</label>
+                <input
+                  type="number"
+                  value={formData.voucherNumber}
+                  onChange={(e) => handleInputChange('voucherNumber', e.target.value)}
+                  placeholder={formData.voucherNumber ? '' : 'Generating...'}
+                  className="w-28 sm:w-36 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 text-base font-semibold"
+                  required
+                  min="1"
+                />
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-wide text-gray-500 block mb-1">Voucher Type</label>
+                <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                  {ALLOWED_VOUCHER_TYPES.map((type) => {
+                    const isSelected = formData.voucherType === type;
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => handleInputChange('voucherType', type)}
+                        className={`px-3 py-2 text-sm font-semibold rounded-lg border transition-all ${
+                          isSelected
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                            : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
+                        }`}
+                      >
+                        {type}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </div>
-            <div className="ml-auto">
-              <span className="text-xs uppercase tracking-wide text-gray-500">Date</span>
-              <div className="relative mt-1">
+            <div className="sm:ml-auto">
+              <label className="text-xs uppercase tracking-wide text-gray-500 block mb-1">Date</label>
+              <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
                 <input
                   type="date"
                   value={formData.date}
                   onChange={(e) => handleInputChange('date', e.target.value)}
-                  className="w-full pl-10 pr-3 py-2 text-lg font-semibold border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full sm:w-auto pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 text-base font-semibold"
                   required
                 />
               </div>

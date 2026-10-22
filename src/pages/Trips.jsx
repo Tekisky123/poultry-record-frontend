@@ -102,7 +102,9 @@ const getProductName = (trip) => {
   const collectVendors = (purchases = []) => {
     purchases.forEach((purchase) => {
       const vendorName =
+        purchase?.supplier?.companyName ||
         purchase?.supplier?.vendorName ||
+        purchase?.companyName ||
         purchase?.vendorName ||
         purchase?.supplierName ||
         '';
@@ -291,11 +293,13 @@ const REPORT_COLUMNS = [
   {
     key: 'noDeathBirds',
     label: 'No Death Birds',
+    defaultSelected: true,
     render: (trip) => getColumnValue(trip?.summary?.totalBirdsLost, (val) => val?.toLocaleString('en-IN') || '-')
   },
   {
     key: 'amountDeathBirds',
     label: 'Amount of Death Birds',
+    defaultSelected: true,
     render: (trip) => formatCurrency(trip?.summary?.totalLosses)
   },
   {
@@ -384,7 +388,6 @@ export default function Trips() {
   const [completingTrip, setCompletingTrip] = useState(null);
   const [completeData, setCompleteData] = useState({
     closingOdometer: '',
-    mortality: '',
     finalRemarks: ''
   });
 
@@ -675,9 +678,7 @@ export default function Trips() {
 
   const handleCompleteClick = (trip) => {
     setCompletingTrip(trip);
-    // Pre-fill mortality with remaining birds
-    const remainingBirds = trip.summary?.birdsRemaining || 0;
-    setCompleteData({ closingOdometer: '', mortality: remainingBirds, finalRemarks: '' });
+    setCompleteData({ closingOdometer: '', finalRemarks: '' });
     setShowCompleteModal(true);
   };
 
@@ -1553,23 +1554,6 @@ export default function Trips() {
                       Must be greater than opening reading ({completingTrip.vehicleReadings.opening})
                     </p>
                   )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mortality (Death Birds)
-                  </label>
-                  <input
-                    type="number"
-                    value={completeData.mortality}
-                    onChange={(e) => setCompleteData({ ...completeData, mortality: e.target.value })}
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter number of death birds"
-                    min="0"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    Remaining birds: {completingTrip?.summary?.birdsRemaining || 0}
-                  </p>
                 </div>
 
                 <div>

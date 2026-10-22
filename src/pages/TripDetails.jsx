@@ -19,7 +19,10 @@ import {
   Save,
   Edit,
   Trash2,
-  Pencil
+  Pencil,
+  CreditCard,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import api from '../lib/axios';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,6 +33,101 @@ import { saveAs } from 'file-saver';
 import EditTripModal from '../components/EditTripModal';
 import TransferTripModal from '../components/TransferTripModal';
 import downloadTripExcel2 from '../utils/TripDetailsUtils/downloadTripExcel2';
+
+const getCreditorsSummary = (tripData) => {
+  if (tripData?.creditorsSummary) {
+    return tripData.creditorsSummary;
+  }
+  let totalPurchases = 0;
+  let totalDieselCredit = 0;
+  let totalPayments = 0;
+  let totalOpeningCreditor = 0;
+  let totalClosingCreditor = 0;
+  const creditors = [];
+
+  const processedVendors = new Set();
+  (tripData?.purchases || []).forEach(p => {
+    const supplier = p.supplier;
+    const sId = supplier?._id || supplier?.id || (typeof supplier === 'string' ? supplier : null);
+    const sName = supplier?.vendorName || supplier?.companyName || p.supplierName || 'Supplier';
+    const sKey = sId ? sId.toString() : sName;
+    if (!processedVendors.has(sKey)) {
+      processedVendors.add(sKey);
+      const op = Number(supplier?.openingBalance) || 0;
+      const opType = supplier?.openingBalanceType || 'credit';
+      const signedOp = opType === 'debit' ? -op : op;
+      const tripAdd = (tripData.purchases || [])
+        .filter(x => {
+          const xId = x.supplier?._id || x.supplier?.id || (typeof x.supplier === 'string' ? x.supplier : null);
+          return (sId && xId && xId.toString() === sId.toString()) || (x.supplierName === sName);
+        })
+        .reduce((sum, x) => sum + (Number(x.totalAmount ?? x.amount) || 0), 0);
+      const paid = 0;
+      const signedClose = signedOp + tripAdd - paid;
+      totalOpeningCreditor += signedOp;
+      totalClosingCreditor += signedClose;
+      totalPurchases += tripAdd;
+      creditors.push({
+        id: sKey,
+        name: sName,
+        type: 'Supplier',
+        openingBalance: Math.abs(signedOp),
+        openingBalanceType: signedOp >= 0 ? 'credit' : 'debit',
+        tripAmount: tripAdd,
+        payments: paid,
+        closingBalance: Math.abs(signedClose),
+        closingBalanceType: signedClose >= 0 ? 'credit' : 'debit'
+      });
+    }
+  });
+
+  const processedStations = new Set();
+  (tripData?.diesel?.stations || []).forEach(s => {
+    const station = s.dieselStation;
+    const stId = station?._id || station?.id || (typeof station === 'string' ? station : null);
+    const stName = station?.name || s.stationName || s.name || 'Diesel Station';
+    const sKey = stId ? stId.toString() : stName;
+    if (!processedStations.has(sKey)) {
+      processedStations.add(sKey);
+      const op = Number(station?.openingBalance) || 0;
+      const opType = station?.openingBalanceType || 'credit';
+      const signedOp = opType === 'debit' ? -op : op;
+      const tripAdd = (tripData?.diesel?.stations || [])
+        .filter(x => {
+          const xId = x.dieselStation?._id || x.dieselStation?.id || (typeof x.dieselStation === 'string' ? x.dieselStation : null);
+          return (stId && xId && xId.toString() === stId.toString()) || (x.stationName === stName) || (x.name === stName);
+        })
+        .reduce((sum, x) => sum + (Number(x.amount) || 0), 0);
+      const paid = 0;
+      const signedClose = signedOp + tripAdd - paid;
+      totalOpeningCreditor += signedOp;
+      totalClosingCreditor += signedClose;
+      totalDieselCredit += tripAdd;
+      creditors.push({
+        id: sKey,
+        name: stName,
+        type: 'Diesel Station',
+        openingBalance: Math.abs(signedOp),
+        openingBalanceType: signedOp >= 0 ? 'credit' : 'debit',
+        tripAmount: tripAdd,
+        payments: paid,
+        closingBalance: Math.abs(signedClose),
+        closingBalanceType: signedClose >= 0 ? 'credit' : 'debit'
+      });
+    }
+  });
+
+  return {
+    openingCreditor: Math.abs(totalOpeningCreditor),
+    openingCreditorType: totalOpeningCreditor >= 0 ? 'credit' : 'debit',
+    closingCreditor: Math.abs(totalClosingCreditor),
+    closingCreditorType: totalClosingCreditor >= 0 ? 'credit' : 'debit',
+    totalPurchases,
+    totalDieselCredit,
+    totalPayments,
+    creditors
+  };
+};
 
 export default function TripDetails() {
   const { id } = useParams();
@@ -47,8 +145,22 @@ export default function TripDetails() {
   const [showDieselModal, setShowDieselModal] = useState(false);
   const [showStockModal, setShowStockModal] = useState(false);
   const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [showLockConfirmModal, setShowLockConfirmModal] = useState(false);
+  const [isTogglingLock, setIsTogglingLock] = useState(false);
   const [showEditTripModal, setShowEditTripModal] = useState(false);
   const [editingTransfer, setEditingTransfer] = useState(null);
+  const [showDeathBirdsModal, setShowDeathBirdsModal] = useState(false);
+  const [deathBirdsData, setDeathBirdsData] = useState({
+    quantity: 0,
+    weight: 0,
+    avgWeight: 0,
+    rate: 0,
+    amount: 0,
+    reason: 'Death birds during trip',
+    date: new Date().toISOString().split('T')[0]
+  });
+  const [isSubmittingDeathBirds, setIsSubmittingDeathBirds] = useState(false);
+  const [deathBirdsError, setDeathBirdsError] = useState('');
 
   // Edit states
   const [editingPurchaseIndex, setEditingPurchaseIndex] = useState(null);
@@ -68,6 +180,7 @@ export default function TripDetails() {
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isSubmittingRef = useRef(false);
+  const isFetchingTripRef = useRef(false);
 
   // Ledgers states
   const [bankAccountLedgers, setBankAccountLedgers] = useState([]);
@@ -130,19 +243,135 @@ export default function TripDetails() {
 
   const [completeData, setCompleteData] = useState({
     closingOdometer: 0,
-    finalRemarks: '',
-    mortality: 0
+    finalRemarks: ''
   });
+
+  const handleOpenDeathBirdsModal = () => {
+    const currentMortality = trip?.summary?.mortality || 0;
+    const currentWeight = trip?.summary?.totalWeightLost || 0;
+    const purchaseRate = trip?.summary?.avgPurchaseRate || 0;
+    const avgWeight = currentMortality > 0 ? (currentWeight / currentMortality) : (
+      (trip?.summary?.totalWeightPurchased && trip?.summary?.totalBirdsPurchased)
+        ? (trip.summary.totalWeightPurchased / trip.summary.totalBirdsPurchased)
+        : 0
+    );
+    const amount = currentWeight * purchaseRate;
+    const existingReason = trip?.losses?.find(l => l.quantity > 0)?.reason || 'Death birds during trip';
+
+    setDeathBirdsData({
+      quantity: currentMortality,
+      weight: currentWeight > 0 ? currentWeight : Number((currentMortality * avgWeight).toFixed(2)),
+      avgWeight: Number(avgWeight).toFixed(2),
+      rate: Number(purchaseRate).toFixed(2),
+      amount: Number(amount).toFixed(2),
+      reason: existingReason,
+      date: trip?.date ? new Date(trip.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+    });
+    setDeathBirdsError('');
+    setShowDeathBirdsModal(true);
+  };
+
+  const handleDeathBirdsQuantityChange = (qty) => {
+    const count = Math.max(0, parseInt(qty) || 0);
+    const avgW = Number(deathBirdsData.avgWeight) || (
+      (trip?.summary?.totalWeightPurchased && trip?.summary?.totalBirdsPurchased)
+        ? (trip.summary.totalWeightPurchased / trip.summary.totalBirdsPurchased)
+        : 0
+    );
+    const newWeight = Number((count * avgW).toFixed(2));
+    const rate = Number(deathBirdsData.rate) || (trip?.summary?.avgPurchaseRate || 0);
+    const amount = Number((newWeight * rate).toFixed(2));
+    setDeathBirdsData(prev => ({
+      ...prev,
+      quantity: qty,
+      weight: newWeight,
+      amount: amount.toFixed(2)
+    }));
+  };
+
+  const handleDeathBirdsWeightChange = (wt) => {
+    const newWeight = Math.max(0, parseFloat(wt) || 0);
+    const count = parseInt(deathBirdsData.quantity) || 0;
+    const newAvg = count > 0 ? Number((newWeight / count).toFixed(2)) : deathBirdsData.avgWeight;
+    const rate = Number(deathBirdsData.rate) || (trip?.summary?.avgPurchaseRate || 0);
+    const amount = Number((newWeight * rate).toFixed(2));
+    setDeathBirdsData(prev => ({
+      ...prev,
+      weight: wt,
+      avgWeight: newAvg,
+      amount: amount.toFixed(2)
+    }));
+  };
+
+  const handleSaveDeathBirds = async (e) => {
+    e.preventDefault();
+    setIsSubmittingDeathBirds(true);
+    setDeathBirdsError('');
+
+    try {
+      const payload = {
+        quantity: Number(deathBirdsData.quantity) || 0,
+        weight: Number(deathBirdsData.weight) || 0,
+        rate: Number(deathBirdsData.rate) || 0,
+        reason: deathBirdsData.reason,
+        date: deathBirdsData.date
+      };
+
+      const { data } = await api.put(`/trip/${id}/death-birds`, payload);
+      if (data.success) {
+        setTrip(data.data);
+        setShowDeathBirdsModal(false);
+      } else {
+        setDeathBirdsError(data.message || 'Failed to update death birds');
+      }
+    } catch (err) {
+      console.error('Error updating death birds:', err);
+      setDeathBirdsError(err.response?.data?.message || 'Failed to update death birds');
+    } finally {
+      setIsSubmittingDeathBirds(false);
+    }
+  };
 
   useEffect(() => {
     if (id) {
       fetchTrip();
-      fetchVendors();
-      fetchCustomers();
+      Promise.all([fetchVendors(), fetchCustomers()]);
       fetchLedgers();
       fetchNextBillNumber();
     }
   }, [id]);
+
+  // Auto-sync trip details and lock status while Admin page is open
+  useEffect(() => {
+    if (!id) return;
+
+    let isMounted = true;
+    const interval = setInterval(() => {
+      // Avoid continuous polling if trip is already completed and locked
+      if (trip?.status === 'completed' && trip?.isLocked !== false) {
+        return;
+      }
+      if (document.visibilityState === 'visible' && !isSubmittingRef.current && !isFetchingTripRef.current && isMounted) {
+        fetchTrip(true);
+      }
+    }, 15000);
+
+    const onFocusOrVisible = () => {
+      if (document.visibilityState === 'visible' && !isSubmittingRef.current && !isFetchingTripRef.current && isMounted) {
+        fetchTrip(true);
+      }
+    };
+
+    window.addEventListener('focus', onFocusOrVisible);
+    document.addEventListener('visibilitychange', onFocusOrVisible);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocusOrVisible);
+      document.removeEventListener('visibilitychange', onFocusOrVisible);
+    };
+  }, [id, trip?.status, trip?.isLocked]);
 
   // Auto-calculate avgWeight, amount, and balance when saleData changes
   useEffect(() => {
@@ -202,15 +431,25 @@ export default function TripDetails() {
   }, [customers, customerSearchTerm]);
 
 
-  const fetchTrip = async () => {
+  const fetchTrip = async (isSilent = false) => {
+    if (isFetchingTripRef.current) return;
     try {
-      setIsLoading(true);
-      const { data } = await api.get(`/trip/${id}`);
-      setTrip(data.data);
+      isFetchingTripRef.current = true;
+      if (!isSilent) setIsLoading(true);
+      const { data } = await api.get(`/trip/${id}?_t=${Date.now()}`);
+      if (data.data) {
+        setTrip(prevTrip => {
+          if (isSilent && prevTrip && prevTrip.isLocked === data.data.isLocked && prevTrip.updatedAt === data.data.updatedAt) {
+            return prevTrip;
+          }
+          return data.data;
+        });
+      }
     } catch (err) {
-      console.error('Error fetching trip:', err);
+      if (!isSilent) console.error('Error fetching trip:', err);
     } finally {
-      setIsLoading(false);
+      isFetchingTripRef.current = false;
+      if (!isSilent) setIsLoading(false);
     }
   };
 
@@ -241,7 +480,32 @@ export default function TripDetails() {
   const fetchLedgers = async () => {
     try {
       setLedgersLoading(true);
-      // Fetch all groups to find Bank Accounts and Cash-in-Hand
+      // Fast path: Fetch all active ledgers in a single request and filter client-side
+      const ledgersRes = await api.get('/ledger');
+      if (ledgersRes.data?.success && Array.isArray(ledgersRes.data.data)) {
+        const allLedgers = ledgersRes.data.data;
+        const isBank = (g) => {
+          if (!g) return false;
+          const name = g.name?.toLowerCase() || '';
+          const slug = g.slug || '';
+          return name === 'bank accounts' || name === 'bank a/c' || slug === 'bank-accounts' || slug === 'bank-od-a-c' || slug === 'bank-od-accounts';
+        };
+        const isCash = (g) => {
+          if (!g) return false;
+          const name = g.name?.toLowerCase() || '';
+          const slug = g.slug || '';
+          return name === 'cash-in-hand' || name === 'cash a/c' || slug === 'cash-in-hand' || slug === 'cash-a-c';
+        };
+
+        const bankLedgers = allLedgers.filter(l => isBank(l.group));
+        const cashLedgers = allLedgers.filter(l => isCash(l.group));
+
+        setBankAccountLedgers(bankLedgers);
+        setCashInHandLedgers(cashLedgers);
+        return;
+      }
+
+      // Fallback path: Fetch all groups to find Bank Accounts and Cash-in-Hand
       const groupsRes = await api.get('/group');
       if (!groupsRes.data.success) {
         console.error('Failed to fetch groups');
@@ -290,9 +554,6 @@ export default function TripDetails() {
 
       setBankAccountLedgers(allBankLedgers);
       setCashInHandLedgers(allCashLedgers);
-
-      console.log('Set bank account ledgers:', allBankLedgers);
-      console.log('Set cash in hand ledgers:', allCashLedgers);
     } catch (error) {
       console.error('Error fetching ledgers:', error);
     } finally {
@@ -400,11 +661,31 @@ export default function TripDetails() {
     }
   };
 
+  const handleToggleLock = async () => {
+    if (isTogglingLock || !trip) return;
+    const currentLock = trip.status === 'completed' ? (trip.isLocked === false ? false : true) : false;
+    const targetLockState = !currentLock;
+    setIsTogglingLock(true);
+    try {
+      const { data } = await api.put(`/trip/${id}/lock`, { isLocked: targetLockState });
+      if (data.success) {
+        setTrip(data.data);
+        setShowLockConfirmModal(false);
+        alert(data.message || (targetLockState ? 'Trip locked successfully!' : 'Trip unlocked successfully!'));
+      } else {
+        alert(data.message || 'Failed to update trip lock status');
+      }
+    } catch (err) {
+      console.error('Error toggling trip lock:', err);
+      alert(err.response?.data?.message || err.message || 'Failed to update trip lock status');
+    } finally {
+      setIsTogglingLock(false);
+    }
+  };
+
   const handleCompleteClick = () => {
-    const { remainingBirds } = getPurchaseAndSaleStats();
     setCompleteData({
       closingOdometer: trip?.vehicleReadings?.opening || 0,
-      mortality: remainingBirds > 0 ? remainingBirds : 0,
       finalRemarks: ''
     });
     setShowCompleteModal(true);
@@ -493,9 +774,25 @@ export default function TripDetails() {
   };
 
   const fetchCustomerBalance = async (customer) => {
-
     if (!customer) {
       setCustomerBalance(null);
+      return;
+    }
+
+    // Fast path: Reuse balance from already loaded customer object or customer list
+    const targetCustomer = (customer.outstandingBalance !== undefined && customer.outstandingBalance !== null)
+      ? customer
+      : (customers || []).find(c => {
+          const cid = (c._id || c.id || '').toString();
+          const targetId = (customer._id || customer.id || (typeof customer === 'string' ? customer : '')).toString();
+          return cid && cid === targetId;
+        });
+
+    if (targetCustomer && targetCustomer.outstandingBalance !== undefined && targetCustomer.outstandingBalance !== null) {
+      const balanceAmount = Number(targetCustomer.outstandingBalance) || 0;
+      const balanceType = targetCustomer.outstandingBalanceType || 'debit';
+      const signedValue = balanceType === 'credit' ? -balanceAmount : balanceAmount;
+      setCustomerBalance(signedValue);
       return;
     }
 
@@ -1015,6 +1312,7 @@ export default function TripDetails() {
   }
 
   const isTripCompleted = trip.status === 'completed';
+  const isLocked = isTripCompleted ? (trip.isLocked === false ? false : true) : false;
   const naturalWeightLossKg = isTripCompleted ? Math.max(0, trip.summary?.birdWeightLoss || 0) : 0;
   const naturalWeightLossAmount = naturalWeightLossKg * (trip.summary?.avgPurchaseRate || 0);
   const totalWeightLossKg =
@@ -1026,7 +1324,24 @@ export default function TripDetails() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</h1>
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-3xl font-bold text-gray-900">{trip.vehicle?.vehicleNumber || 'N/A'}</h1>
+            <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wider ${
+              trip.status === 'completed' ? 'bg-green-100 text-green-800' :
+              trip.status === 'ongoing' ? 'bg-blue-100 text-blue-800' :
+              'bg-yellow-100 text-yellow-800'
+            }`}>
+              {trip.status}
+            </span>
+            {trip.status === 'completed' && (
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                isLocked ? 'bg-red-100 text-red-800 border border-red-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+              }`}>
+                {isLocked ? <Lock size={13} className="text-red-700" /> : <Unlock size={13} className="text-emerald-700" />}
+                {isLocked ? '🔒 Locked' : '🔓 Unlocked'}
+              </span>
+            )}
+          </div>
           <p className="text-gray-600 mt-1">{trip.tripId || 'N/A'}</p>
           {trip.type === 'transferred' && (
             <p className="text-orange-600 text-sm font-medium mt-1 flex items-center gap-1">
@@ -1047,7 +1362,7 @@ export default function TripDetails() {
           )}
           <p className="text-gray-500 text-sm mt-1">Manage trip details and operations</p>
         </div>
-        <div className="flex gap-2 mt-4 sm:mt-0">
+        <div className="flex flex-wrap items-center gap-2 mt-4 sm:mt-0">
           {/* Excel Download Button - Available for all users */}
           <button
             onClick={() => downloadExcel()}
@@ -1066,7 +1381,7 @@ export default function TripDetails() {
             Download PDF
           </button>
 
-          {/* Admin-only buttons */}
+          {/* Admin Complete Trip button */}
           {isAdmin && trip.status !== 'completed' && (
             <button
               onClick={handleCompleteClick}
@@ -1077,8 +1392,30 @@ export default function TripDetails() {
             </button>
           )}
 
+          {/* Admin Lock / Unlock Trip Button for completed trips */}
+          {isAdmin && trip.status === 'completed' && (
+            <button
+              onClick={() => setShowLockConfirmModal(true)}
+              disabled={isTogglingLock}
+              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 text-white ${
+                isLocked
+                  ? 'bg-amber-600 hover:bg-amber-700'
+                  : 'bg-rose-600 hover:bg-rose-700'
+              }`}
+            >
+              {isTogglingLock ? (
+                <Loader2 size={18} className="animate-spin" />
+              ) : isLocked ? (
+                <Unlock size={18} />
+              ) : (
+                <Lock size={18} />
+              )}
+              {isLocked ? 'Unlock Trip' : 'Lock Trip'}
+            </button>
+          )}
+
           {/* Supervisor-only buttons */}
-          {isSupervisor && (
+          {isSupervisor && !isLocked && (
             <>
               {/* Only show Add Purchase button for non-transferred trips */}
               {trip.type !== 'transferred' && (
@@ -1111,6 +1448,31 @@ export default function TripDetails() {
 
       {/* Trip Overview Card */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+
+
+        {trip.status === 'completed' && isLocked && (
+          <div className="mb-6 p-4 bg-gray-50 border border-gray-200 rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-gray-200 rounded-full text-gray-700 flex-shrink-0">
+                <Lock size={20} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Trip Completed & Locked</p>
+                <p className="text-xs text-gray-600">All modifications are restricted. As an admin, you can unlock this trip to allow modifications if required.</p>
+              </div>
+            </div>
+            {isAdmin && (
+              <button
+                onClick={() => setShowLockConfirmModal(true)}
+                disabled={isTogglingLock}
+                className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-colors self-start sm:self-auto flex-shrink-0"
+              >
+                <Unlock size={14} />
+                Unlock Trip
+              </button>
+            )}
+          </div>
+        )}
         {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
@@ -1230,7 +1592,7 @@ export default function TripDetails() {
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">
                           {trip.type === 'transferred' && purchase.dcNumber?.startsWith('TRANSFER-')
                             ? 'Transferred Purchase'
-                            : (purchase.supplier?.vendorName || 'N/A')
+                            : (purchase.supplier?.companyName || purchase.supplier?.vendorName || purchase.vendorName || 'N/A')
                           }
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-900 border-r">{purchase.dcNumber || 'N/A'}</td>
@@ -1515,7 +1877,7 @@ export default function TripDetails() {
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">{trip.summary?.totalBirdsLost || 0}</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">{(trip.summary?.totalWeightLost || 0).toFixed(2)}</td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">
-                              {trip.summary?.totalBirdsPurchased > 0 ? ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00'}
+                              {(trip.summary?.totalBirdsLost > 0 ? (trip.summary.totalWeightLost / trip.summary.totalBirdsLost) : 0).toFixed(2)}
                             </td>
                             <td className="px-3 py-2 text-sm text-gray-900 border-r">₹{trip.summary?.avgPurchaseRate?.toFixed(2) || 0}</td>
                             <td className="px-3 py-2 text-sm font-semibold text-gray-900">₹{(trip.summary?.totalLosses || 0).toFixed(2)}</td>
@@ -1821,13 +2183,15 @@ export default function TripDetails() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-gray-900">Trip Details</h3>
-                    <button
-                      onClick={() => setShowEditTripModal(true)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-                    >
-                      <Edit size={16} />
-                      Edit
-                    </button>
+                    {!isLocked && (
+                      <button
+                        onClick={() => setShowEditTripModal(true)}
+                        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                      >
+                        <Edit size={16} />
+                        Edit
+                      </button>
+                    )}
                   </div>
                   <div className="space-y-3">
                     <div className="flex items-center gap-3">
@@ -1848,7 +2212,7 @@ export default function TripDetails() {
                     </div>
 
 
-                    {trip.vehicleReadings?.opening && (
+                    {(trip.vehicleReadings?.opening !== undefined && trip.vehicleReadings?.opening !== null && trip.vehicleReadings?.opening !== '') && (
                       <div className="flex items-center gap-3">
                         <Truck className="w-4 h-4 text-gray-400 flex-shrink-0" />
                         <span className="text-sm text-gray-600 truncate">
@@ -1857,14 +2221,17 @@ export default function TripDetails() {
                       </div>
                     )}
 
-                    {trip.status === 'completed' && trip.vehicleReadings?.closing && (
-                      <div className="flex items-center gap-3">
-                        <Truck className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                        <span className="text-sm text-gray-600 truncate">
-                          Closing Odometer: {trip.vehicleReadings.closing} km
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-3">
+                      <Truck className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      <span className="text-sm text-gray-600 truncate">
+                        Closing Odometer: {(() => {
+                          const closing = trip.vehicleReadings?.closing ?? trip.completionDetails?.closingOdometer;
+                          return (closing !== undefined && closing !== null && closing !== '')
+                            ? `${closing} km`
+                            : '-';
+                        })()}
+                      </span>
+                    </div>
 
                     {(() => {
                       const opening = Number(trip.vehicleReadings?.opening) || 0;
@@ -1925,7 +2292,128 @@ export default function TripDetails() {
                 )}
               </div>
 
+              {/* Creditors Section Card */}
+              {(() => {
+                const credSummary = getCreditorsSummary(trip);
+                return (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mt-6">
+                    <div className="p-4 sm:p-5 border-b border-gray-200 bg-gray-50/50 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                          <CreditCard className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h4 className="text-base sm:text-lg font-semibold text-gray-900">Creditors Section</h4>
+                          <p className="text-xs text-gray-500">Trip suppliers & diesel station creditors</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 sm:gap-3 text-xs flex-wrap">
+                        <span className="px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 font-medium">
+                          Purchases: ₹{(credSummary.totalPurchases || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                        <span className="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-medium">
+                          Diesel: ₹{(credSummary.totalDieselCredit || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    </div>
 
+                    <div className="p-4 sm:p-5 space-y-4">
+                      {/* Opening Creditor and Closing Creditor Stacked: Opening first, Closing immediately below */}
+                      <div className="grid grid-cols-1 gap-3">
+                        {/* 1. Opening Creditor - Displayed First */}
+                        <div className="p-4 bg-gradient-to-r from-blue-50/80 to-indigo-50/50 border border-blue-200/80 rounded-xl flex items-center justify-between shadow-xs">
+                          <div className="flex items-center gap-3">
+                            <div className="w-2.5 h-10 bg-blue-500 rounded-full" />
+                            <div>
+                              <span className="text-xs font-bold text-blue-700 uppercase tracking-wider">Opening Creditor</span>
+                              <p className="text-xs text-gray-500 mt-0.5">Creditor balance prior to this trip</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-baseline justify-end gap-1.5">
+                              <span className="text-xl sm:text-2xl font-bold text-gray-900">
+                                ₹{(credSummary.openingCreditor || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded ${credSummary.openingCreditorType === 'debit' ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'}`}>
+                                {credSummary.openingCreditorType === 'debit' ? 'Dr' : 'Cr'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* 2. Closing Creditor - Displayed Immediately Below Opening Creditor */}
+                        <div className="p-4 bg-gradient-to-r from-purple-50/80 to-pink-50/50 border border-purple-200/80 rounded-xl flex items-center justify-between shadow-xs">
+                          <div className="flex items-center gap-3">
+                            <div className="w-2.5 h-10 bg-purple-600 rounded-full" />
+                            <div>
+                              <span className="text-xs font-bold text-purple-700 uppercase tracking-wider">Closing Creditor</span>
+                              <p className="text-xs text-gray-500 mt-0.5">Total balance after purchases, diesel & payments</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="flex items-baseline justify-end gap-1.5">
+                              <span className="text-xl sm:text-2xl font-bold text-purple-900">
+                                ₹{(credSummary.closingCreditor || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </span>
+                              <span className={`text-xs font-semibold px-2 py-0.5 rounded ${credSummary.closingCreditorType === 'debit' ? 'bg-amber-100 text-amber-800' : 'bg-purple-100 text-purple-800'}`}>
+                                {credSummary.closingCreditorType === 'debit' ? 'Dr' : 'Cr'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Creditors Breakdown Table if creditors exist */}
+                      {credSummary.creditors && credSummary.creditors.length > 0 ? (
+                        <div className="mt-4 border border-gray-200 rounded-xl overflow-hidden">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead className="bg-[#E9ECEF] text-gray-700 font-semibold border-b border-gray-200">
+                                <tr>
+                                  <th className="px-4 py-2.5 text-left font-semibold text-gray-800">Creditor Name</th>
+                                  <th className="px-4 py-2.5 text-left font-semibold text-gray-800">Type</th>
+                                  <th className="px-4 py-2.5 text-right font-semibold text-gray-800">Opening Balance</th>
+                                  <th className="px-4 py-2.5 text-right font-semibold text-gray-800">Trip Addition</th>
+                                  <th className="px-4 py-2.5 text-right font-semibold text-gray-800">Paid / Adjusted</th>
+                                  <th className="px-4 py-2.5 text-right font-semibold text-gray-800">Closing Balance</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-200 bg-white">
+                                {credSummary.creditors.map((cred, idx) => (
+                                  <tr key={cred.id || idx} className="hover:bg-gray-50/50 transition-colors">
+                                    <td className="px-4 py-2.5 font-medium text-gray-900">{cred.name}</td>
+                                    <td className="px-4 py-2.5">
+                                      <span className={`inline-block px-2 py-0.5 text-xs rounded-full font-medium ${cred.type === 'Supplier' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'}`}>
+                                        {cred.type}
+                                      </span>
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right text-gray-700 font-medium">
+                                      ₹{(cred.openingBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {cred.openingBalanceType === 'debit' ? 'Dr' : 'Cr'}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right text-green-700 font-semibold">
+                                      +₹{(cred.tripAmount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right text-gray-600 font-medium">
+                                      ₹{(cred.payments || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </td>
+                                    <td className="px-4 py-2.5 text-right text-purple-900 font-bold">
+                                      ₹{(cred.closingBalance || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {cred.closingBalanceType === 'debit' ? 'Dr' : 'Cr'}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-xs text-gray-500 bg-gray-50/60 rounded-lg border border-dashed border-gray-200">
+                          No creditors (suppliers or diesel stations) associated with this trip yet.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -1935,7 +2423,7 @@ export default function TripDetails() {
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Purchases</h3>
                 {/* Only show Add Purchase button for non-transferred trips */}
-                {trip.type !== 'transferred' && (
+                {!isLocked && trip.type !== 'transferred' && (
                   <button
                     onClick={() => setShowPurchaseModal(true)}
                     className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
@@ -1973,7 +2461,7 @@ export default function TripDetails() {
                           <p className="text-sm text-gray-600">
                             {trip.type === 'transferred' && purchase.dcNumber?.startsWith('TRANSFER-')
                               ? 'Transferred from another trip'
-                              : `Vendor: ${purchase.supplier?.vendorName || 'N/A'}`
+                              : `Vendor: ${purchase.supplier?.companyName || purchase.supplier?.vendorName || purchase.vendorName || 'N/A'}`
                             }
                           </p>
                           <p className="text-sm text-gray-600">
@@ -1983,8 +2471,8 @@ export default function TripDetails() {
                         <div className="text-right">
                           <p className="text-lg font-bold text-green-600">₹{purchase.amount?.toLocaleString()}</p>
                           {/* <p className="text-sm text-gray-500">{purchase.paymentMode}</p> */}
-                          {/* Edit button for completed trips - Admin/Superadmin only - Not for transferred trips */}
-                          {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && trip.type !== 'transferred' && (
+                          {/* Edit button - Admin/Superadmin only - Not for transferred trips - Only when unlocked */}
+                          {!isLocked && (user.role === 'admin' || user.role === 'superadmin') && trip.type !== 'transferred' && (
                             <div className="flex gap-2 justify-end mt-2">
                               <button
                                 onClick={() => {
@@ -2040,7 +2528,7 @@ export default function TripDetails() {
                 <h3 className="text-lg font-semibold text-gray-900">
                   {isAdmin ? 'Delivery Details' : 'Sales'}
                 </h3>
-                {isSupervisor && (
+                {isSupervisor && !isLocked && (
                   <button
                     onClick={() => {
                       setSaleData({
@@ -2090,8 +2578,8 @@ export default function TripDetails() {
                           <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Cash</th>
                           <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Online</th>
                           <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Disc</th>
-                          {/* Edit column for completed trips - Admin/Superadmin only */}
-                          {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                          {/* Edit column - Admin/Superadmin only - Only when unlocked */}
+                          {!isLocked && (user.role === 'admin' || user.role === 'superadmin') && (
                             <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Actions</th>
                           )}
                         </tr>
@@ -2116,8 +2604,8 @@ export default function TripDetails() {
                               ₹{(sale.onlinePaid || 0).toLocaleString()}
                             </td>
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{(sale.discount || 0).toLocaleString()}</td>
-                            {/* Edit button for completed trips - Admin/Superadmin only */}
-                            {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                            {/* Edit button - Admin/Superadmin only - Only when unlocked */}
+                            {!isLocked && (user.role === 'admin' || user.role === 'superadmin') && (
                               <td className="border border-gray-300 px-4 py-2 text-center">
                                 <div className="flex gap-1 justify-center">
                                   <button
@@ -2197,7 +2685,7 @@ export default function TripDetails() {
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.sales.filter(s => (s.birds > 0 || s.weight > 0)).reduce((sum, s) => sum + (s.cashPaid || 0), 0).toLocaleString()}</td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.sales.filter(s => (s.birds > 0 || s.weight > 0)).reduce((sum, s) => sum + (s.onlinePaid || 0), 0).toLocaleString()}</td>
                           <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">₹{trip.sales.filter(s => (s.birds > 0 || s.weight > 0)).reduce((sum, s) => sum + (s.discount || 0), 0).toLocaleString()}</td>
-                          {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                          {!isLocked && (user.role === 'admin' || user.role === 'superadmin') && (
                             <td className="border border-gray-300 px-4 py-2"></td>
                           )}
                         </tr>
@@ -2261,8 +2749,8 @@ export default function TripDetails() {
                             <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Online Receipt</th>
                             <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Discount</th>
                             <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Balance</th>
-                            {/* Edit column for completed trips - Admin/Superadmin only */}
-                            {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                            {/* Edit column - Admin/Superadmin only - Only when unlocked */}
+                            {!isLocked && (user.role === 'admin' || user.role === 'superadmin') && (
                               <th className="border border-gray-300 px-4 py-2 text-center text-sm font-medium text-gray-700">Actions</th>
                             )}
                           </tr>
@@ -2293,8 +2781,8 @@ export default function TripDetails() {
                                 <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
                                   ₹{(receipt.balance || 0).toLocaleString()}
                                 </td>
-                                {/* Edit button for completed trips - Admin/Superadmin only */}
-                                {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && originalIndex >= 0 && (
+                                {/* Edit button - Admin/Superadmin only - Only when unlocked */}
+                                {!isLocked && (user.role === 'admin' || user.role === 'superadmin') && originalIndex >= 0 && (
                                   <td className="border border-gray-300 px-4 py-2 text-center">
                                     <div className="flex gap-1 justify-center">
                                       <button
@@ -2364,7 +2852,7 @@ export default function TripDetails() {
                             );
                           })}
                           <tr className="bg-gray-100 font-semibold">
-                            <td className="border border-gray-300 px-4 py-2 text-sm text-gray-900" colSpan={trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') ? "3" : "2"}>TOTAL</td>
+                            <td className="border border-gray-300 px-4 py-2 text-sm text-gray-900" colSpan={!isLocked && (user.role === 'admin' || user.role === 'superadmin') ? "3" : "2"}>TOTAL</td>
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
                               ₹{receipts.reduce((sum, receipt) => sum + (receipt.cashPaid || 0), 0).toLocaleString()}
                             </td>
@@ -2377,7 +2865,7 @@ export default function TripDetails() {
                             <td className="border border-gray-300 px-4 py-2 text-sm text-center text-gray-900">
                               ₹{receipts.reduce((sum, receipt) => sum + (receipt.balance || 0), 0).toLocaleString()}
                             </td>
-                            {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                            {!isLocked && (user.role === 'admin' || user.role === 'superadmin') && (
                               <td className="border border-gray-300 px-4 py-2"></td>
                             )}
                           </tr>
@@ -2429,13 +2917,15 @@ export default function TripDetails() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900">Expenses</h3>
-                <button
-                  onClick={() => setShowExpenseModal(true)}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
-                >
-                  <Plus size={16} />
-                  Add Expense
-                </button>
+                {!isLocked && (
+                  <button
+                    onClick={() => setShowExpenseModal(true)}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+                  >
+                    <Plus size={16} />
+                    Add Expense
+                  </button>
+                )}
               </div>
               {trip.expenses && trip.expenses.length > 0 ? (
                 <div className="space-y-3">
@@ -2449,8 +2939,8 @@ export default function TripDetails() {
                         <div className="text-right">
                           <p className="text-lg font-bold text-red-600">₹{expense.amount?.toLocaleString()}</p>
                           <p className="text-sm text-gray-500">{expense.receipt}</p>
-                          {/* Edit button for completed trips - Admin/Superadmin only */}
-                          {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                          {/* Edit button - Admin/Superadmin only - Only when unlocked */}
+                          {!isLocked && (user.role === 'admin' || user.role === 'superadmin') && (
                             <div className="flex gap-2 justify-end mt-2">
                               <button
                                 onClick={() => {
@@ -2504,8 +2994,8 @@ export default function TripDetails() {
                         <div className="text-right">
                           <p className="text-lg font-bold text-orange-600">₹{station.amount?.toLocaleString()}</p>
                           <p className="text-sm text-gray-500">{station.volume}L @ ₹{station.rate}</p>
-                          {/* Edit button for completed trips - Admin/Superadmin only */}
-                          {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                          {/* Edit button - Admin/Superadmin only - Only when unlocked */}
+                          {!isLocked && (user.role === 'admin' || user.role === 'superadmin') && (
                             <div className="flex gap-2 justify-end mt-2">
                               <button
                                 onClick={() => {
@@ -2593,8 +3083,8 @@ export default function TripDetails() {
                             Added: {new Date(stock.addedAt).toLocaleDateString()}
                           </p>
                         </div>
-                        {/* Edit button for completed trips - Admin/Superadmin only */}
-                        {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && (
+                        {/* Edit button - Admin/Superadmin only - Only when unlocked */}
+                        {!isLocked && (user.role === 'admin' || user.role === 'superadmin') && (
                           <div className="flex gap-2">
                             <button
                               onClick={() => {
@@ -2692,7 +3182,18 @@ export default function TripDetails() {
           {/* Losses Tab */}
           {activeTab === 'losses' && (
             <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-gray-900">Death Birds & Losses</h3>
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Death Birds & Losses</h3>
+                {!isLocked && (
+                  <button
+                    onClick={() => handleOpenDeathBirdsModal()}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    <Edit size={16} />
+                    Edit Death Birds
+                  </button>
+                )}
+              </div>
               {trip.losses && trip.losses.length > 0 ? (
                 <div className="space-y-3">
                   {trip.losses.map((loss, index) => (
@@ -2711,7 +3212,7 @@ export default function TripDetails() {
                         <div className="text-right">
                           <p className="text-lg font-bold text-red-600">₹{loss.total?.toFixed(2)}</p>
                           <p className="text-sm text-red-500">Loss Amount</p>
-                          {trip.status === 'completed' && (user.role === 'admin' || user.role === 'superadmin') && loss.reason !== 'Auto-calculated Mortality' && (
+                          {!isLocked && (user.role === 'admin' || user.role === 'superadmin') && loss.reason !== 'Auto-calculated Mortality' && (
                             <button
                               onClick={() => handleDeleteSubItem('loss', index)}
                               className="mt-2 px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 flex items-center gap-1 ml-auto"
@@ -2856,7 +3357,7 @@ export default function TripDetails() {
                   <div className="space-y-4">
                     {trip.transfers.map((transfer, index) => (
                       <div key={index} className="bg-white p-4 rounded-lg border border-blue-300 relative">
-                        {isAdmin && (
+                        {isAdmin && !isLocked && (
                           <button
                             onClick={() => handleDeleteSubItem('transfer', index)}
                             className="absolute top-4 right-4 p-1.5 bg-red-600 text-white rounded hover:bg-red-700 flex items-center justify-center transition-colors"
@@ -3004,7 +3505,7 @@ export default function TripDetails() {
                             </span>
                           </div>
                         </div>
-                        {isAdmin && (
+                        {isAdmin && !isLocked && (
                           <div className="ml-4 flex items-center gap-2">
                             <button
                               onClick={() => setEditingTransfer({ transfer, index })}
@@ -3159,7 +3660,9 @@ export default function TripDetails() {
                   <option value="">Select a supplier</option>
                   {vendors.map((vendor) => (
                     <option key={vendor._id || vendor.id} value={vendor._id || vendor.id}>
-                      {vendor.vendorName}
+                      {vendor.companyName 
+                        ? `${vendor.companyName}${vendor.vendorName && vendor.vendorName !== vendor.companyName ? ` (${vendor.vendorName})` : ''}`
+                        : vendor.vendorName}
                     </option>
                   ))}
                 </select>
@@ -4408,17 +4911,6 @@ export default function TripDetails() {
                     placeholder="Any final notes about the trip..."
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Mortality (Death Birds)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    value={completeData.mortality}
-                    onChange={(e) => setCompleteData(prev => ({ ...prev, mortality: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Number of birds that died"
-                  />
-                </div>
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
                     type="button"
@@ -4467,6 +4959,215 @@ export default function TripDetails() {
             alert('Transfer updated successfully!');
           }}
         />
+      )}
+      {/* Edit Death Birds Modal */}
+      {showDeathBirdsModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-red-100 text-red-600 rounded-lg">
+                  <Edit size={18} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Edit Death Birds</h3>
+                  <p className="text-xs text-gray-500">Update mortality details for trip {trip.tripId}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowDeathBirdsModal(false)}
+                className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleSaveDeathBirds} className="p-5 space-y-4">
+              {deathBirdsError && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+                  {deathBirdsError}
+                </div>
+              )}
+
+              {/* Purchase Context Cards */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-blue-50/60 border border-blue-100 rounded-lg text-xs">
+                <div>
+                  <span className="text-gray-500">Total Purchased:</span>
+                  <p className="font-semibold text-gray-900 mt-0.5">
+                    {trip.summary?.totalBirdsPurchased || 0} birds ({(trip.summary?.totalWeightPurchased || 0).toFixed(2)} kg)
+                  </p>
+                </div>
+                <div>
+                  <span className="text-gray-500">Avg Purchase Rate:</span>
+                  <p className="font-semibold text-gray-900 mt-0.5">
+                    ₹{(trip.summary?.avgPurchaseRate || 0).toFixed(2)}/kg
+                  </p>
+                </div>
+              </div>
+
+              {/* Bird Quantity and Weight */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Death Birds (Count) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={deathBirdsData.quantity}
+                    onChange={(e) => handleDeathBirdsQuantityChange(e.target.value)}
+                    placeholder="Enter bird count"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-semibold"
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">Enter 0 to clear mortality</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Death Weight (kg) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    value={deathBirdsData.weight}
+                    onChange={(e) => handleDeathBirdsWeightChange(e.target.value)}
+                    placeholder="Auto or enter weight"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-semibold"
+                  />
+                  <p className="text-[11px] text-gray-500 mt-1">Avg: {deathBirdsData.avgWeight || '0.00'} kg/bird</p>
+                </div>
+              </div>
+
+              {/* Rate & Loss Amount Preview */}
+              <div className="grid grid-cols-2 gap-3 p-3 bg-gray-50 border border-gray-200 rounded-lg text-sm">
+                <div>
+                  <span className="text-xs text-gray-500">Rate applied</span>
+                  <p className="font-medium text-gray-800">₹{deathBirdsData.rate}/kg</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xs text-gray-500">Loss Amount</span>
+                  <p className="font-bold text-red-600 text-base">₹{Number(deathBirdsData.amount || 0).toFixed(2)}</p>
+                </div>
+              </div>
+
+              {/* Reason / Remarks */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reason / Remarks
+                </label>
+                <input
+                  type="text"
+                  value={deathBirdsData.reason}
+                  onChange={(e) => setDeathBirdsData(prev => ({ ...prev, reason: e.target.value }))}
+                  placeholder="e.g. Transit mortality, suffocation, heat stress"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
+              </div>
+
+              {/* Date */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={deathBirdsData.date}
+                  onChange={(e) => setDeathBirdsData(prev => ({ ...prev, date: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                />
+              </div>
+
+              {/* Actions */}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowDeathBirdsModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 text-sm font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSubmittingDeathBirds}
+                  className="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors flex items-center gap-2 disabled:opacity-50"
+                >
+                  {isSubmittingDeathBirds && <Loader2 size={16} className="animate-spin" />}
+                  {isSubmittingDeathBirds ? 'Saving...' : 'Save Death Birds'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Lock / Unlock Trip Confirmation Modal */}
+      {showLockConfirmModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-in fade-in duration-200">
+            <div className="flex items-center gap-3">
+              <div className={`p-3 rounded-full flex-shrink-0 ${isLocked ? 'bg-amber-100 text-amber-600' : 'bg-rose-100 text-rose-600'}`}>
+                {isLocked ? <Unlock size={24} /> : <Lock size={24} />}
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">
+                  {isLocked ? 'Unlock Trip' : 'Lock Trip'}
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Trip ID: {trip.tripId || trip.id}
+                </p>
+              </div>
+            </div>
+
+            <div className="text-sm text-gray-600 leading-relaxed space-y-2">
+              {isLocked ? (
+                <>
+                  <p>
+                    Are you sure you want to <strong>unlock</strong> this completed trip?
+                  </p>
+                  <p className="text-xs text-gray-500 bg-amber-50 p-3 rounded-lg border border-amber-200">
+                    ℹ️ Unlocking will allow authorized users and supervisors to add or edit sales, purchases, stock, expenses, diesel, and other trip data. The trip's completion status will remain completed.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p>
+                    Are you sure you want to <strong>lock</strong> this completed trip?
+                  </p>
+                  <p className="text-xs text-gray-500 bg-rose-50 p-3 rounded-lg border border-rose-200">
+                    🔒 Locking will immediately restrict all modification options on both the Admin and Supervisor panels.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 pt-3 border-t border-gray-100">
+              <button
+                type="button"
+                disabled={isTogglingLock}
+                onClick={() => setShowLockConfirmModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isTogglingLock}
+                onClick={handleToggleLock}
+                className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors flex items-center gap-2 disabled:opacity-50 ${
+                  isLocked ? 'bg-amber-600 hover:bg-amber-700' : 'bg-rose-600 hover:bg-rose-700'
+                }`}
+              >
+                {isTogglingLock && <Loader2 size={16} className="animate-spin" />}
+                {isLocked ? 'Yes, Unlock Trip' : 'Yes, Lock Trip'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div >
   );

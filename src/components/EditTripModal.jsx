@@ -88,6 +88,17 @@ const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
     setIsLoading(true);
     setError('');
 
+      const rawClosing = formData.vehicleReadings?.closing;
+      const hasClosing = rawClosing !== '' && rawClosing !== null && rawClosing !== undefined;
+      const openingNum = Number(formData.vehicleReadings?.opening) || 0;
+      const closingNum = hasClosing ? Number(rawClosing) : undefined;
+
+      if (hasClosing && !isNaN(closingNum) && closingNum < openingNum) {
+        setError(`Closing odometer (${closingNum} km) must be greater than or equal to opening odometer (${openingNum} km)`);
+        setIsLoading(false);
+        return;
+      }
+
     try {
       const tripId = trip?.id || trip?._id;
       const updateData = {
@@ -95,8 +106,8 @@ const EditTripModal = ({ isOpen, onClose, trip, onSuccess }) => {
         date: new Date(formData.date),
         vehicleReadings: {
           ...formData.vehicleReadings,
-          opening: Number(formData.vehicleReadings.opening),
-          closing: Number(formData.vehicleReadings.closing)
+          opening: openingNum,
+          ...(hasClosing && !isNaN(closingNum) ? { closing: closingNum } : {})
         },
         route: {
           ...formData.route,

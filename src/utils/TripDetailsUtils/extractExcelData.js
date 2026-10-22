@@ -49,7 +49,7 @@ export default function extractExcelData(trip) {
         'DRIVER NAME': data.driver || 'N/A',
         'SUP': (data.type === 'transferred' && purchase.dcNumber?.startsWith('TRANSFER-'))
             ? 'Transferred Purchase'
-            : (purchase.supplier?.vendorName || 'N/A'),
+            : (purchase.supplier?.companyName || purchase.supplier?.vendorName || purchase.vendorName || 'N/A'),
         'PARTICULOUR': 'PURCHASE',
         'DC NO': purchase.dcNumber || 'N/A',
         'BIRDS': purchase.birds || 0,

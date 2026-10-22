@@ -161,7 +161,7 @@ export default function downloadTripExcel(trip) {
         worksheet.mergeCells(`B${currentRow}:C${currentRow}`);
         worksheet.getCell(`B${currentRow}`).value = (trip.type === 'transferred' && purchase.dcNumber?.startsWith('TRANSFER-')) 
           ? 'Transferred Purchase' 
-          : (purchase.supplier?.vendorName || 'N/A');
+          : (purchase.supplier?.companyName || purchase.supplier?.vendorName || purchase.vendorName || 'N/A');
 
         worksheet.mergeCells(`D${currentRow}:E${currentRow}`);
         worksheet.getCell(`D${currentRow}`).value = purchase.dcNumber || 'N/A';
@@ -525,8 +525,10 @@ export default function downloadTripExcel(trip) {
     worksheet.getCell(`C${currentRow}`).value = (trip.summary?.totalWeightLost || 0).toFixed(2);
     worksheet.getCell(`C${currentRow}`).style = { alignment: { horizontal: 'right' } };
 
-    worksheet.getCell(`D${currentRow}`).value = trip.summary?.totalBirdsPurchased > 0 ?
-        ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00';
+    worksheet.getCell(`D${currentRow}`).value = trip.summary?.totalBirdsLost > 0 ?
+        ((trip.summary?.totalWeightLost / trip.summary?.totalBirdsLost) || 0).toFixed(2) :
+        (trip.summary?.totalBirdsPurchased > 0 ?
+            ((trip.summary?.totalWeightPurchased / trip.summary?.totalBirdsPurchased) || 0).toFixed(2) : '0.00');
     worksheet.getCell(`D${currentRow}`).style = { alignment: { horizontal: 'right' } };
 
     worksheet.getCell(`E${currentRow}`).value = trip.summary?.avgPurchaseRate?.toFixed(2) || 0;

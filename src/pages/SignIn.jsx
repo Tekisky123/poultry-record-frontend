@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import FailureModal from '../components/FailureModal';
@@ -14,6 +14,15 @@ const SignIn = () => {
   const [showPassword, setShowPassword] = useState(false);
   const { login,  showFailureModal, setShowFailureModal, error: authError } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tokenParam = params.get('token');
+    if (tokenParam) {
+      localStorage.setItem('token', tokenParam);
+      window.location.href = '/';
+    }
+  }, []);
 
   const handleChange = (e) => {
     setFormData({

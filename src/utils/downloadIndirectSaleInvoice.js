@@ -74,7 +74,7 @@ export const downloadIndirectSaleInvoice = (record) => {
       ['DATE', dayjs(record.date).format('DD/MM/YYYY'), 'BIRDS', formatNumber(record.sales?.birds || 0, 0)],
       ['INVOICE NO', record.invoiceNumber || '—', 'WEIGHT', formatNumber(record.sales?.weight || 0)],
       ['PLACE', record.place || '—', 'AVG', formatNumber(record.sales?.avgWeight || 0)],
-      ['PRODUCT', record.vendor?.vendorName || '—', 'RATE', formatNumber(record.sales?.rate || 0)],
+      ['PRODUCT', record.vendor?.companyName || record.vendor?.vendorName || '—', 'RATE', formatNumber(record.sales?.rate || 0)],
       ['VEHICLE NO', record.vehicleNumber || '—', 'AMOUNT', formatNumber(record.sales?.amount || 0)],
       ['DRIVER', record.driver || '—', 'TDS-0.1%', ''],
       ['ADMIN', record.createdBy?.name || '—', 'BALANCE', '']

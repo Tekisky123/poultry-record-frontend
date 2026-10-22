@@ -69,6 +69,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
 	(response) => response,
 	(error) => {
+		// Pass canceled requests straight through without error logging
+		if (axios.isCancel(error)) {
+			return Promise.reject(error);
+		}
+
 		// Log detailed error information
 		console.error('API Response Error:', {
 			status: error.response?.status,
@@ -79,14 +84,106 @@ api.interceptors.response.use(
 			headers: error.config?.headers
 		});
 		
-		// Normalize error
-		const message =
-			error?.response?.data?.message ||
-			error?.response?.data?.error ||
-			error?.message ||
-			'Unexpected error';
-		return Promise.reject(new Error(message));
+		// Handle expired session / 401 Unauthorized
+		if (error.response?.status === 401) {
+			const isAuthUrl = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/signup');
+			if (!isAuthUrl) {
+				localStorage.removeItem('token');
+				localStorage.removeItem('accessToken');
+				localStorage.removeItem('jwt');
+				if (window.location.pathname !== '/signin') {
+					window.location.href = '/signin';
+				}
+			}
+		}
+		
+		return Promise.reject(error);
 	}
 );
+
+// In-flight request deduplication map and master-data cache
+const inFlightRequests = new Map();
+const cacheMap = new Map();
+const CACHE_TTL = 15000; // 15 seconds for master lookup data
+
+const CACHEABLE_ROUTES = [
+	'/group',
+	'/customer',
+	'/vendor',
+	'/diesel-stations',
+	'/vehicle',
+	'/user',
+	'/ledger'
+];
+
+export const clearApiCache = () => {
+	cacheMap.clear();
+	inFlightRequests.clear();
+};
+
+const originalRequest = api.request.bind(api);
+
+api.request = async function (configOrUrl, maybeConfig) {
+	let config;
+	if (typeof configOrUrl === 'string') {
+		config = maybeConfig || {};
+		config.url = configOrUrl;
+	} else {
+		config = configOrUrl || {};
+	}
+
+	const method = (config.method || 'get').toLowerCase();
+
+	// Invalidate cache immediately on any state-modifying mutation
+	if (method !== 'get') {
+		cacheMap.clear();
+		return originalRequest(config);
+	}
+
+	const url = config.url || '';
+	const isNoCache = url.includes('_t=') ||
+		Boolean(config.params?._t) ||
+		config.headers?.['Cache-Control'] === 'no-cache' ||
+		config.headers?.['cache-control'] === 'no-cache';
+
+	const isCacheable = !isNoCache && CACHEABLE_ROUTES.some(r => url === r || url.startsWith(r + '?'));
+	const cacheKey = `${url}?${JSON.stringify(config.params || {})}`;
+
+	// Return cached response if valid
+	if (isCacheable) {
+		const cached = cacheMap.get(cacheKey);
+		if (cached && (Date.now() - cached.timestamp < CACHE_TTL)) {
+			return Promise.resolve({
+				...cached.response,
+				data: typeof cached.response.data === 'object' ? JSON.parse(JSON.stringify(cached.response.data)) : cached.response.data
+			});
+		}
+	}
+
+	// In-flight deduplication for concurrent identical GET requests
+	if (!isNoCache && inFlightRequests.has(cacheKey)) {
+		return inFlightRequests.get(cacheKey);
+	}
+
+	const promise = originalRequest(config)
+		.then(response => {
+			if (isCacheable && response?.status >= 200 && response?.status < 300) {
+				cacheMap.set(cacheKey, {
+					timestamp: Date.now(),
+					response
+				});
+			}
+			return response;
+		})
+		.finally(() => {
+			inFlightRequests.delete(cacheKey);
+		});
+
+	if (!isNoCache) {
+		inFlightRequests.set(cacheKey, promise);
+	}
+
+	return promise;
+};
 
 export default api;

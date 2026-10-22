@@ -1,21 +1,29 @@
-import { Bell, Search, Home, FileText, Receipt, BookOpen } from 'lucide-react';
+import { Bell, Search, Home, FileText, Receipt, BookOpen, Store, Users } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Dropdown from './Dropdown';
 
 export default function Header() {
   const { user: currentUser, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const getNavButtonClass = (isActive) => {
+    return `flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-md transition-colors border ${
+      isActive
+        ? 'text-blue-600 bg-blue-50 border-blue-100 font-semibold'
+        : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50 border-transparent hover:border-blue-100'
+    }`;
+  };
 
   return (
     <header className="bg-white border-b border-gray-200 px-6 py-4">
       <div className="flex items-center justify-between">
-        {/* Search Bar */}
         {/* Navigation Shortcuts */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100"
+            className={getNavButtonClass(location.pathname === '/')}
             title="Go to Profit & Loss"
           >
             <Home size={18} />
@@ -24,7 +32,7 @@ export default function Header() {
 
           <button
             onClick={() => navigate('/balance-sheet')}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100"
+            className={getNavButtonClass(location.pathname === '/balance-sheet')}
             title="Go to Balance Sheet"
           >
             <FileText size={18} />
@@ -33,7 +41,7 @@ export default function Header() {
 
           <button
             onClick={() => navigate('/vouchers/add')}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100"
+            className={getNavButtonClass(location.pathname.startsWith('/vouchers'))}
             title="Add Voucher"
           >
             <Receipt size={18} />
@@ -42,11 +50,29 @@ export default function Header() {
 
           <button
             onClick={() => navigate('/ledgers')}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors border border-transparent hover:border-blue-100"
+            className={getNavButtonClass(location.pathname.startsWith('/ledgers'))}
             title="Go to Ledgers"
           >
             <BookOpen size={18} />
             <span className="hidden md:inline">Ledgers</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/customers')}
+            className={getNavButtonClass(location.pathname.startsWith('/customers') || location.pathname === '/add-customer')}
+            title="Go to Customers"
+          >
+            <Store size={18} />
+            <span className="hidden md:inline">Customers</span>
+          </button>
+
+          <button
+            onClick={() => navigate('/vendors')}
+            className={getNavButtonClass(location.pathname.startsWith('/vendors'))}
+            title="Go to Vendors"
+          >
+            <Users size={18} />
+            <span className="hidden md:inline">Vendors</span>
           </button>
         </div>
 

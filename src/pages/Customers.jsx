@@ -194,12 +194,12 @@ export default function Customers() {
     try {
       setIsLoading(true);
       console.log('Fetching customers...');
-      const { data } = await api.get('/customer');
-      setCustomers(data.data || []);
-
-      // Fetch groups
-      const groupsRes = await api.get('/group');
-      const groupsData = groupsRes.data.data || [];
+      const [customersRes, groupsRes] = await Promise.all([
+        api.get('/customer'),
+        api.get('/group')
+      ]);
+      setCustomers(customersRes.data?.data || []);
+      const groupsData = groupsRes.data?.data || [];
       setGroups(groupsData);
 
       // Filter groups to show only "Sundry Debtors" and its descendants using SLUG
@@ -277,7 +277,7 @@ export default function Customers() {
       console.log('Updating customer:', { id, ...customerData });
       const { data } = await api.put(`/customer/admin/${id}`, customerData);
       console.log('Update customer response:', data);
-      setCustomers(prev => prev.map(c => c.id === id ? data.data : c));
+      setCustomers(prev => prev.map(c => (c.id === id || c._id === id) ? data.data : c));
       setShowAddModal(false);
       setEditingCustomer(null);
       reset();
@@ -297,7 +297,7 @@ export default function Customers() {
       console.log('Deleting customer:', id);
       await api.delete(`/customer/admin/${id}`);
       console.log('Customer deleted successfully');
-      setCustomers(prev => prev.filter(c => c.id !== id));
+      setCustomers(prev => prev.filter(c => c.id !== id && c._id !== id));
       // Show success message
       alert('Customer deleted successfully!');
     } catch (err) {
@@ -318,14 +318,14 @@ export default function Customers() {
   };
 
   const handleEdit = async (customer) => {
+    const customerId = customer.id || customer._id;
     setEditingCustomer(customer);
-    // Pre-fill form with customer data
-    setValue('shopName', customer.shopName || '');
-    setValue('ownerName', customer.ownerName || '');
-    // Remove +91 prefix for editing (show only 10 digits)
+
     const contactNumber = customer.contact?.startsWith('+91')
       ? customer.contact.substring(3)
       : customer.contact || '';
+    setValue('shopName', customer.shopName || '');
+    setValue('ownerName', customer.ownerName || '');
     setValue('contact', contactNumber);
     setValue('address', customer.address || '');
     setValue('place', customer.place || customer.area || '');
@@ -333,29 +333,49 @@ export default function Customers() {
     setValue('openingBalance', customer.openingBalance || 0);
     setValue('openingBalanceType', customer.openingBalanceType || 'debit');
     setValue('tdsApplicable', customer.tdsApplicable || false);
-    setValue('group', customer.group?.id || '');
-    // Pre-fill user credentials if available
-    if (customer.user) {
-      setValue('email', customer.user.email || '');
-      if (user?.role === 'superadmin') {
-        setValue('password', customer.user.plainTextPassword || '');
-      } else {
-        setValue('password', '');
-      }
-    }
+    setValue('group', customer.group?.id || customer.group?._id || customer.group || '');
+    setValue('email', customer.email || customer.user?.email || '');
+    setValue('password', '');
+
     setShowAddModal(true);
     setIsEdit(true);
     setShowPassword(false);
+
+    try {
+      const fullCustomer = await fetchCustomerById(customerId);
+      if (fullCustomer) {
+        setEditingCustomer(fullCustomer);
+        const fullContactNumber = fullCustomer.contact?.startsWith('+91')
+          ? fullCustomer.contact.substring(3)
+          : fullCustomer.contact || '';
+        setValue('shopName', fullCustomer.shopName || '');
+        setValue('ownerName', fullCustomer.ownerName || '');
+        setValue('contact', fullContactNumber);
+        setValue('address', fullCustomer.address || '');
+        setValue('place', fullCustomer.place || fullCustomer.area || '');
+        setValue('gstOrPanNumber', fullCustomer.gstOrPanNumber || '');
+        setValue('openingBalance', fullCustomer.openingBalance || 0);
+        setValue('openingBalanceType', fullCustomer.openingBalanceType || 'debit');
+        setValue('tdsApplicable', fullCustomer.tdsApplicable || false);
+        setValue('group', fullCustomer.group?.id || fullCustomer.group?._id || fullCustomer.group || '');
+        setValue('email', fullCustomer.email || fullCustomer.user?.email || '');
+        setValue('password', '');
+      }
+    } catch (err) {
+      console.error('Error fetching full customer for edit:', err);
+    }
   };
 
   const handleDelete = async (customer) => {
+    const customerId = customer.id || customer._id;
     if (window.confirm(`Are you sure you want to delete ${customer.shopName}?`)) {
-      await deleteCustomer(customer.id);
+      await deleteCustomer(customerId);
     }
   };
 
   const handleView = (customer) => {
-    navigate(`/customers/${customer.id}/monthly`);
+    const customerId = customer.id || customer._id;
+    navigate(`/customers/${customerId}/monthly`);
   };
 
   const onSubmit = (data) => {
@@ -366,12 +386,13 @@ export default function Customers() {
     };
 
     // For editing, remove password if it's empty (keep current password)
-    if (editingCustomer && !data.password) {
+    if (editingCustomer && (!data.password || data.password.trim() === '')) {
       delete customerData.password;
     }
 
     if (editingCustomer) {
-      updateCustomer({ id: editingCustomer.id, ...customerData });
+      const customerId = editingCustomer.id || editingCustomer._id;
+      updateCustomer({ id: customerId, ...customerData });
     } else {
       addCustomer(customerData);
     }
@@ -380,7 +401,20 @@ export default function Customers() {
   const handleAddNew = () => {
     setEditingCustomer(null);
     setIsEdit(false);
-    reset();
+    reset({
+      shopName: '',
+      ownerName: '',
+      contact: '',
+      address: '',
+      place: '',
+      gstOrPanNumber: '',
+      openingBalance: 0,
+      openingBalanceType: 'debit',
+      email: '',
+      password: '',
+      tdsApplicable: false,
+      group: ''
+    });
     setShowAddModal(true);
     setShowPassword(false);
   };
@@ -416,15 +450,33 @@ export default function Customers() {
   }
 
   if (isError) {
+    const isAuthError = error?.includes('401') || error?.includes('Unauthorized');
     return (
-      <div className="text-center py-8">
-        <p className="text-red-600 mb-4">{error}</p>
-        <button
-          onClick={fetchCustomers}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
-        >
-          Retry
-        </button>
+      <div className="text-center py-12">
+        <p className="text-red-600 mb-4 font-medium">
+          {isAuthError
+            ? "Your login session has expired. Please sign in again."
+            : error}
+        </p>
+        {isAuthError ? (
+          <button
+            onClick={() => {
+              localStorage.removeItem('token');
+              localStorage.removeItem('accessToken');
+              window.location.href = '/signin';
+            }}
+            className="bg-blue-600 text-white px-5 py-2 rounded-lg hover:bg-blue-700 font-medium"
+          >
+            Sign In
+          </button>
+        ) : (
+          <button
+            onClick={fetchCustomers}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        )}
       </div>
     );
   }
@@ -1025,7 +1077,7 @@ export default function Customers() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Password *
+                      Password {editingCustomer ? '' : '*'}
                     </label>
                     <div className="relative">
                       <input
@@ -1044,13 +1096,15 @@ export default function Customers() {
                     </div>
                     {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
                     <p className="text-xs text-gray-500 mt-1">
-                      Password must contain at least one uppercase letter, one lowercase letter, and one number
+                      {editingCustomer
+                        ? "Leave blank to keep current password, or enter a new password to change it."
+                        : "Password must contain at least one uppercase letter, one lowercase letter, and one number"}
                     </p>
                   </div>
                 </div>
                 <div className="mt-4 p-3 bg-blue-50 rounded-lg">
                   <p className="text-sm text-blue-800">
-                    <strong>Login Info:</strong> Customer can login using their email address or mobile number (+91{editingCustomer ? 'XXXXXXXXXX' : 'contact number'}) along with the password.
+                    <strong>Login Info:</strong> Customer can login using their email address or contact number along with the password.
                   </p>
                 </div>
               </div>

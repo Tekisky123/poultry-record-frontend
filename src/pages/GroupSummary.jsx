@@ -44,31 +44,43 @@ export default function GroupSummary() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (hasAdminAccess && id) {
-      fetchGroupSummary();
-    }
-  }, [id, dateFilter, hasAdminAccess]);
+    if (!hasAdminAccess || !id) return;
 
-  const fetchGroupSummary = async () => {
-    try {
-      setIsLoading(true);
-      setIsError(false);
-      const { data } = await api.get(`/group/${id}/summary`, {
-        params: {
-          startDate: dateFilter.startDate,
-          endDate: dateFilter.endDate,
-          asOnDate: dateFilter.endDate // For backward compatibility/fallback
+    const controller = new AbortController();
+
+    const fetchGroupSummary = async () => {
+      try {
+        setIsLoading(true);
+        setIsError(false);
+        const { data } = await api.get(`/group/${id}/summary`, {
+          params: {
+            startDate: dateFilter.startDate,
+            endDate: dateFilter.endDate,
+            asOnDate: dateFilter.endDate // For backward compatibility/fallback
+          },
+          signal: controller.signal
+        });
+        setGroupSummary(data.data);
+      } catch (err) {
+        if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+          return;
         }
-      });
-      setGroupSummary(data.data);
-    } catch (err) {
-      console.error('Error fetching group summary:', err);
-      setIsError(true);
-      setError(err.response?.data?.message || err.message || 'Failed to fetch group summary');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        console.error('Error fetching group summary:', err);
+        setIsError(true);
+        setError(err.response?.data?.message || err.message || 'Failed to fetch group summary');
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    fetchGroupSummary();
+
+    return () => {
+      controller.abort();
+    };
+  }, [id, dateFilter.startDate, dateFilter.endDate, hasAdminAccess]);
 
   const handleExportToExcel = () => {
     if (!groupSummary) return;
@@ -356,18 +368,10 @@ export default function GroupSummary() {
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">Total Rate/ltr</th>
                   </>
                 )}
-                {isExpandedView && !isStockGroup && (
+                {!isStockGroup && (
                   <>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">{isFeedGroup ? 'Total Bags' : 'Total Birds'}</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">{isFeedGroup ? 'Total Quantity (Kg)' : 'Total Weight'}</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">{isDebtorGroup ? 'Debit (Sales)' : 'Debit'}</th>
                     <th className="text-right py-3 px-4 font-semibold text-gray-900">{isDebtorGroup ? 'Credit (Receipts)' : 'Credit'}</th>
-                  </>
-                )}
-                {!isExpandedView && !isStockGroup && (
-                  <>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Debit</th>
-                    <th className="text-right py-3 px-4 font-semibold text-gray-900">Credit</th>
                   </>
                 )}
                 <th className="text-right py-3 px-4 font-semibold text-gray-900">Closing Balance</th>
@@ -471,41 +475,17 @@ export default function GroupSummary() {
                           </>
                         )}
 
-                        {isExpandedView && !isStockGroup && (
+                        {!isStockGroup && (
                           <>
                             <td className="py-3 px-4 text-right text-gray-700">
-                              {renderCellWithPercentage(entry.birds, totals.birds)}
-                            </td>
-                            <td className="py-3 px-4 text-right text-gray-700">
-                              {renderCellWithPercentage(entry.weight, totals.weight, 'weight')}
-                            </td>
-                            <td className="py-3 px-4 text-right text-gray-700">
                               {(() => {
-                                const val = entry.transactionDebit || entry.debit || 0;
+                                const val = entry.transactionDebit !== undefined ? entry.transactionDebit : (entry.debit || 0);
                                 return renderCellWithPercentage(val, totals.debitExpanded, 'currency');
                               })()}
                             </td>
                             <td className="py-3 px-4 text-right text-gray-700">
                               {(() => {
-                                const val = entry.transactionCredit || entry.credit || 0;
-                                return renderCellWithPercentage(val, totals.creditExpanded, 'currency');
-                              })()}
-                            </td>
-                          </>
-                        )}
-                        {!isExpandedView && !isStockGroup && (
-                          <>
-                            <td className="py-3 px-4 text-right text-gray-700">
-                              {/* Use transaction totals instead of net balance cols */}
-                              {(() => {
-                                const val = entry.transactionDebit || 0;
-                                return renderCellWithPercentage(val, totals.debitExpanded, 'currency');
-                              })()}
-                            </td>
-                            <td className="py-3 px-4 text-right text-gray-700">
-                              {/* Use transaction totals instead of net balance cols */}
-                              {(() => {
-                                const val = entry.transactionCredit || 0;
+                                const val = entry.transactionCredit !== undefined ? entry.transactionCredit : (entry.credit || 0);
                                 return renderCellWithPercentage(val, totals.creditExpanded, 'currency');
                               })()}
                             </td>
@@ -529,35 +509,6 @@ export default function GroupSummary() {
                         {renderCellWithPercentage(totals.netBalance, totals.netBalance, 'currency', false)}
                       </td>
                     </tr>
-                  ) : isExpandedView ? (
-                    <tr className="border-t-2 border-gray-400 bg-gray-50">
-                      <td className="py-3 px-4 font-bold text-gray-900">Grand Total</td>
-                      {isDieselView && (
-                        <>
-                          <td className="py-3 px-4 text-right font-bold text-gray-900">
-                            {renderCellWithPercentage(totals.volume, totals.volume, 'weight')}
-                          </td>
-                          <td className="py-3 px-4 text-right font-bold text-gray-900">
-                            {totals.volume ? (totals.creditExpanded / totals.volume).toFixed(2) : '-'}
-                          </td>
-                        </>
-                      )}
-                      <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {renderCellWithPercentage(totals.birds, totals.birds)}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {renderCellWithPercentage(totals.weight, totals.weight, 'weight')}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {renderCellWithPercentage(totals.debitExpanded, totals.debitExpanded, 'currency')}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {renderCellWithPercentage(totals.creditExpanded, totals.creditExpanded, 'currency')}
-                      </td>
-                      <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {renderCellWithPercentage(totals.netBalance, totals.netBalance, 'currency', true)}
-                      </td>
-                    </tr>
                   ) : (
                     <tr className="border-t-2 border-gray-400 bg-gray-50">
                       <td className="py-3 px-4 font-bold text-gray-900">Grand Total</td>
@@ -572,11 +523,9 @@ export default function GroupSummary() {
                         </>
                       )}
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {/* Use Expanded totals (sums of transactions) */}
                         {renderCellWithPercentage(totals.debitExpanded, totals.debitExpanded, 'currency')}
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
-                        {/* Use Expanded totals (sums of transactions) */}
                         {renderCellWithPercentage(totals.creditExpanded, totals.creditExpanded, 'currency')}
                       </td>
                       <td className="py-3 px-4 text-right font-bold text-gray-900">
@@ -587,7 +536,7 @@ export default function GroupSummary() {
                 </>
               ) : (
                 <tr>
-                  <td colSpan={isStockGroup ? 2 : isExpandedView ? 6 : 4} className="py-8 text-center text-gray-500">
+                  <td colSpan={isStockGroup ? 2 : isDieselView ? 6 : 4} className="py-8 text-center text-gray-500">
                     No ledgers or sub-groups found in this group
                   </td>
                 </tr>

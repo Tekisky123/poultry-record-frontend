@@ -218,52 +218,64 @@ export default function BalanceSheet() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (hasAdminAccess) {
-      fetchBalanceSheet();
-    }
-  }, [dateFilter, hasAdminAccess]);
+    if (!hasAdminAccess) return;
 
-  const fetchBalanceSheet = async () => {
-    try {
-      setIsLoading(true);
-      setIsError(false);
+    const controller = new AbortController();
 
-      const { data } = await api.get('/balance-sheet', {
-        params: {
-          asOnDate: dateFilter.endDate, // Backward compatibility
-          startDate: dateFilter.startDate,
-          endDate: dateFilter.endDate
+    const fetchBalanceSheet = async () => {
+      try {
+        setIsLoading(true);
+        setIsError(false);
+
+        const { data } = await api.get('/balance-sheet', {
+          params: {
+            asOnDate: dateFilter.endDate, // Backward compatibility
+            startDate: dateFilter.startDate,
+            endDate: dateFilter.endDate
+          },
+          signal: controller.signal
+        });
+
+        // Filter to show only top-level groups (no parent) and process one level of nesting
+        // Use useMemo pattern for filtering
+        const filterTopLevelGroups = (groups) => {
+          if (!groups || !Array.isArray(groups)) return [];
+          return groups.filter(group => !group.parentGroup);
+        };
+
+        const filteredData = {
+          ...data.data,
+          assets: {
+            ...data.data.assets,
+            groups: filterTopLevelGroups(data.data.assets.groups || [])
+          },
+          liabilities: {
+            ...data.data.liabilities,
+            groups: filterTopLevelGroups(data.data.liabilities.groups || [])
+          }
+        };
+
+        setBalanceSheet(filteredData);
+      } catch (err) {
+        if (err.name === 'CanceledError' || err.name === 'AbortError' || err.code === 'ERR_CANCELED') {
+          return;
         }
-      });
-
-      // Filter to show only top-level groups (no parent) and process one level of nesting
-      // Use useMemo pattern for filtering
-      const filterTopLevelGroups = (groups) => {
-        if (!groups || !Array.isArray(groups)) return [];
-        return groups.filter(group => !group.parentGroup);
-      };
-
-      const filteredData = {
-        ...data.data,
-        assets: {
-          ...data.data.assets,
-          groups: filterTopLevelGroups(data.data.assets.groups || [])
-        },
-        liabilities: {
-          ...data.data.liabilities,
-          groups: filterTopLevelGroups(data.data.liabilities.groups || [])
+        console.error('Error fetching balance sheet:', err);
+        setIsError(true);
+        setError(err.response?.data?.message || err.message || 'Failed to fetch balance sheet');
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
         }
-      };
+      }
+    };
 
-      setBalanceSheet(filteredData);
-    } catch (err) {
-      console.error('Error fetching balance sheet:', err);
-      setIsError(true);
-      setError(err.response?.data?.message || err.message || 'Failed to fetch balance sheet');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    fetchBalanceSheet();
+
+    return () => {
+      controller.abort();
+    };
+  }, [dateFilter.startDate, dateFilter.endDate, hasAdminAccess]);
 
   const openDateFilterModal = () => {
     setTempDateFilter(dateFilter);

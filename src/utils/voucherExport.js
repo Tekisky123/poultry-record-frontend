@@ -7,11 +7,11 @@ export const getDebitAndCreditParties = (voucher) => {
   if (!voucher) return { debitParty, creditParty };
 
   if (voucher.voucherType === 'Payment') {
-    debitParty = voucher.partyName || (voucher.parties && voucher.parties.length > 0 ? voucher.parties.map(p => p.partyName || p.partyId?.shopName || p.partyId?.vendorName || p.partyId?.name).filter(Boolean).join(', ') : 'N/A');
+    debitParty = voucher.partyName || (voucher.parties && voucher.parties.length > 0 ? voucher.parties.map(p => p.partyName || p.partyId?.companyName || p.partyId?.shopName || p.partyId?.vendorName || p.partyId?.name).filter(Boolean).join(', ') : 'N/A');
     creditParty = voucher.account?.name || voucher.accountName || 'Cash/Bank Account';
   } else if (voucher.voucherType === 'Receipt') {
     debitParty = voucher.account?.name || voucher.accountName || 'Cash/Bank Account';
-    creditParty = voucher.partyName || (voucher.parties && voucher.parties.length > 0 ? voucher.parties.map(p => p.partyName || p.partyId?.shopName || p.partyId?.vendorName || p.partyId?.name).filter(Boolean).join(', ') : 'N/A');
+    creditParty = voucher.partyName || (voucher.parties && voucher.parties.length > 0 ? voucher.parties.map(p => p.partyName || p.partyId?.companyName || p.partyId?.shopName || p.partyId?.vendorName || p.partyId?.name).filter(Boolean).join(', ') : 'N/A');
   } else if (voucher.entries && voucher.entries.length > 0) {
     const debits = voucher.entries.filter(e => Number(e.debitAmount) > 0).map(e => e.account);
     const credits = voucher.entries.filter(e => Number(e.creditAmount) > 0).map(e => e.account);
@@ -49,7 +49,7 @@ export const exportVouchersToExcel = (vouchers, filename = 'vouchers') => {
 
     if (isNewVoucher && (isPayment || isReceipt) && voucher.parties && voucher.parties.length > 0) {
       voucher.parties.forEach(p => {
-        const partyName = p.partyName || p.partyId?.shopName || p.partyId?.vendorName || p.partyId?.name || 'N/A';
+        const partyName = p.partyName || p.partyId?.companyName || p.partyId?.shopName || p.partyId?.vendorName || p.partyId?.name || 'N/A';
         const amt = Number(p.amount) || 0;
         const accountName = voucher.account?.name || voucher.accountName || 'Cash/Bank Account';
         const debitParty = isPayment ? partyName : accountName;
